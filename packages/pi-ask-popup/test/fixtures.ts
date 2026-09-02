@@ -1,7 +1,14 @@
 import { stripVTControlCharacters } from "node:util";
-import { expect, vi } from "vitest";
+import { expect, type Mock, vi } from "vitest";
 import { ROW_INTENT_META } from "../src/state/row-intent.js";
-import type { MultiSelectViewProps } from "../src/view/components/multi-select-view.js";
+import type {
+  MultiSelectView,
+  MultiSelectViewProps,
+} from "../src/view/components/multi-select-view.js";
+import type { PreviewPane, PreviewPaneProps } from "../src/view/components/preview/preview-pane.js";
+import type { PerTabBindingContext } from "../src/state/selectors/contract.js";
+import type { StatefulView } from "../src/view/stateful-view.js";
+import type { TabComponents } from "../src/view/tab-components.js";
 import type { QuestionnaireAction } from "../src/state/key-router.js";
 import type { WrappingSelectItem } from "../src/state/row-intent.js";
 import type { ApplyContext } from "../src/state/state-reducer.js";
@@ -9,9 +16,8 @@ import type { QuestionnaireState } from "../src/state/state.js";
 import type { QuestionData } from "../src/tool/types.js";
 
 /**
- * Shared builders for state-layer tests. View-layer fixtures (fake panes,
- * tab components, per-component props) join this file when those components
- * exist; nothing here should import a renderer.
+ * Shared builders for the package's tests: state-layer values, a theme that
+ * renders plain strings, and stand-ins for the components the adapter drives.
  */
 
 export const itemsRegular: ReadonlyArray<WrappingSelectItem> = [
@@ -174,4 +180,91 @@ export function makeMultiSelectViewProps(
  */
 export function stripAnsi(text: string): string {
   return stripVTControlCharacters(text);
+}
+
+/** A component that records the props pushed at it and renders nothing. */
+export function makeStatefulView<P>(): StatefulView<P> {
+  return {
+    setProps: vi.fn<(props: P) => void>(),
+    render: () => [],
+    invalidate: vi.fn<() => void>(),
+    handleInput: () => {},
+  };
+}
+
+/**
+ * Read what a fake component was told, without naming its method in an
+ * assertion. `expect(view.setProps)` reads a method off an object and hands it
+ * around unbound, which the linter rejects and which would break the moment a
+ * fake needed real `this`.
+ */
+export function propsCalls<P>(view: { setProps: (props: P) => void }): P[] {
+  return (view.setProps as unknown as Mock<(props: P) => void>).mock.calls.map((call) => call[0]);
+}
+
+export function lastProps<P>(view: { setProps: (props: P) => void }): P {
+  const calls = propsCalls(view);
+  const last = calls.at(-1);
+  if (last === undefined) throw new Error("setProps was never called");
+  return last;
+}
+
+export function invalidateCount(view: { invalidate: () => void }): number {
+  return (view.invalidate as unknown as Mock<() => void>).mock.calls.length;
+}
+
+/**
+ * Stand-in for a `PreviewPane`. `TabComponents.preview` is typed as the
+ * concrete class, but the adapter only ever calls `setProps` on it, and
+ * building a real one would drag in an option list and a block renderer for no
+ * added coverage. Tests that exercise the pane itself use the real thing.
+ */
+export function makeFakePreviewPane(): PreviewPane {
+  return {
+    ...makeStatefulView<PreviewPaneProps>(),
+    setGlobalLeftWidth: vi.fn<(width: number) => void>(),
+    focusedItemRowRange: (_width: number) => [0, 0] as [number, number],
+  } as unknown as PreviewPane;
+}
+
+/** The same idea for `MultiSelectView`, whose concrete methods the chrome calls. */
+export function makeFakeMultiSelectView(
+  over: { focusedItemRowRange?: (width: number) => [number, number] } = {},
+): MultiSelectView {
+  return {
+    ...makeStatefulView<MultiSelectViewProps>(),
+    focusedItemRowRange:
+      over.focusedItemRowRange ?? ((_width: number) => [0, 0] as [number, number]),
+    naturalHeight: (_width: number) => 0,
+  } as unknown as MultiSelectView;
+}
+
+export function makeTabComponents(over: Partial<TabComponents> = {}): TabComponents {
+  return {
+    optionList: over.optionList ?? makeStatefulView(),
+    preview: over.preview ?? makeFakePreviewPane(),
+    ...(over.multiSelect === undefined ? {} : { multiSelect: over.multiSelect }),
+    bodyHeights: over.bodyHeights ?? (() => ({ current: 0, max: 0 })),
+  };
+}
+
+/**
+ * A per-tick selector context. Tests that need component props build them by
+ * running the real projections against one of these, rather than restating the
+ * projection logic in a fixture where it can quietly drift from the shipped
+ * version.
+ */
+export function makePerTabContext(over: Partial<PerTabBindingContext> = {}): PerTabBindingContext {
+  const questions = over.questions ?? [makeQuestion()];
+  return {
+    questions,
+    itemsByTab: over.itemsByTab ?? questions.map(() => itemsRegular),
+    totalQuestions: over.totalQuestions ?? questions.length,
+    activeView: over.activeView ?? "options",
+    inputBuffer: over.inputBuffer ?? "",
+    inputCursorOffset: over.inputCursorOffset ?? 0,
+    activePreviewPane: over.activePreviewPane ?? makeFakePreviewPane(),
+    tab: over.tab ?? makeTabComponents(),
+    i: over.i ?? 0,
+  };
 }
