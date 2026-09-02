@@ -1,0 +1,47 @@
+{
+  "name": "pi-ask-popup",
+  "version": "0.1.0",
+  "description": "Pi extension. A tabbed terminal questionnaire the model can put to you when it would otherwise guess, with typed options, markdown previews and notes instead of free-form replies.",
+  "type": "module",
+  "license": "MIT",
+  "author": "derangga <derangga1011@gmail.com>",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "pi",
+    "pi-coding-agent",
+    "ask",
+    "ask-user-question",
+    "questionnaire",
+    "dialog",
+    "tui"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src/",
+    "docs/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": ">=0.80",
+    "@earendil-works/pi-tui": ">=0.80",
+    "typebox": "*"
+  }
+}

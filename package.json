@@ -1,0 +1,36 @@
+{
+  "name": "pi-extension-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Monorepo for independently published Pi Coding Agent extensions.",
+  "type": "module",
+  "license": "MIT",
+  "author": "derangga <derangga1011@gmail.com>",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "lint": "oxlint packages",
+    "lint:fix": "oxlint packages --fix",
+    "fmt": "oxfmt packages",
+    "fmt:check": "oxfmt packages --check",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "check": "npm run fmt:check && npm run lint && npm run typecheck && npm run test"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "0.84.4",
+    "@earendil-works/pi-tui": "0.84.4",
+    "@types/node": "^26.4.1",
+    "oxfmt": "^0.66.0",
+    "oxlint": "^1.81.0",
+    "oxlint-tsgolint": "^7.0.2001",
+    "typebox": "^1.3.7",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
+  }
+}
