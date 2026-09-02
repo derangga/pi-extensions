@@ -1,12 +1,25 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-
 /**
- * Extension entry point. Pi resolves this file through `pi.extensions` in
- * package.json and calls the default export once at load.
+ * pi-ask-popup — a tabbed questionnaire the model can put to you when it would
+ * otherwise guess.
  *
- * ponytail: deliberately empty. Tool registration and the `before_agent_start`
- * reconciler arrive once the layers they depend on exist. The file is here now
- * so `pi.extensions` resolves and the manifest test can verify the entry point
- * actually ships.
+ * Registers `ask_user_question`, plus a reconciler that keeps the tool out of
+ * the model's tool list on hosts with no way to show it.
  */
-export default function piAskPopup(_pi: ExtensionAPI): void {}
+
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { registerAskPopupTool } from "./ask-user-question.js";
+import { registerAskPopupReconciler } from "./reconcile.js";
+
+export {
+  ASK_POPUP_BLOCKED_EVENT,
+  ASK_POPUP_PROMPT_EVENT,
+  type AskPopupBlockedEventPayload,
+  type AskPopupPromptEventPayload,
+  type AskPopupPromptOption,
+  type AskPopupPromptQuestion,
+} from "./events.js";
+
+export default function piAskPopup(pi: ExtensionAPI): void {
+  registerAskPopupTool(pi);
+  registerAskPopupReconciler(pi);
+}
