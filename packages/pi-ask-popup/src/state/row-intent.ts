@@ -22,6 +22,21 @@ export type SentinelKind = Exclude<RowKind, "option">;
 export const SENTINEL_KINDS: readonly SentinelKind[] = ["other", "next"];
 
 /**
+ * One renderable row. Lives here rather than in the view because it is the
+ * protocol shape a row carries, and both the reducer and the key router read it
+ * without knowing anything about rendering. The option renderer re-exports this
+ * name so view-layer code reads unchanged.
+ *
+ * `kind` narrows exactly as a hand-written union would: `item.kind === "other"`
+ * still discriminates, and a `switch` over it is still exhaustiveness-checked.
+ */
+export interface WrappingSelectItem {
+  kind: RowKind;
+  label: string;
+  description?: string;
+}
+
+/**
  * Per-kind static metadata. Pure data. No closures, no per-kind handlers.
  * The behavior-bearing code (answer construction in the key router, the Next
  * row branch in the multi-select view, the inline editor branch in the option
