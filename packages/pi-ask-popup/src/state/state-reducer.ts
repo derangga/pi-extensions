@@ -31,6 +31,7 @@ export type Effect =
    * behind the modal.
    */
   | { kind: "set_overlay_hidden"; hidden: boolean }
+  | { kind: "clear_timer" }
   | { kind: "done"; result: QuestionnaireResult };
 
 export interface ApplyResult {
@@ -327,6 +328,21 @@ const toggleCollapsedHandler: Handler<"toggle_collapsed"> = (s, _a, _c) => ({
   state: { ...s, collapsed: !s.collapsed },
   effects: [{ kind: "set_overlay_hidden", hidden: !s.collapsed }],
 });
+const tickHandler: Handler<"tick"> = (state, action, ctx) => {
+  if (state.timerCancelled || state.deadline === undefined) return { state, effects: [] };
+  const remaining = state.deadline - action.now;
+  if (remaining > 0) {
+    return { state: { ...state, remainingMs: remaining }, effects: [] };
+  }
+  const globalNote = state.notesByTab.get(ctx.questions.length);
+  const result: QuestionnaireResult = {
+    answers: orderedAnswers(state, ctx.questions),
+    cancelled: true,
+    error: "timed_out",
+    ...(globalNote && globalNote.length > 0 ? { globalNote } : {}),
+  };
+  return { state, effects: [{ kind: "done", result }] };
+};
 const ignoreHandler: Handler<"ignore"> = (s, _a, _c) => ({ state: s, effects: [] });
 
 /**
@@ -351,6 +367,7 @@ const HANDLERS: { [K in QuestionnaireAction["kind"]]: Handler<K> } = {
   submit: submitHandler,
   submit_nav: submitNavHandler,
   toggle_collapsed: toggleCollapsedHandler,
+  tick: tickHandler,
   ignore: ignoreHandler,
 };
 
@@ -365,5 +382,13 @@ export function reduce(
   ctx: ApplyContext,
 ): ApplyResult {
   const handler = HANDLERS[action.kind] as Handler<typeof action.kind>;
-  return handler(state, action as never, ctx);
+  const result = handler(state, action as never, ctx);
+  const isHumanKeystroke = action.kind !== "tick" && action.kind !== "toggle_collapsed";
+  if (isHumanKeystroke && state.deadline !== undefined && !state.timerCancelled) {
+    return {
+      state: { ...result.state, timerCancelled: true, remainingMs: undefined },
+      effects: [...result.effects, { kind: "clear_timer" }],
+    };
+  }
+  return result;
 }

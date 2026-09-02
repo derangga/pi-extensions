@@ -61,7 +61,10 @@ function makeState(over: Partial<QuestionnaireState> = {}): QuestionnaireState {
     submitChoiceIndex: 0,
     notesDraft: "",
     collapsed: false,
+    timerCancelled: false,
     ...over,
+    ...(over.deadline === undefined ? {} : { deadline: over.deadline }),
+    ...(over.remainingMs === undefined ? {} : { remainingMs: over.remainingMs }),
   };
 }
 

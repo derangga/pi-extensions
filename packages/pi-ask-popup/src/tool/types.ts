@@ -85,6 +85,13 @@ export const QuestionsSchema = Type.Array(QuestionSchema, {
 
 export const QuestionParamsSchema = Type.Object({
   questions: QuestionsSchema,
+  timeout: Type.Optional(
+    Type.Integer({
+      minimum: 1000,
+      description:
+        'Optional timeout in milliseconds after which the questionnaire auto-dismisses with a live countdown. When it expires the tool returns cancelled:true with error "timed_out" — not a decline. The user never saw a timeout as a rejection; retry or fall back to asking in chat instead.',
+    }),
+  ),
 });
 
 export type OptionData = Static<typeof OptionSchema>;
@@ -127,7 +134,8 @@ export type QuestionnaireError =
   | "duplicate_option_label"
   | "reserved_label"
   | "session_load_failed"
-  | "stale_module_cache";
+  | "stale_module_cache"
+  | "timed_out";
 
 export interface QuestionnaireResult {
   answers: QuestionAnswer[];

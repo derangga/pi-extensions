@@ -59,6 +59,9 @@ export function makeQuestionnaireState(over: Partial<QuestionnaireState> = {}): 
     submitChoiceIndex: over.submitChoiceIndex ?? 0,
     notesDraft: over.notesDraft ?? "",
     collapsed: over.collapsed ?? false,
+    timerCancelled: over.timerCancelled ?? false,
+    ...(over.deadline === undefined ? {} : { deadline: over.deadline }),
+    ...(over.remainingMs === undefined ? {} : { remainingMs: over.remainingMs }),
   };
 }
 

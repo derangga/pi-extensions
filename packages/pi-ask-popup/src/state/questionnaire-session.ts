@@ -44,7 +44,26 @@ export interface QuestionnaireSessionComponent {
   handleInput(data: string): void;
 }
 
-function initialState(): QuestionnaireState {
+function initialState(timeout?: number): QuestionnaireState {
+  if (timeout !== undefined) {
+    const now = Date.now();
+    return {
+      currentTab: 0,
+      optionIndex: 0,
+      inputMode: false,
+      notesVisible: false,
+      answers: new Map(),
+      multiSelectChecked: new Set(),
+      customDraftsByTab: new Map(),
+      notesByTab: new Map(),
+      submitChoiceIndex: 0,
+      notesDraft: "",
+      collapsed: false,
+      timerCancelled: false,
+      deadline: now + timeout,
+      remainingMs: timeout,
+    };
+  }
   return {
     currentTab: 0,
     optionIndex: 0,
@@ -57,6 +76,7 @@ function initialState(): QuestionnaireState {
     submitChoiceIndex: 0,
     notesDraft: "",
     collapsed: false,
+    timerCancelled: false,
   };
 }
 
@@ -70,7 +90,8 @@ function initialState(): QuestionnaireState {
  * and then asks the adapter to re-project.
  */
 export class QuestionnaireSession {
-  private state: QuestionnaireState = initialState();
+  private state: QuestionnaireState;
+  private timer: ReturnType<typeof setInterval> | undefined;
 
   private readonly questions: readonly QuestionData[];
   private readonly isMulti: boolean;
@@ -97,8 +118,15 @@ export class QuestionnaireSession {
   readonly component: QuestionnaireSessionComponent;
 
   constructor(config: QuestionnaireSessionConfig) {
+    this.state = initialState(config.params.timeout);
     this.tui = config.tui;
-    this.done = config.done;
+    // Wrap done so the interval is always cleared, even when the reducer's
+    // expiry path fires `done` directly.
+    const outerDone = config.done;
+    this.done = (result) => {
+      this.clearTimer();
+      outerDone(result);
+    };
     this.questions = config.params.questions;
     this.isMulti = this.questions.length > 1;
     this.itemsByTab = config.itemsByTab;
@@ -124,6 +152,7 @@ export class QuestionnaireSession {
 
     this.component = this.assembleComponent(built, config.theme);
     this.viewAdapter.apply(this.state);
+    if (this.state.deadline !== undefined) this.startTimer();
   }
 
   private assembleComponent(
@@ -150,13 +179,45 @@ export class QuestionnaireSession {
    * `toggleCollapsedExternal` is a public entry that is not gated, so the line
    * falls back to cancel-only rather than telling the user to press "Off".
    */
+  private startTimer(): void {
+    if (this.timer !== undefined) return;
+    this.timer = setInterval(() => {
+      this.commit({ kind: "tick", now: Date.now() });
+    }, 1000);
+    // Don't keep the process alive after Pi exits.
+    // SAFETY: Node's Timeout has unref, DOM/Bun number does not; guard ensures we only call when present.
+    if (typeof (this.timer as unknown as { unref?: () => void }).unref === "function") {
+      // SAFETY: same guard as above — only called when unref is a function.
+      (this.timer as unknown as { unref: () => void }).unref();
+    }
+  }
+
+  private clearTimer(): void {
+    if (this.timer !== undefined) {
+      clearInterval(this.timer);
+      this.timer = undefined;
+    }
+  }
+
+  private formatRemaining(): string | undefined {
+    if (this.state.timerCancelled) return undefined;
+    const ms = this.state.remainingMs;
+    if (ms === undefined) return undefined;
+    const secs = Math.max(0, Math.ceil(ms / 1000));
+    return `${secs}s`;
+  }
+
   private buildCollapsedRender(theme: Theme): (width: number) => string[] {
     const collapseKeyDisplay = formatKeySpecForDisplay(this.collapseKey);
-    const hint =
+    const baseHint =
       this.collapseKey === COLLAPSE_KEY_OFF
         ? HINT_PART_CANCEL
         : COLLAPSED_HINT_TEMPLATE.replace(KEY_PLACEHOLDER, collapseKeyDisplay);
-    return (_width: number): string[] => [theme.fg("dim", ` ${hint} `)];
+    return (_width: number): string[] => {
+      const rem = this.formatRemaining();
+      const hint = rem ? `${baseHint} \u00b7 ${rem} left` : baseHint;
+      return [theme.fg("dim", ` ${hint} `)];
+    };
   }
 
   dispatch(data: string): void {
@@ -215,6 +276,9 @@ export class QuestionnaireSession {
         // says collapsed either way, so the view renders the one-line row.
         if (this.canReopenWhileHidden) this.overlayHandle?.setHidden(effect.hidden);
         return;
+      case "clear_timer":
+        this.clearTimer();
+        return;
       case "done":
         this.done(effect.result);
         return;
@@ -252,7 +316,19 @@ export class QuestionnaireSession {
    * cursor, so none of this needs a trip through the reducer.
    */
   private handleIgnoreInline(data: string): void {
-    if (!this.state.inputMode) return;
+    // Any ignored keystroke counts as human-present, so cancel the timer even
+    // when not in inputMode. The normal `reduce` wrapper cannot see this path
+    // because `dispatch` bypasses it for `ignore`.
+    let timerWasCancelled = false;
+    if (this.state.deadline !== undefined && !this.state.timerCancelled) {
+      this.state = { ...this.state, timerCancelled: true, remainingMs: undefined };
+      this.clearTimer();
+      timerWasCancelled = true;
+    }
+    if (!this.state.inputMode) {
+      if (timerWasCancelled) this.viewAdapter.apply(this.state);
+      return;
+    }
     this.inlineInput.handleInput(data);
     this.viewAdapter.apply(this.state);
   }

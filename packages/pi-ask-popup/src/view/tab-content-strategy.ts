@@ -169,6 +169,7 @@ export class QuestionTabStrategy implements TabContentStrategy {
     if (question?.multiSelect === true && multiSelect) {
       return multiSelect.focusedItemRowRange(width);
     }
+    // SAFETY: getPreviewPane returns a StatefulView<PreviewPaneProps> structurally identical to PreviewPane; cast is to access row range.
     return (this.config.getPreviewPane() as unknown as PreviewPane).focusedItemRowRange(width);
   }
 }
@@ -284,10 +285,18 @@ export class SubmitTabStrategy implements TabContentStrategy {
   }
 }
 
+function remainingLabel(state: DialogState): string | undefined {
+  if (state.timerCancelled) return undefined;
+  const ms = state.remainingMs;
+  if (ms === undefined) return undefined;
+  const secs = Math.max(0, Math.ceil(ms / 1000));
+  return `${secs}s left`;
+}
+
 /**
  * The controls hint, in order:
  *   Enter · ↑/↓ [· Space toggle] [· n notes] [· Tab switch] · Esc [· <key> collapse]
- *   [· Shift+Enter newline] [· Ctrl+U clear]
+ *   [· Shift+Enter newline] [· Ctrl+U clear] [· Ns left]
  *
  * NOTES belongs to the resting core and drops as soon as the notes editor or
  * the custom-answer row has the keyboard. Ctrl+G is Pi's own external-editor
@@ -316,6 +325,8 @@ export function buildHintText(
   }
   if (state.notesVisible || state.inputMode) parts.push(HINT_PART_NEW_LINE);
   if (state.inputMode) parts.push(HINT_PART_CLEAR);
+  const rem = remainingLabel(state);
+  if (rem) parts.push(rem);
   return parts.join(" · ");
 }
 
@@ -330,5 +341,7 @@ export function buildSubmitHintText(state: DialogState): string {
   if (!state.notesVisible) parts.push(REVIEW_GLOBAL_HINT);
   parts.push(HINT_PART_CANCEL);
   if (state.notesVisible) parts.push(HINT_PART_NEW_LINE);
+  const rem = remainingLabel(state);
+  if (rem) parts.push(rem);
   return parts.join(" · ");
 }

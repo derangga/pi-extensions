@@ -2,6 +2,8 @@ import { formatAnswerScalar } from "./format-answer.js";
 import type { QuestionAnswer, QuestionnaireResult, QuestionParams } from "./types.js";
 
 export const DECLINE_MESSAGE = "User declined to answer questions";
+export const TIMED_OUT_MESSAGE =
+  "Questionnaire timed out — the user did not respond within the configured timeout. The user never saw a decline; do NOT treat this as a rejection. Ask the questions as plain chat text instead or retry.";
 export const ENVELOPE_PREFIX = "User has answered your questions:";
 export const ENVELOPE_SUFFIX = "You can now continue with the user's answers in mind.";
 
@@ -27,12 +29,23 @@ export function buildQuestionnaireResponse(
   result: QuestionnaireResult | null | undefined,
   params: QuestionParams,
 ): ToolResult {
+  if (result?.error === "timed_out") {
+    return buildToolResult(TIMED_OUT_MESSAGE, {
+      answers: result.answers,
+      cancelled: true,
+      error: "timed_out",
+      ...(result.globalNote && result.globalNote.length > 0
+        ? { globalNote: result.globalNote }
+        : {}),
+    });
+  }
   if (!result || result.cancelled) {
     // The decline text stays canonical even when a global note rides a
     // cancelled result. The note survives in `details`, like partial answers.
     return buildToolResult(DECLINE_MESSAGE, {
       answers: result?.answers ?? [],
       cancelled: true,
+      ...(result?.error ? { error: result.error } : {}),
       ...(result?.globalNote && result.globalNote.length > 0
         ? { globalNote: result.globalNote }
         : {}),

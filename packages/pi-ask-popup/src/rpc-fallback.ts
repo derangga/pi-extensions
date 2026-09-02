@@ -44,8 +44,16 @@ const MAX_PREVIEW_CHARS = 600;
  * would otherwise fail at the call rather than at the check.
  */
 export type DialogUI = {
-  select: (title: string, options: string[]) => Promise<string | undefined>;
-  input: (title: string, placeholder?: string) => Promise<string | undefined>;
+  select: (
+    title: string,
+    options: string[],
+    opts?: { timeout?: number; signal?: AbortSignal },
+  ) => Promise<string | undefined>;
+  input: (
+    title: string,
+    placeholder?: string,
+    opts?: { timeout?: number; signal?: AbortSignal },
+  ) => Promise<string | undefined>;
 };
 
 /** Whether the host implements the select and input primitives. */
@@ -94,13 +102,14 @@ export async function runRpcQuestionnaire(
   params: QuestionParams,
 ): Promise<QuestionnaireResult> {
   const answers: QuestionAnswer[] = [];
+  const dialogOpts = params.timeout === undefined ? undefined : { timeout: params.timeout };
   for (let qi = 0; qi < params.questions.length; qi++) {
     const q = params.questions[qi];
     if (!q) continue;
     const header = q.header ? `[${q.header}] ` : "";
     const answer = q.multiSelect
-      ? await askMultiSelect(ui, q, qi, header)
-      : await askSingleSelect(ui, q, qi, header);
+      ? await askMultiSelect(ui, q, qi, header, dialogOpts)
+      : await askSingleSelect(ui, q, qi, header, dialogOpts);
     if (answer === undefined) return { answers, cancelled: true };
     answers.push(answer);
   }
@@ -113,10 +122,11 @@ async function askSingleSelect(
   q: QuestionData,
   questionIndex: number,
   header: string,
+  opts?: { timeout?: number; signal?: AbortSignal },
 ): Promise<QuestionAnswer | undefined> {
   const options = q.options.map(formatOptionLine);
   options.push(`${q.options.length + 1}. ${ROW_INTENT_META.other.label}`);
-  const chosen = await ui.select(`${header}${q.question}${buildPreviewBlock(q)}`, options);
+  const chosen = await ui.select(`${header}${q.question}${buildPreviewBlock(q)}`, options, opts);
   if (chosen === undefined || chosen === null) return undefined;
   const idx = parseIndex(chosen, options.length);
   // A host that returns something outside the list it was given is
@@ -138,7 +148,7 @@ async function askSingleSelect(
     };
   }
   // The "Type something." row, which is the one index past the authored options.
-  const typed = await ui.input(`${header}${q.question}\n\n${CUSTOM_ANSWER_TITLE}`, "");
+  const typed = await ui.input(`${header}${q.question}\n\n${CUSTOM_ANSWER_TITLE}`, "", opts);
   if (typed === undefined || typed === null) return undefined;
   return { questionIndex, question: q.question, kind: "custom", answer: typed };
 }
@@ -149,11 +159,13 @@ async function askMultiSelect(
   q: QuestionData,
   questionIndex: number,
   header: string,
+  opts?: { timeout?: number; signal?: AbortSignal },
 ): Promise<QuestionAnswer | undefined> {
   const list = q.options.map(formatOptionLine).join("\n");
   const value = await ui.input(
     `${header}${q.question}\n\n${list}\n\n${MULTI_SELECT_INSTRUCTIONS}`,
     MULTI_SELECT_PLACEHOLDER,
+    opts,
   );
   if (value === undefined || value === null) return undefined;
   const trimmed = value.trim();

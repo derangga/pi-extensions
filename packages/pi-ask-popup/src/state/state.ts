@@ -25,6 +25,22 @@ export interface QuestionnaireState {
   /** Canonical mirror of the in-flight notes editor; runtime mirrors after `forward_notes_keystroke`. */
   notesDraft: string;
   /**
+   * Absolute deadline in epoch milliseconds when the questionnaire should auto-dismiss.
+   * Set once at initialization when `timeout` is provided; never reset. Undefined when
+   * no timeout is configured.
+   */
+  deadline?: number | undefined;
+  /**
+   * Milliseconds remaining until `deadline`. Updated on every `tick`; undefined when
+   * no timeout is active or after the timer is cancelled by human input.
+   */
+  remainingMs?: number | undefined;
+  /**
+   * Whether the countdown has been cancelled by the first human keystroke.
+   * Cancelled outright, not reset — once true it stays true.
+   */
+  timerCancelled: boolean;
+  /**
    * Collapsed mode: the questionnaire gets out of the way so the agent transcript behind
    * the bottom-anchored overlay becomes readable. Toggled by the configured collapse key
    * from any state; while true, every keystroke except cancel is swallowed (see

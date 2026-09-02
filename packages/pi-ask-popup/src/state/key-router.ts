@@ -41,6 +41,7 @@ export type QuestionnaireAction =
   | { kind: "notes_forward"; data: string }
   /** Flip `state.collapsed`. Always available, regardless of inner mode (see top intercept in `routeKey`). */
   | { kind: "toggle_collapsed" }
+  | { kind: "tick"; now: number }
   | { kind: "ignore" };
 
 export interface QuestionnaireKeybindings {
