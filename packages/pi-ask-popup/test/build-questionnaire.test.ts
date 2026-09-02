@@ -20,7 +20,13 @@ import { makeQuestionnaireState, makeTheme } from "./fixtures.js";
  * layer.
  */
 beforeAll(() => {
-  initTheme();
+  const prev = process.env.PI_PACKAGE_DIR;
+  delete process.env.PI_PACKAGE_DIR;
+  try {
+    initTheme();
+  } finally {
+    if (prev !== undefined) process.env.PI_PACKAGE_DIR = prev;
+  }
 });
 
 function makeTuiStub(columns = 120, rows = 40) {

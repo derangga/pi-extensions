@@ -17,7 +17,17 @@ import { type CapturedTool, createMockCtx, createMockPi, type MockPi } from "./m
 
 beforeAll(() => {
   // Real preview panes render real markdown, which reaches Pi's global theme.
-  initTheme();
+  // Inside the pi agent PI_PACKAGE_DIR points at the nix store's libexec/pi,
+  // where the theme lives at theme/dark.json (Bun layout), not at
+  // dist/modes/interactive/theme/dark.json (Node layout). The tests run
+  // against the Node package in node_modules, so unset the var for this call.
+  const prev = process.env.PI_PACKAGE_DIR;
+  delete process.env.PI_PACKAGE_DIR;
+  try {
+    initTheme();
+  } finally {
+    if (prev !== undefined) process.env.PI_PACKAGE_DIR = prev;
+  }
 });
 
 const KEY = {
