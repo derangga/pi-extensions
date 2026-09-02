@@ -63,6 +63,12 @@ describe("pi-ask-popup manifest", () => {
     }
   });
 
+  it("exposes the event contract on its own subpath", () => {
+    // A footer or notifier subscribes to the channels without importing the
+    // extension entry, which would pull in the whole render graph.
+    expect(readManifest().exports?.["./events"]).toBe("./src/events.ts");
+  });
+
   it("publishes source, docs and legal text, and nothing else", () => {
     const files = readManifest().files ?? [];
     expect(files).toContain("src/");
