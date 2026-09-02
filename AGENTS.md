@@ -36,22 +36,25 @@ typechecks against the same thing. Individual packages declare Pi as a
 
 ```sh
 npm install
-npm run check        # fmt:check, lint, typecheck, test, test:bun
-npm test             # vitest
-npm run test:bun     # the same suite under Bun
+npm run check        # fmt:check, lint, typecheck, test
+npm test
 npm run fmt          # rewrite formatting
 npm run lint:fix
 ```
 
 `npm run check` is the gate. Run it before you call anything done.
 
-## Two runtimes, on purpose
+npm is the package manager, matching every Pi extension repo in the ecosystem.
+Do not introduce a second lockfile.
 
-Pi ships as **both** a Bun-compiled binary and a Node CLI (`engines: node >=22.19`),
-and an extension is loaded into whichever one the user installed. So the code
-has to run on both.
+## The code must run on two runtimes
 
-That gives three standing rules:
+Pi ships as **both** a Bun-compiled binary and a Node CLI (`engines: node
+>=22.19`), and an extension is loaded into whichever one the user installed. The
+dev toolchain is Node and npm, but the published code does not get to assume
+that.
+
+Three standing rules follow:
 
 - Import Node builtins with the `node:` prefix. Bun implements that surface, so
   `node:fs`, `node:path` and `node:url` work on both.
@@ -60,14 +63,11 @@ That gives three standing rules:
 - Type against `@types/node`, not `@types/bun`. It describes the surface we
   actually use. `@types/bun` would type globals we are not allowed to call.
 
-The suite runs under vitest and under `bun test` unmodified, because Bun aliases
-`vitest` imports to its own runner. Both are in the gate. That is not
-belt-and-braces: it is what turns "this works on either runtime" from a claim
-into something checked, and a Node-only API sneaking in fails the gate rather
-than failing for half the users.
-
-Run the Bun suite scoped, as the script does. A bare `bun test` from the repo
-root walks the vendored clones and hangs on their thousands of test files.
+Portability is verified at publish time by installing the built package into Pi
+under each package manager, not by running the unit suite twice. Extensions are
+pure logic until they touch the host, and the places that actually diverge are
+`process.stdout.isTTY`, filesystem paths and dynamic `import()`. Take extra care
+reviewing those three.
 
 ## Every script is scoped to `packages/`
 
