@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -26,6 +26,14 @@ interface Manifest {
 
 function readManifest(): Manifest {
   return JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8")) as Manifest;
+}
+
+/** Every TypeScript file that ships, which is all of src/ and nothing else. */
+function sourceFiles(): string[] {
+  const root = join(packageRoot, "src");
+  return readdirSync(root, { recursive: true, encoding: "utf8" })
+    .filter((entry) => entry.endsWith(".ts"))
+    .map((entry) => join(root, entry));
 }
 
 describe("pi-statusbar manifest", () => {
@@ -92,6 +100,46 @@ describe("pi-statusbar manifest", () => {
     expect(manifest.version).toBe("0.1.0");
     expect(manifest.license).toBe("MIT");
     expect(manifest.publishConfig?.access).toBe("public");
+  });
+
+  it("imports only relative paths, node: builtins and the two Pi peers", () => {
+    // Three standing rules in one sweep, all of which package.json can satisfy
+    // while the source does not:
+    //
+    // - Zero runtime dependencies. An import of chalk, which pi-footer takes as
+    //   a hard dependency, would break at load for every user because nothing
+    //   installs it.
+    // - Node builtins carry the node: prefix. Bun implements that surface; a
+    //   bare "fs" does not resolve in the compiled binary, and this code is
+    //   loaded into whichever runtime the user installed Pi under.
+    // - No bun: API, for the same reason in the other direction.
+    const specifiers = new Set<string>();
+    for (const file of sourceFiles()) {
+      const source = readFileSync(file, "utf8");
+      for (const pattern of [
+        /\bfrom\s+"([^"]+)"/g,
+        /\bimport\s+"([^"]+)"/g,
+        /\bimport\s*\(\s*"([^"]+)"/g,
+      ]) {
+        for (const match of source.matchAll(pattern)) {
+          const specifier = match[1];
+          if (specifier && !specifier.startsWith(".")) specifiers.add(specifier);
+        }
+      }
+    }
+
+    // A scan that read nothing looks exactly like a scan that found nothing, so
+    // prove it read the files and saw an import it should have seen.
+    expect(sourceFiles().length).toBeGreaterThan(20);
+    expect(specifiers).toContain("@earendil-works/pi-coding-agent");
+
+    const allowed = new Set([
+      "@earendil-works/pi-coding-agent",
+      "@earendil-works/pi-tui",
+      "node:fs/promises",
+      "node:path",
+    ]);
+    expect([...specifiers].filter((specifier) => !allowed.has(specifier))).toEqual([]);
   });
 
   it("credits both copyright holders in LICENSE", () => {
