@@ -39,24 +39,15 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 /** Statuses other extensions publish through ctx.ui.setStatus, read live at render time. */
 export type GetExtensionStatuses = () => ReadonlyMap<string, string>;
 
+/**
+ * Only what a shipped widget reads. pi-footer also accumulates input, output and
+ * cache token counts, message counts by role, compactions and per-turn totals,
+ * all of which fed widgets this package does not ship. Collecting them here
+ * would mean collecting and testing numbers nothing displays.
+ */
 export interface SessionMetrics {
-  inputTokens: number;
-  outputTokens: number;
-  cacheReadTokens: number;
-  cacheWriteTokens: number;
-  totalTokens: number;
   costUsd: number;
   firstTimestampMs: number | undefined;
-  lastTimestampMs: number | undefined;
-}
-
-export interface TurnMetrics {
-  inputTokens: number;
-  outputTokens: number;
-  cacheReadTokens: number;
-  cacheWriteTokens: number;
-  totalTokens: number;
-  costUsd: number;
 }
 
 export interface GitInfo {
@@ -87,5 +78,4 @@ export interface StatusbarData {
   contextTokens: number | undefined;
   contextMaxTokens: number | undefined;
   metrics: SessionMetrics;
-  turnMetrics: TurnMetrics;
 }

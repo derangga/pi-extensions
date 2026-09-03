@@ -3,60 +3,14 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import type { StatusbarData } from "../src/types.js";
 import { contextForDependencies } from "../src/widgets/context.js";
 import { registry } from "../src/widgets/registry.js";
 import { defaultOptionsFromSpec, sanitizeOptionsFromSpec } from "../src/widgets/options.js";
-import type { BaseWidgetContext } from "../src/widgets/types.js";
 import { instanceFor, OverrideWidget, ProbeWidget } from "./helpers/widgets.js";
+import { baseCtx, statusbarData } from "./helpers/data.js";
 import { partialTheme } from "./helpers/theme.js";
 
 const widgetsDir = resolve(dirname(fileURLToPath(import.meta.url)), "..", "src", "widgets");
-
-const baseCtx: BaseWidgetContext = { iconMode: "emoji", colorLevel: "none" };
-
-function statusbarData(overrides: Partial<StatusbarData> = {}): StatusbarData {
-  return {
-    model: "opus",
-    provider: "anthropic",
-    thinkingLevel: "high",
-    cwd: "/repo",
-    usingSubscription: false,
-    contextTokens: 100,
-    contextMaxTokens: 1000,
-    git: {
-      branch: "main",
-      sha: "abc1234",
-      staged: 0,
-      unstaged: 0,
-      untracked: 0,
-      insertions: 0,
-      deletions: 0,
-      ahead: 0,
-      behind: 0,
-      isRepo: true,
-    },
-    metrics: {
-      inputTokens: 0,
-      outputTokens: 0,
-      cacheReadTokens: 0,
-      cacheWriteTokens: 0,
-      totalTokens: 0,
-      costUsd: 0,
-      firstTimestampMs: undefined,
-      lastTimestampMs: undefined,
-    },
-    turnMetrics: {
-      inputTokens: 0,
-      outputTokens: 0,
-      cacheReadTokens: 0,
-      cacheWriteTokens: 0,
-      totalTokens: 0,
-      costUsd: 0,
-    },
-    ...overrides,
-  };
-}
 
 describe("registry", () => {
   it("registers every widget module on disk", async () => {
@@ -220,7 +174,7 @@ describe("dependency slicing", () => {
   it("passes only the keys the spec declares", () => {
     const ctx = contextForDependencies(baseCtx, ProbeWidget.dependencies, statusbarData());
     expect(ctx.model).toBe("opus");
-    expect(ctx.cwd).toBe("/repo");
+    expect(ctx.cwd).toBe("/home/dev/repo");
     expect("git" in ctx).toBe(false);
     expect("metrics" in ctx).toBe(false);
   });

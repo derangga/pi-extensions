@@ -1,10 +1,38 @@
 import type { WidgetEntry, WidgetOptions } from "../types.js";
+import { CwdBasenameWidget } from "./core/cwd-basename.js";
+import { ModelProviderWidget } from "./core/model-provider.js";
+import { ModelWidget } from "./core/model.js";
+import { ThinkingLevelWidget } from "./core/thinking-level.js";
+import { GitAheadBehindWidget } from "./git/ahead-behind.js";
+import { GitBranchWidget } from "./git/branch.js";
+import { GitDiffWidget } from "./git/diff.js";
+import { GitShaWidget } from "./git/sha.js";
+import { GitStatusWidget } from "./git/status.js";
 import { WidgetInstance } from "./instance.js";
 import { FlexSeparatorWidget } from "./layout/flex-separator.js";
 import { sanitizeOptionsFromSpec } from "./options.js";
+import { TotalTimeWidget } from "./session/total-time.js";
+import { ContextLengthWidget } from "./tokens/context-length.js";
+import { ContextWidget } from "./tokens/context.js";
+import { CostWidget } from "./tokens/cost.js";
 import type { Widget } from "./types.js";
 
-const WIDGETS = [FlexSeparatorWidget] as const;
+const WIDGETS = [
+  ModelWidget,
+  ModelProviderWidget,
+  ThinkingLevelWidget,
+  CwdBasenameWidget,
+  ContextWidget,
+  ContextLengthWidget,
+  CostWidget,
+  TotalTimeWidget,
+  GitBranchWidget,
+  GitShaWidget,
+  GitStatusWidget,
+  GitDiffWidget,
+  GitAheadBehindWidget,
+  FlexSeparatorWidget,
+] as const;
 
 export type WidgetSpecUnion = (typeof WIDGETS)[number];
 export type WidgetType = WidgetSpecUnion["type"];
