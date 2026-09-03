@@ -2,6 +2,21 @@ import type { QuestionAnswer, QuestionData } from "../tool/types.js";
 import type { WrappingSelectItem } from "./row-intent.js";
 
 /**
+ * The note attached to a tab, or `""` when it has none.
+ *
+ * `notesByTab` is authoritative: before an option is confirmed the note lives
+ * only there, and `answers[tab].notes` is the mirror written at confirm time.
+ * One lookup shared by the reducer, the tab-bar marker and the resting row, so
+ * the three cannot disagree about whether a note exists.
+ *
+ * Question indices only. The global note sits at the `questions.length`
+ * pseudo-index, and no caller should reach it through here.
+ */
+export function noteForTab(state: QuestionnaireState, tab: number): string {
+  return state.notesByTab.get(tab) ?? state.answers.get(tab)?.notes ?? "";
+}
+
+/**
  * Canonical state for the questionnaire dialog. Single source of truth — both the
  * dispatcher (`routeKey`) and the view layer read this same shape.
  */

@@ -19,6 +19,8 @@ export const HINT_PART_NEW_LINE = "Shift+Enter for newline";
 export const HINT_PART_CLEAR = "Ctrl+U to clear";
 export const HINT_PART_TOGGLE = "Space to toggle";
 export const HINT_PART_NOTES = "n to add notes";
+/** Replaces the add form once the tab already has a note. See `buildHintText`. */
+export const HINT_PART_NOTES_EDIT = "n to edit notes";
 export const HINT_PART_TAB = "Tab to switch questions";
 export const HINT_PART_CANCEL = "Esc to cancel";
 
@@ -237,12 +239,23 @@ export class DialogView implements StatefulView<DialogProps> {
 
     // Keeps every tab the same total height, so switching tabs does not make
     // the dialog jump. Only meaningful when nothing is being scrolled away.
+    //
+    // The resting-note term is here rather than folded into `bodyHeight`
+    // because the row lives below the body, in the slot the notes editor uses.
+    // Question tabs reserve it together, so this only ever levels a question
+    // tab against the submit tab, which never reserves one.
+    const maxRestingNoteRows = Math.max(
+      this.questionStrategy.restingNoteRowCount(state),
+      this.submitStrategy?.restingNoteRowCount(state) ?? 0,
+    );
     const spacerRows = Math.max(
       0,
       this.config.getBodyHeight(width) +
-        this.maxFooterRowCount -
+        this.maxFooterRowCount +
+        maxRestingNoteRows -
         strategy.bodyHeight(width, state) -
-        strategy.footerRowCount,
+        strategy.footerRowCount -
+        strategy.restingNoteRowCount(state),
     );
 
     const termRows = this.config.getTerminalRows();

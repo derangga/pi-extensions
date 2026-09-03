@@ -30,8 +30,8 @@ describe("the row counts the chrome assumes", () => {
     const bar = new TabBar(theme);
     bar.setProps({
       tabs: [
-        { label: "H1", active: true, answered: false },
-        { label: "H2", active: false, answered: false },
+        { label: "H1", active: true, answered: false, noted: false },
+        { label: "H2", active: false, answered: false, noted: false },
       ],
       submit: { active: false, allAnswered: false },
     });

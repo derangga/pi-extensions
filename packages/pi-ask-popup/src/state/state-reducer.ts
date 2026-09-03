@@ -1,8 +1,13 @@
-import type { QuestionAnswer, QuestionData, QuestionnaireResult } from "../tool/types.js";
+import type {
+  QuestionAnswer,
+  QuestionData,
+  QuestionnaireResult,
+  UnansweredNote,
+} from "../tool/types.js";
 import type { WrappingSelectItem } from "./row-intent.js";
 import type { QuestionnaireAction } from "./key-router.js";
 import { ROW_INTENT_META } from "./row-intent.js";
-import type { QuestionnaireState } from "./state.js";
+import { noteForTab, type QuestionnaireState } from "./state.js";
 
 /** Session-lifetime constants. No live-component reads — peripheral values live on canonical state. */
 export interface ApplyContext {
@@ -51,6 +56,32 @@ function orderedAnswers(
   return out;
 }
 
+/**
+ * Notes on questions with no answer behind them.
+ *
+ * Walks the questions rather than the map, which gives ask order for free and
+ * keeps the global note out: it lives at the `questions.length` pseudo-index in
+ * `notesByTab`, and this loop never reaches that far.
+ *
+ * Reads `state.notesByTab` directly rather than `noteForTab`, because the
+ * answer-mirror half of that lookup is unreachable here by construction — an
+ * index with no entry in `answers` has no mirror to read.
+ */
+function unansweredNotesFor(
+  state: QuestionnaireState,
+  questions: readonly QuestionData[],
+): UnansweredNote[] {
+  const out: UnansweredNote[] = [];
+  for (let i = 0; i < questions.length; i++) {
+    if (state.answers.has(i)) continue;
+    const question = questions[i];
+    const note = state.notesByTab.get(i);
+    if (!question || note === undefined || note.length === 0) continue;
+    out.push({ questionIndex: i, question: question.question, note });
+  }
+  return out;
+}
+
 function syncMultiSelectFromAnswers(
   answers: ReadonlyMap<number, QuestionAnswer>,
   questions: readonly QuestionData[],
@@ -94,15 +125,6 @@ function persistMultiSelectAnswer(
   return out;
 }
 
-/**
- * Note text to seed the editor/draft with for a tab. The in-flight side-band store
- * (`notesByTab`) is authoritative — before an option is confirmed the note lives ONLY
- * there; `answer.notes` is a mirror written on exit/confirm.
- */
-function notesValueFor(state: QuestionnaireState, tab: number): string {
-  return state.notesByTab.get(tab) ?? state.answers.get(tab)?.notes ?? "";
-}
-
 function customDraftValueFor(state: QuestionnaireState, tab: number): string {
   const draft = state.customDraftsByTab.get(tab);
   if (draft !== undefined) return draft;
@@ -132,7 +154,7 @@ function switchTabResult(
   nextTab: number,
   ctx: ApplyContext,
 ): ApplyResult {
-  const notesValue = notesValueFor(state, nextTab);
+  const notesValue = noteForTab(state, nextTab);
   const transitioned: QuestionnaireState = {
     ...state,
     currentTab: nextTab,
@@ -160,10 +182,15 @@ function doneFor(state: QuestionnaireState, ctx: ApplyContext, cancelled: boolea
   // reducer is truth; the envelope owns decline presentation), with cancel/submit/confirm
   // sharing this single lift. Conditional spread keeps note-free results byte-identical.
   const globalNote = state.notesByTab.get(ctx.questions.length);
+  // Notes on unanswered questions are lifted the same way and for the same
+  // reason: they belong to the person who wrote them, not to the answer they
+  // never gave, so cancelling must not eat them either.
+  const unansweredNotes = unansweredNotesFor(state, ctx.questions);
   const result: QuestionnaireResult = {
     answers: orderedAnswers(state, ctx.questions),
     cancelled,
     ...(globalNote && globalNote.length > 0 ? { globalNote } : {}),
+    ...(unansweredNotes.length > 0 ? { unansweredNotes } : {}),
   };
   return { state, effects: [{ kind: "done", result }] };
 }
@@ -281,7 +308,7 @@ const multiConfirmHandler: Handler<"multi_confirm"> = (state, action, ctx) => {
 };
 
 const notesEnterHandler: Handler<"notes_enter"> = (state, _action, _ctx) => {
-  const value = notesValueFor(state, state.currentTab);
+  const value = noteForTab(state, state.currentTab);
   return {
     state: { ...state, notesVisible: true, notesDraft: value },
     effects: [

@@ -9,9 +9,22 @@ import type { StatefulView } from "../stateful-view.js";
  * `render()` is pure styling. Replaces the prior `setConfig(TabBarConfig)`
  * snowflake and the inline `+ 1` magic at `props-adapter.ts:127`.
  */
+/**
+ * Marks a tab that carries a note.
+ *
+ * It occupies the separator slot between the answered box and the label rather
+ * than being appended, so a segment is the same width noted or not. Appending
+ * it would add one cell per tab, and four tabs at the schema's 16-character
+ * header limit already put this bar at 99 columns: four suffixes would push it
+ * to 103, past the 100 columns previews require. `truncateToWidth` below is
+ * called with an empty ellipsis and drops the tail, so what would go missing is
+ * the Submit tab, silently.
+ */
+export const NOTED_MARKER = "*";
+
 export interface TabBarProps {
   /** One per author-defined question, in order. */
-  tabs: ReadonlyArray<{ label: string; answered: boolean; active: boolean }>;
+  tabs: ReadonlyArray<{ label: string; answered: boolean; active: boolean; noted: boolean }>;
   /** Submit-tab state. `allAnswered` drives the success/dim color picker. */
   submit: { active: boolean; allAnswered: boolean };
 }
@@ -36,7 +49,7 @@ export class TabBar implements StatefulView<TabBarProps> {
 
     for (const tab of this.props.tabs) {
       const box = tab.answered ? "■" : "□";
-      const rawSeg = ` ${box} ${tab.label} `;
+      const rawSeg = ` ${box}${tab.noted ? NOTED_MARKER : " "}${tab.label} `;
       const styled = tab.active
         ? this.theme.bg("selectedBg", this.theme.fg("text", rawSeg))
         : this.theme.fg(tab.answered ? "success" : "muted", rawSeg);

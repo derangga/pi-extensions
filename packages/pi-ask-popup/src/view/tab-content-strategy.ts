@@ -9,6 +9,7 @@ import {
 } from "@earendil-works/pi-tui";
 import { COLLAPSE_KEY_OFF, formatKeySpecForDisplay } from "../config.js";
 import { formatAnswerScalar } from "../tool/format-answer.js";
+import { noteForTab } from "../state/state.js";
 import type { QuestionData } from "../tool/types.js";
 import type { PreviewPane, PreviewPaneProps } from "./components/preview/preview-pane.js";
 import {
@@ -20,6 +21,7 @@ import {
   HINT_PART_NAV,
   HINT_PART_NEW_LINE,
   HINT_PART_NOTES,
+  HINT_PART_NOTES_EDIT,
   HINT_PART_TAB,
   HINT_PART_TOGGLE,
   INCOMPLETE_WARNING_PREFIX,
@@ -31,6 +33,12 @@ import type { StatefulView } from "./stateful-view.js";
 import type { TabComponents } from "./tab-components.js";
 
 const NOTES_HEADER = "Notes:";
+/**
+ * Label for a committed note, shared by the question tab's resting row and the
+ * Submit review so the two cannot drift apart. Lowercase where the editor
+ * header is capitalised: capitalised means live, lowercase means at rest.
+ */
+const NOTES_LABEL = "notes:";
 const GLOBAL_NOTES_HEADER = "Global note:";
 const REVIEW_GLOBAL_HINT = "n to add a note";
 const REVIEW_NOTE_LABEL = "Note";
@@ -93,6 +101,18 @@ export interface TabContentStrategy {
 
   /** Where the focused item sits inside the body, or undefined when nothing is focused. */
   focusedItemRowRange(width: number, state: DialogState): [number, number] | undefined;
+  /**
+   * Rows this strategy spends on a committed note at rest, so the frame can
+   * equalize them across tabs. Not measured from `midRows`, because the open
+   * notes editor also lives there and its height is an intentional expansion
+   * that must stay outside the equalization.
+   */
+  restingNoteRowCount(state: DialogState): number;
+}
+
+/** One line, whatever the note did. See `QuestionTabStrategy.restingNoteRows`. */
+function collapseToOneLine(note: string): string {
+  return note.replace(/\s*\n\s*/g, " ");
 }
 
 export interface QuestionTabStrategyConfig {
@@ -141,12 +161,63 @@ export class QuestionTabStrategy implements TabContentStrategy {
   }
 
   midRows(state: DialogState): Component[] {
-    if (!state.notesVisible) return [];
+    if (!state.notesVisible) return this.restingNoteRows(state);
     return [
       new Text(this.config.theme.fg("muted", NOTES_HEADER), 1, 0),
       this.config.notesInput,
       new Spacer(1),
     ];
+  }
+
+  /**
+   * A committed note, shown at rest in the slot the editor vacates.
+   *
+   * Before this existed a note vanished the moment the editor closed, and
+   * walking back to its tab did not bring it back — the only way to see one
+   * again was to reopen the editor.
+   *
+   * One row, always. The editor accepts newlines, and rendering an eight-line
+   * note in full would eat a scroll region that `computeScrollStart` centres on
+   * the option list. The whole text is one keypress away, and the Submit review
+   * shows it complete, where `Text` wraps instead of clipping.
+   *
+   * The reserved blank row is a `Spacer`, never `Text("")`: pi-tui's `Text`
+   * renders no lines at all for whitespace-only content, so an empty `Text`
+   * would reserve nothing and the height equalization would quietly do nothing.
+   * It carries no placeholder text on purpose. A `Spacer(1)` already sits
+   * between the body and this slot, so a second blank line reads as bottom
+   * padding rather than as something missing, whereas a dim `notes: —` would
+   * put noise on every un-noted tab of every questionnaire.
+   */
+  restingNoteRows(state: DialogState): Component[] {
+    if (this.restingNoteRowCount(state) === 0) return [];
+    const note = noteForTab(state, state.currentTab);
+    if (note.length === 0) return [new Spacer(1)];
+    return [
+      new OneLineClippedText(
+        this.config.theme.fg("dim", `${NOTES_LABEL} ${collapseToOneLine(note)}`),
+        1,
+      ),
+    ];
+  }
+
+  /**
+   * One row as soon as any question tab carries a note, zero otherwise.
+   *
+   * Reserved on every question tab rather than only the noted ones: a row
+   * present on one tab and absent on the next would resize the dialog on every
+   * Tab press, which is exactly what `spacerRows` exists to prevent. It tracks
+   * live state, so clearing the last note gives the row back.
+   *
+   * Zero while the editor is open. The editor is the note's representation
+   * then, and its own height is the intentional expansion.
+   */
+  restingNoteRowCount(state: DialogState): number {
+    if (state.notesVisible) return 0;
+    for (let i = 0; i < this.config.questions.length; i++) {
+      if (noteForTab(state, i).length > 0) return 1;
+    }
+    return 0;
   }
 
   footerRows(state: DialogState): Component[] {
@@ -202,19 +273,32 @@ export class SubmitTabStrategy implements TabContentStrategy {
     const c = new Container();
     for (let i = 0; i < this.config.questions.length; i++) {
       const q = this.config.questions[i];
+      if (!q) continue;
       const a = state.answers.get(i);
-      if (!q || !a) continue;
-      const answerText = formatAnswerScalar(a, "summary");
+      const note = noteForTab(state, i);
+      // A note with no answer still gets an entry. Skipping it, which is what
+      // this loop used to do, dropped the note from the review and from the
+      // result: the user wrote something and was never told it went nowhere.
+      if (!a && note.length === 0) continue;
       c.addChild(new Text(this.config.theme.fg("muted", ` ● ${tabLabel(q.header, i)}`), 1, 0));
-      c.addChild(
-        new Text(
-          `   ${this.config.theme.fg("muted", "→")} ${this.config.theme.fg("text", answerText)}`,
-          1,
-          0,
-        ),
-      );
-      if (a.notes !== undefined && a.notes.length > 0) {
-        c.addChild(new Text(this.config.theme.fg("dim", `     notes: ${a.notes}`), 1, 0));
+      // No arrow row when there is no answer. The absent row is the signal, and
+      // the footer already names the question in its incomplete warning, so
+      // there is nothing to gain from minting a placeholder to sit in the
+      // answer's place.
+      if (a) {
+        const answerText = formatAnswerScalar(a, "summary");
+        c.addChild(
+          new Text(
+            `   ${this.config.theme.fg("muted", "→")} ${this.config.theme.fg("text", answerText)}`,
+            1,
+            0,
+          ),
+        );
+      }
+      if (note.length > 0) {
+        // `Text`, not `OneLineClippedText`: the review is where a long note is
+        // meant to be read whole, so it wraps and `bodyHeight` measures it.
+        c.addChild(new Text(this.config.theme.fg("dim", `     ${NOTES_LABEL} ${note}`), 1, 0));
       }
     }
     // The committed global note appears as a review entry, so pressing `n` has
@@ -283,6 +367,16 @@ export class SubmitTabStrategy implements TabContentStrategy {
   focusedItemRowRange(_width: number, _state: DialogState): [number, number] | undefined {
     return undefined;
   }
+
+  /**
+   * Always zero. The global note already appears as a review entry in the body,
+   * so a resting row here would show the same note twice. The frame pads this
+   * tab instead, which is what keeps it level with the question tabs once one
+   * of them reserves a row.
+   */
+  restingNoteRowCount(_state: DialogState): number {
+    return 0;
+  }
 }
 
 function remainingLabel(state: DialogState): string | undefined {
@@ -315,7 +409,13 @@ export function buildHintText(
 ): string {
   const parts: string[] = [HINT_PART_ENTER, HINT_PART_NAV];
   if (question?.multiSelect === true) parts.push(HINT_PART_TOGGLE);
-  if (question && !state.notesVisible && !state.inputMode) parts.push(HINT_PART_NOTES);
+  if (question && !state.notesVisible && !state.inputMode) {
+    // "add" is wrong once one exists, and the hint is the only affordance
+    // telling a keyboard user the resting row can be reopened at all.
+    parts.push(
+      noteForTab(state, state.currentTab).length > 0 ? HINT_PART_NOTES_EDIT : HINT_PART_NOTES,
+    );
+  }
   if (isMulti) parts.push(HINT_PART_TAB);
   parts.push(HINT_PART_CANCEL);
   if (collapseKey !== COLLAPSE_KEY_OFF) {

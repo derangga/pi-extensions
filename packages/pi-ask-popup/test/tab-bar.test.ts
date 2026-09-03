@@ -9,6 +9,7 @@ const theme = makeTheme() as unknown as Theme;
 interface PropsOver {
   questions?: ReadonlyArray<{ header?: string; question: string }>;
   answeredIndices?: ReadonlyArray<number>;
+  notedIndices?: ReadonlyArray<number>;
   activeTabIndex?: number;
   totalTabs?: number;
 }
@@ -26,6 +27,7 @@ function buildProps(over: PropsOver = {}): TabBarProps {
     { header: "Tests", question: "Include tests?" },
   ];
   const answeredSet = new Set(over.answeredIndices ?? []);
+  const notedSet = new Set(over.notedIndices ?? []);
   const totalTabs = over.totalTabs ?? questions.length + 1;
   const activeTabIndex = over.activeTabIndex ?? 0;
   const submitIndex = totalTabs - 1;
@@ -33,6 +35,7 @@ function buildProps(over: PropsOver = {}): TabBarProps {
     label: q.header && q.header.length > 0 ? q.header : `Q${i + 1}`,
     answered: answeredSet.has(i),
     active: i === activeTabIndex,
+    noted: notedSet.has(i),
   }));
   return {
     tabs,

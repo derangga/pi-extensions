@@ -8,6 +8,7 @@ import type { SubmitPickerProps } from "../../view/components/submit-picker.js";
 import type { TabBarProps } from "../../view/components/tab-bar.js";
 import type { DialogProps } from "../../view/dialog-builder.js";
 import { LABELS_BY_KIND } from "../row-intent.js";
+import { noteForTab } from "../state.js";
 import type { GlobalSelector, PerTabBindingContext, PerTabSelector } from "./contract.js";
 import { selectConfirmedIndicator } from "./derivations.js";
 
@@ -96,6 +97,7 @@ export const selectTabBarProps: GlobalSelector<TabBarProps> = (state, ctx) => ({
     label: tabLabel(q.header, i),
     answered: state.answers.has(i),
     active: i === state.currentTab,
+    noted: noteForTab(state, i).length > 0,
   })),
   submit: {
     active: state.currentTab === ctx.questions.length,

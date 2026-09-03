@@ -172,8 +172,8 @@ describe("QuestionnairePropsAdapter.apply", () => {
     adapter.apply(makeState({ answers }));
     const props = lastProps(tabBar);
     expect(props.tabs).toHaveLength(2);
-    expect(props.tabs[0]).toEqual({ label: "H", answered: true, active: true });
-    expect(props.tabs[1]).toEqual({ label: "H", answered: false, active: false });
+    expect(props.tabs[0]).toEqual({ label: "H", answered: true, active: true, noted: false });
+    expect(props.tabs[1]).toEqual({ label: "H", answered: false, active: false, noted: false });
     expect(props.submit).toEqual({ active: false, allAnswered: false });
   });
 

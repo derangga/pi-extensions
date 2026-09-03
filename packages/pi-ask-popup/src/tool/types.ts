@@ -124,6 +124,25 @@ export interface QuestionAnswer {
   preview?: string;
 }
 
+/**
+ * A note the user wrote on a question they never answered.
+ *
+ * These cannot ride in `answers`. `notesByTab` is decoupled from `answers` so
+ * that writing a note does not mark a question answered, and folding a
+ * note-only entry into `answers` would flip its tab to answered and silence the
+ * Submit tab's missing-question warning. They get their own field instead,
+ * exactly as `globalNote` does.
+ *
+ * `question` is copied alongside the index for the same reason `QuestionAnswer`
+ * copies it: a replayed session reads standalone, with no access to the params
+ * the questionnaire was built from.
+ */
+export interface UnansweredNote {
+  questionIndex: number;
+  question: string;
+  note: string;
+}
+
 export type QuestionnaireError =
   | "no_ui"
   | "no_custom_ui"
@@ -151,6 +170,19 @@ export interface QuestionnaireResult {
    * `!("globalNote" in result)` holds.
    */
   globalNote?: string;
+  /**
+   * Notes on questions that were never answered, in the order the questions
+   * were asked. Without this field they were discarded silently: the note lived
+   * in `notesByTab`, and both the envelope and the Submit review skipped any
+   * tab with no answer.
+   *
+   * Same conditional-spread contract as `globalNote`: the key appears only via
+   * conditional spread of a non-empty array, is never assigned `undefined`, and
+   * so a result with no such notes stays byte-identical and
+   * `!("unansweredNotes" in result)` holds. Attached on cancel as well as
+   * submit, mirroring per-question notes.
+   */
+  unansweredNotes?: UnansweredNote[];
   error?: QuestionnaireError;
 }
 
