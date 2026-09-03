@@ -7,7 +7,7 @@ import { asyncCache } from "../src/cache.js";
 import { COMMAND_NAME } from "../src/command.js";
 import { DEFAULT_CONFIG } from "../src/config.js";
 import statusbarExtension from "../src/index.js";
-import { taggedTheme } from "./helpers/theme.js";
+import { partialTheme, taggedTheme } from "./helpers/theme.js";
 import {
   stubApi,
   stubContext,
@@ -75,6 +75,36 @@ describe("statusbarExtension wiring", () => {
     expect(context.statuses).toEqual(["<accent>pi-statusbar</accent>"]);
     expect(context.footers).toHaveLength(1);
     expect(context.footers[0]).toBeTypeOf("function");
+  });
+
+  it("still mounts the footer under a theme that defines nothing", async () => {
+    // Theme.fg throws on a colour the loaded theme omits, and this label is
+    // published from inside the session_start handler. Calling fg raw there, as
+    // upstream does, rejects the handler and the footer never mounts.
+    const api = stubApi();
+    const context = stubContext({ theme: partialTheme([]) });
+    await statusbarExtension(api.pi);
+    await api.fire("session_start", context.ctx);
+
+    expect(context.footers).toHaveLength(1);
+    expect(context.statuses).toEqual(["\u001b[36mpi-statusbar\u001b[39m"]);
+  });
+
+  it("publishes an unpainted label under NO_COLOR", async () => {
+    // A raw theme.fg call paints regardless of the convention.
+    const previous = process.env.NO_COLOR;
+    process.env.NO_COLOR = "1";
+    try {
+      const api = stubApi();
+      const context = stubContext();
+      await statusbarExtension(api.pi);
+      await api.fire("session_start", context.ctx);
+
+      expect(context.statuses).toEqual(["pi-statusbar"]);
+    } finally {
+      if (previous === undefined) delete process.env.NO_COLOR;
+      else process.env.NO_COLOR = previous;
+    }
   });
 
   it("remounts on a model change", async () => {
