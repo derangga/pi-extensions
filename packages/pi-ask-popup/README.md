@@ -1,12 +1,16 @@
 # pi-ask-popup
 
-> Not published yet. The scaffold is in place; the dialog is being ported.
-
 Let the model ask you instead of guessing. This Pi extension registers one tool,
 `ask_user_question`, that opens a terminal dialog of up to four questions with
 written-out options, and hands your choices back as structured data.
 
-## What it will do
+## Install
+
+```sh
+pi install npm:pi-ask-popup
+```
+
+## What it does
 
 - **Typed options, not a wall of prose.** Each question carries 2-4 authored
   choices, and every choice explains what it means or what it costs you.
@@ -18,6 +22,8 @@ written-out options, and hands your choices back as structured data.
   dialog, and a Submit tab names anything still blank before you commit.
 - **Notes on any answer, or on all of them.** `n` opens a note editor on any
   question tab, and on the Submit tab it writes one note covering everything.
+  A written note stays on its tab, dimmed, and the tab bar marks which tabs
+  carry one. A note on a question you never answer still reaches the model.
 - **Read the transcript behind it.** `Ctrl+]` collapses the dialog and brings it
   back with your answers intact.
 - **A timeout that is not a decline.** Auto-dismiss returns a distinct
