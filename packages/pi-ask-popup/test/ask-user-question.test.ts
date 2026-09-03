@@ -109,6 +109,17 @@ describe("what gets registered", () => {
     expect(tool.promptGuidelines).toEqual(DEFAULT_PROMPT_GUIDELINES);
   });
 
+  it("names the tool in every guideline bullet", () => {
+    // Pi appends these flat into the system prompt's Guidelines section with no
+    // tool-name prefix and no grouping, so a bullet saying "this tool" gives
+    // the model no way to know which tool it means. Asserting on the constant
+    // rather than the registered copy: this is a property of the prose, and it
+    // has to hold for whoever edits it next.
+    for (const bullet of DEFAULT_PROMPT_GUIDELINES) {
+      expect(bullet).toContain(ASK_POPUP_TOOL_NAME);
+    }
+  });
+
   it("tells the model not to author the reserved labels", () => {
     // The validator rejects them, so the description has to say so or the model
     // will keep writing them and keep getting errors back.
