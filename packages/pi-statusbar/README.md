@@ -26,8 +26,8 @@ them it falls back to a fixed palette rather than failing to render.
 ## How it differs from pi-footer
 
 pi-footer is the larger package and the right choice if you want powerline
-segments, an in-terminal config editor, or any of its 57 widgets. This one
-keeps 15 widgets, three presets, no config UI and no runtime dependencies.
+segments, an in-terminal config editor, or any of its 56 widgets. This one
+keeps 14 widgets, three presets, no config UI and no runtime dependencies.
 
 ## Status
 
