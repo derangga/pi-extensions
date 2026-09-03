@@ -1,4 +1,6 @@
 import type { ColorName } from "./colors.js";
+import type { Preset } from "./presets.js";
+import type { SeparatorStyle } from "./separators.js";
 import type { WidgetType } from "./widgets/registry.js";
 
 export interface WidgetEntry {
@@ -31,6 +33,25 @@ export interface WidgetOptions extends WidgetStyle {
 export const ICON_MODE_VALUES = ["emoji", "nerd"] as const;
 
 export type IconMode = (typeof ICON_MODE_VALUES)[number];
+
+/**
+ * Everything about the footer except which widgets are on which line. Kept
+ * separate from the lines so the command can print and change settings without
+ * touching a layout, and so the widget store can hold one without the other.
+ */
+export interface StatusbarSettings {
+  version: 1;
+  enabled: boolean;
+  preset: Preset;
+  separator: SeparatorStyle;
+  separatorFg: ColorName;
+  separatorBg: ColorName;
+  iconMode: IconMode;
+}
+
+export interface StatusbarConfig extends StatusbarSettings {
+  lines: WidgetEntry[][];
+}
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
