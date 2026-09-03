@@ -1,9 +1,10 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { asyncCache } from "../src/cache.js";
+import { COMMAND_NAME } from "../src/command.js";
 import { DEFAULT_CONFIG } from "../src/config.js";
 import statusbarExtension from "../src/index.js";
 import { taggedTheme } from "./helpers/theme.js";
@@ -211,5 +212,52 @@ describe("statusbarExtension rendering", () => {
 
     expect(lines).toHaveLength(2);
     expect(lines[1]).toContain("busy");
+  });
+});
+
+describe("statusbarExtension /statusbar command", () => {
+  it("registers the command", async () => {
+    const api = stubApi();
+    await statusbarExtension(api.pi);
+
+    expect(api.commands.has(COMMAND_NAME)).toBe(true);
+  });
+
+  it("writes the change to disk and remounts the footer", async () => {
+    const { api, context } = await start();
+    const footersBefore = context.footers.length;
+
+    await api.run(COMMAND_NAME, "preset compact", context.ctx);
+
+    const saved = JSON.parse(await readFile(configPath, "utf8")) as { preset: string };
+    expect(saved.preset).toBe("compact");
+    expect(context.footers.length).toBe(footersBefore + 1);
+  });
+
+  it("keeps the change live and says so when the write fails", async () => {
+    // The config path now sits under a regular file, so creating its parent
+    // directory fails. The change still has to reach the footer.
+    await writeFile(configPath, "{}", "utf8");
+    process.env[CONFIG_ENV] = join(configPath, "nested", "pi-statusbar.json");
+
+    const { api, context } = await start();
+    await api.run(COMMAND_NAME, "preset compact", context.ctx);
+
+    const failure = context.notifications.find((entry) => entry.type === "error");
+    expect(failure?.message).toContain("could not save");
+    expect(failure?.message).toContain("this session only");
+
+    const { component } = mount(context.footers.at(-1));
+    // compact drops the cost and total-time segments, so the live footer is the
+    // new layout even though nothing persisted.
+    expect(component.render(120)).toHaveLength(1);
+  });
+
+  it("clears the footer when the command turns it off", async () => {
+    const { api, context } = await start();
+    await api.run(COMMAND_NAME, "off", context.ctx);
+
+    expect(context.footers.at(-1)).toBeUndefined();
+    expect(context.statuses.at(-1)).toBeUndefined();
   });
 });

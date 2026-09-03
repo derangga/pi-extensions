@@ -159,7 +159,7 @@ function isSeparatorStyle(value: unknown): value is SeparatorStyle {
   return typeof value === "string" && SEPARATORS.has(value as SeparatorStyle);
 }
 
-function isIconMode(value: unknown): value is IconMode {
+export function isIconMode(value: unknown): value is IconMode {
   return typeof value === "string" && ICON_MODE_VALUES.includes(value as IconMode);
 }
 

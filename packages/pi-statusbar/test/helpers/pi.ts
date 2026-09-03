@@ -1,5 +1,6 @@
 import type {
   ExtensionAPI,
+  ExtensionCommandContext,
   ExtensionContext,
   ReadonlyFooterDataProvider,
   Theme,
@@ -63,11 +64,18 @@ export function stubContext(options: ContextOptions = {}): ContextStub {
   return { ctx, footers, statuses, notifications };
 }
 
+export interface CommandStub {
+  description?: string;
+  handler(args: string, ctx: ExtensionCommandContext): Promise<void>;
+}
+
 export interface ApiStub {
   pi: ExtensionAPI;
   handlers: Map<string, (event: unknown, ctx: ExtensionContext) => unknown>;
+  commands: Map<string, CommandStub>;
   execCalls: string[];
   fire(event: string, ctx: ExtensionContext, payload?: unknown): Promise<void>;
+  run(command: string, args: string, ctx: ExtensionContext): Promise<void>;
 }
 
 export function stubApi(
@@ -75,11 +83,15 @@ export function stubApi(
   thinkingLevel = "high",
 ): ApiStub {
   const handlers = new Map<string, (event: unknown, ctx: ExtensionContext) => unknown>();
+  const commands = new Map<string, CommandStub>();
   const execCalls: string[] = [];
 
   const pi = {
     on: (event: string, handler: (event: unknown, ctx: ExtensionContext) => unknown) => {
       handlers.set(event, handler);
+    },
+    registerCommand: (name: string, options: CommandStub) => {
+      commands.set(name, options);
     },
     getThinkingLevel: () => thinkingLevel,
     exec: async (_command: string, args: string[]) => {
@@ -95,11 +107,17 @@ export function stubApi(
   return {
     pi,
     handlers,
+    commands,
     execCalls,
     async fire(event, ctx, payload) {
       const handler = handlers.get(event);
       if (!handler) throw new Error(`no handler registered for ${event}`);
       await handler(payload ?? { type: event }, ctx);
+    },
+    async run(command, args, ctx) {
+      const registered = commands.get(command);
+      if (!registered) throw new Error(`no command registered as ${command}`);
+      await registered.handler(args, ctx as ExtensionCommandContext);
     },
   };
 }

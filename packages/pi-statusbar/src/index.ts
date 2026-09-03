@@ -9,7 +9,8 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { resolveColorLevel } from "./colors.js";
-import { loadConfig, STATUS_KEY } from "./config.js";
+import { registerStatusbarCommand } from "./command.js";
+import { getConfigPath, loadConfig, saveConfig, STATUS_KEY } from "./config.js";
 import { collectStatusbarData } from "./data.js";
 import { gitCommandsFor, type GitCommand } from "./git.js";
 import { renderStatusbar } from "./render.js";
@@ -83,6 +84,26 @@ export default async function statusbarExtension(pi: ExtensionAPI): Promise<void
       };
     });
   }
+
+  registerStatusbarCommand(pi, {
+    current: () => config,
+    // Repaint before persisting. A change the user just asked for is live for
+    // this session whichever way the write goes, and saying so beats a command
+    // that appears to have done nothing because the disk refused it.
+    commit: async (next, ctx) => {
+      replaceConfig(next);
+      apply(ctx);
+      try {
+        await saveConfig(next);
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        ctx.ui.notify(
+          `pi-statusbar: could not save ${getConfigPath()}: ${reason} (the change applies to this session only)`,
+          "error",
+        );
+      }
+    },
+  });
 
   pi.on("session_start", async (_event, ctx) => {
     const reloaded = await loadConfig();
