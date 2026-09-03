@@ -1,17 +1,22 @@
+import { colorPair } from "../utils/colors.js";
+import { THINKING_LEVEL_COLORS_PROPERTY, thinkingLevelForeground } from "../utils/thinking.js";
 import { defineWidget } from "../types.js";
 
 export const ThinkingLevelWidget = defineWidget({
   type: "thinking-level",
-  description: "Reasoning level, for models that support one",
+  description: "Reasoning level, colored by the level, for models that support one",
   dependencies: ["thinkingLevel"],
   baseOptions: ["raw", "hideWhenEmpty", "icon", "text"],
   baseOptionDefaults: { text: "" },
-  properties: [],
+  properties: [THINKING_LEVEL_COLORS_PROPERTY],
   // Placeholder glyph, inherited from pi-footer. The intended one is a GitHub
   // Copilot nerd glyph; swap the escape below once its codepoint is settled.
-  icons: { emoji: "🧠", nerd: "\u{f0208}" },
+  icons: { emoji: "\u{1f9e0}", nerd: "\u{f0208}" },
   defaultStyle: { fg: "magenta", bg: "default", bold: false },
-  render({ ctx, renderWidget }) {
-    return renderWidget(ctx.thinkingLevel);
+  render({ ctx, options, renderWidget }) {
+    const fg = options.thinkingLevelColors
+      ? thinkingLevelForeground(ctx.thinkingLevel, options.fg, ctx.theme)
+      : options.fg;
+    return renderWidget(ctx.thinkingLevel, colorPair(fg, options.bg));
   },
 });
