@@ -15,7 +15,6 @@ import {
   commandForSettingChange,
   cycleValue,
   isActionRow,
-  ROW_DISMISS,
   stepForKey,
 } from "./panel.js";
 import type { Preset } from "./presets.js";
@@ -108,17 +107,15 @@ function hintLine(settingsTheme: SettingsListTheme): Text {
 
 /**
  * Opens the panel. Each row applies as it changes, so the config on disk is
- * always what the rows say, and Dismiss puts back the config as it stood when
- * the panel opened. Escape does the same, because SettingsList prints "Esc to
- * cancel" under the rows and that has to be true.
+ * always what the rows say and closing the panel saves nothing further. Dismiss
+ * and escape both just close it; `/statusbar reset` is the way back.
  */
 async function openPanel(
   host: StatusbarCommandHost,
   ctx: ExtensionCommandContext,
   apply: (command: StatusbarCommand) => Promise<void>,
 ): Promise<void> {
-  const opened = host.current();
-  const items = buildPanelItems(opened);
+  const items = buildPanelItems(host.current());
   let cursor = 0;
 
   await ctx.ui.custom<undefined>((tui, theme, keybindings, done) => {
@@ -134,15 +131,10 @@ async function openPanel(
         const command = commandForSettingChange(id, value);
         if (command) void apply(command);
       },
-      () => void dismiss(),
+      () => done(undefined),
     );
     container.addChild(list);
     container.addChild(hintLine(settingsTheme));
-
-    async function dismiss(): Promise<void> {
-      await host.commit(opened, ctx);
-      done(undefined);
-    }
 
     /** Moves my cursor and mirrors it into the list, whose own index is private. */
     const move = (step: number): void => {
@@ -173,8 +165,7 @@ async function openPanel(
         // A closing row carries no values, so SettingsList would do nothing
         // with the keypress. Taking it here is what makes the row an action.
         if (item && isActionRow(item.id) && keybindings.matches(data, "tui.select.confirm")) {
-          if (item.id === ROW_DISMISS) void dismiss();
-          else done(undefined);
+          done(undefined);
           return;
         }
 

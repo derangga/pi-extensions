@@ -150,65 +150,47 @@ describe("the /statusbar panel", () => {
     expect(panel.context.notifications).toEqual([]);
   });
 
-  it("closes on Done, keeping what the rows say", async () => {
+  it("closes on Dismiss and keeps every change already applied", async () => {
     const panel = await openPanel();
     await panel.press(RIGHT);
     await panel.press(DOWN);
-    await panel.press(DOWN);
-    await panel.press(DOWN);
+    await panel.press(RIGHT);
+
+    for (let step = 0; step < 2; step += 1) await panel.press(DOWN);
     await panel.press(ENTER);
+
+    expect(panel.context.closed()).toBe(true);
+    expect(panel.latest().preset).toBe("compact");
+    expect(panel.latest().iconMode).toBe("nerd");
+  });
+
+  it("keeps them on escape too, so both ways out mean the same thing", async () => {
+    // Closing saves nothing and undoes nothing: the change landed when the
+    // arrow moved. Two exits that differed would be the only place in the
+    // panel where the order of keys mattered.
+    const panel = await openPanel();
+    await panel.press(RIGHT);
+    await panel.press(ESC);
 
     expect(panel.context.closed()).toBe(true);
     expect(panel.latest().preset).toBe("compact");
   });
 
-  it("puts back the config the panel opened with on Dismiss", async () => {
+  it("commits nothing of its own when closing", async () => {
+    // Dismiss must not write. A commit here would be a second write of a
+    // config already on disk, and the shape of an undo that is not one.
     const panel = await openPanel();
     await panel.press(RIGHT);
-    await panel.press(DOWN);
-    await panel.press(RIGHT);
-    expect(panel.latest().preset).toBe("compact");
-    expect(panel.latest().iconMode).toBe("nerd");
+    const before = panel.commits.length;
 
     for (let step = 0; step < 3; step += 1) await panel.press(DOWN);
     await panel.press(ENTER);
 
-    expect(panel.context.closed()).toBe(true);
-    expect(panel.latest().preset).toBe("default");
-    expect(panel.latest().iconMode).toBe("emoji");
+    expect(panel.commits).toHaveLength(before);
   });
 
-  it("restores the config it opened with, which need not be the default one", async () => {
-    // Dismiss on a hand-edited config must put that config back, not the
-    // shipped defaults. Opening on the defaults in every other test cannot
-    // tell those two apart.
-    const panel = await openPanel({
-      ...cloneConfig(DEFAULT_CONFIG),
-      preset: "git-heavy",
-      iconMode: "nerd",
-    });
-    await panel.press(RIGHT);
-    expect(panel.latest().preset).toBe("default");
-
-    await panel.press(ESC);
-    expect(panel.latest().preset).toBe("git-heavy");
-    expect(panel.latest().iconMode).toBe("nerd");
-  });
-
-  it("undoes the same way on escape, because the list says cancel", async () => {
-    // SettingsList draws "Esc to cancel" under the rows and that string is not
-    // ours to change, so escape has to actually cancel.
-    const panel = await openPanel();
-    await panel.press(RIGHT);
-    expect(panel.latest().preset).toBe("compact");
-
-    await panel.press(ESC);
-    expect(panel.context.closed()).toBe(true);
-    expect(panel.latest().preset).toBe("default");
-  });
-
-  it("leaves the closing rows alone under the arrows", async () => {
-    // They hold no value to cycle, so an arrow there must not wrap into some
+  it("leaves the closing row alone under the arrows", async () => {
+    // It holds no value to cycle, so an arrow there must not wrap into some
     // other row's setting.
     const panel = await openPanel();
     for (let step = 0; step < 3; step += 1) await panel.press(DOWN);

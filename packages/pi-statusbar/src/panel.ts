@@ -19,14 +19,11 @@ export const ROW_PRESET = "preset";
 export const ROW_ICONS = "icons";
 export const ROW_ENABLED = "enabled";
 
-/** Rows that close the panel rather than holding a value. */
-export const ROW_DONE = "done";
+/** The row that closes the panel rather than holding a value. */
 export const ROW_DISMISS = "dismiss";
 
-const ACTION_ROWS = new Set<string>([ROW_DONE, ROW_DISMISS]);
-
 export function isActionRow(id: string): boolean {
-  return ACTION_ROWS.has(id);
+  return id === ROW_DISMISS;
 }
 
 const ON = "on";
@@ -83,16 +80,17 @@ export function buildSettingItems(config: StatusbarConfig): SettingItem[] {
 }
 
 /**
- * The rows as the panel shows them: the three that hold a value, then the two
- * that close. The closing rows carry no value, so the arrows pass over them and
- * SettingsList draws them as a bare label.
+ * The rows as the panel shows them: the three that hold a value, then the one
+ * that closes. It carries no value, so the arrows pass over it and SettingsList
+ * draws it as a bare label.
+ *
+ * One closing row, not a save-and-a-cancel pair. Every change is already
+ * applied by the time it lands on the row, so there is nothing left for a
+ * second row to confirm or throw away, and two rows doing the same thing under
+ * different names is worse than none.
  */
 export function buildPanelItems(config: StatusbarConfig): SettingItem[] {
-  return [
-    ...buildSettingItems(config),
-    { id: ROW_DONE, label: "Done", currentValue: "keep changes" },
-    { id: ROW_DISMISS, label: "Dismiss", currentValue: "undo them" },
-  ];
+  return [...buildSettingItems(config), { id: ROW_DISMISS, label: "Dismiss", currentValue: "" }];
 }
 
 /**

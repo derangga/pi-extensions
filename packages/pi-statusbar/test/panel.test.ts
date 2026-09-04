@@ -8,7 +8,6 @@ import {
   cycleValue,
   isActionRow,
   ROW_DISMISS,
-  ROW_DONE,
   ROW_ENABLED,
   ROW_ICONS,
   ROW_PRESET,
@@ -132,33 +131,31 @@ describe("commandForSettingChange", () => {
 });
 
 describe("buildPanelItems", () => {
-  it("puts the closing rows last, after everything that holds a value", () => {
+  it("puts the one closing row last, after everything that holds a value", () => {
     const ids = buildPanelItems(cloneConfig(DEFAULT_CONFIG)).map((item) => item.id);
-    expect(ids).toEqual([ROW_PRESET, ROW_ICONS, ROW_ENABLED, ROW_DONE, ROW_DISMISS]);
+    expect(ids).toEqual([ROW_PRESET, ROW_ICONS, ROW_ENABLED, ROW_DISMISS]);
   });
 
-  it("gives the closing rows no values, so the arrows pass over them", () => {
+  it("gives the closing row no values, so the arrows pass over it", () => {
     const rows = buildPanelItems(cloneConfig(DEFAULT_CONFIG));
     const counts = (wanted: boolean) =>
       rows
         .filter((item) => isActionRow(item.id) === wanted)
         .map((item) => item.values?.length ?? 0);
 
-    expect(counts(true)).toEqual([0, 0]);
+    expect(counts(true)).toEqual([0]);
     expect(counts(false)).toEqual([3, 2, 2]);
   });
 
-  it("says what each closing row will do", () => {
+  it("leaves the closing row's value column empty", () => {
+    // The row is an action, not a setting. A value beside it reads as a
+    // promise about what closing does to the changes already applied.
     const rows = buildPanelItems(cloneConfig(DEFAULT_CONFIG));
-    const done = rows.find((item) => item.id === ROW_DONE);
-    const dismiss = rows.find((item) => item.id === ROW_DISMISS);
-
-    expect(done?.currentValue).toContain("keep");
-    expect(dismiss?.currentValue).toContain("undo");
+    expect(rows.find((item) => item.id === ROW_DISMISS)?.currentValue).toBe("");
+    expect(rows.at(-1)?.label).toBe("Dismiss");
   });
 
   it("knows a closing row from a setting", () => {
-    expect(isActionRow(ROW_DONE)).toBe(true);
     expect(isActionRow(ROW_DISMISS)).toBe(true);
     expect(isActionRow(ROW_PRESET)).toBe(false);
     expect(isActionRow(ROW_ICONS)).toBe(false);
