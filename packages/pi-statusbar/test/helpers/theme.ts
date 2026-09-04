@@ -7,7 +7,13 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 export const taggedTheme = {
   fg: (color: string, text: string) => `<${color}>${text}</${color}>`,
   bg: (color: string, text: string) => `<${color}>${text}</${color}>`,
+  getColorMode: () => "256color",
 } as unknown as Theme;
+
+/** Only what resolveColorLevel reads. Pi's ColorMode union is not exported. */
+export function themeWithColorMode(mode: string): Theme {
+  return { getColorMode: () => mode } as unknown as Theme;
+}
 
 /**
  * Defines only the colors it is given and throws on the rest, matching the real
@@ -21,5 +27,6 @@ export function partialTheme(defined: readonly string[]): Theme {
       if (!defined.includes(color)) throw new Error(`Unknown theme color: ${color}`);
       return `<${color}>${text}</${color}>`;
     },
+    getColorMode: () => "256color",
   } as unknown as Theme;
 }

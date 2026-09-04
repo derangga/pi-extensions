@@ -21,7 +21,6 @@ import { WidgetStore } from "./widgets/store.js";
 const STATUS_LABEL = "pi-statusbar";
 
 export default async function statusbarExtension(pi: ExtensionAPI): Promise<void> {
-  const colorLevel = resolveColorLevel();
   const loaded = await loadConfig();
 
   let config: StatusbarConfig = loaded.config;
@@ -50,6 +49,7 @@ export default async function statusbarExtension(pi: ExtensionAPI): Promise<void
    */
   function statusLabel(ctx: ExtensionContext): string {
     const accent = hasThemeColor(ctx.ui.theme, "accent") ? "pi:accent" : "cyan";
+    const colorLevel = resolveColorLevel(process.env, ctx.ui.theme);
     return applyColors(STATUS_LABEL, accent, undefined, false, colorLevel, ctx.ui.theme);
   }
 
@@ -91,7 +91,9 @@ export default async function statusbarExtension(pi: ExtensionAPI): Promise<void
             requestRender: ownRequestRender,
           });
           return renderStatusbar(store, data, width, {
-            colorLevel,
+            // Asked per draw, not once at load: the theme arrives with the
+            // footer handle, and the user can change it mid-session.
+            colorLevel: resolveColorLevel(process.env, theme),
             theme,
             getExtensionStatuses: () => footerData.getExtensionStatuses(),
           });

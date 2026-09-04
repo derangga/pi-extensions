@@ -31,9 +31,16 @@ const NAMED_COLORS = {
 /** Leave the terminal's own color alone. Never emits an escape sequence. */
 const DEFAULT_COLOR = "default";
 
-export type NamedColor = typeof DEFAULT_COLOR | keyof typeof NAMED_COLORS;
-export type ColorName = NamedColor | `pi:${ThemeColor}`;
-export type ColorLevel = "ansi" | "none";
+/** The 16 ANSI names without the default sentinel: what a hex degrades to. */
+export type BasicColor = keyof typeof NAMED_COLORS;
+export type NamedColor = typeof DEFAULT_COLOR | BasicColor;
+/**
+ * Well-formedness is checked when the color is painted, not by the type. TS can
+ * only say "starts with #", so parseHex is what actually decides.
+ */
+export type HexColor = `#${string}`;
+export type ColorName = NamedColor | `pi:${ThemeColor}` | HexColor;
+export type ColorLevel = "none" | "ansi" | "truecolor";
 
 const PI_PREFIX = "pi:";
 
@@ -42,9 +49,19 @@ const PI_PREFIX = "pi:";
  * color. Deliberately not `process.stdout.isTTY`, which is one of the few
  * places Bun and Node diverge, and this code is loaded into whichever runtime
  * the user installed pi under.
+ *
+ * Truecolor comes from the theme rather than from COLORTERM. Pi has already
+ * decided what the terminal can do, and sniffing the environment here would be
+ * a second opinion free to disagree with the colors Pi paints two lines above
+ * the footer. No theme means no answer, which lands on "ansi".
+ *
+ * getColorMode is called optionally because this package peers Pi from 0.80,
+ * and the accessor is younger than that floor. A footer that renders in basic
+ * colors beats one that throws out of session_start and never mounts.
  */
-export function resolveColorLevel(env: NodeJS.ProcessEnv = process.env): ColorLevel {
-  return (env.NO_COLOR ?? "").length > 0 ? "none" : "ansi";
+export function resolveColorLevel(env: NodeJS.ProcessEnv = process.env, theme?: Theme): ColorLevel {
+  if ((env.NO_COLOR ?? "").length > 0) return "none";
+  return theme?.getColorMode?.() === "truecolor" ? "truecolor" : "ansi";
 }
 
 export function normalizeColor(value: unknown): ColorName | undefined {
@@ -81,13 +98,23 @@ export function applyColors(
   if (level === "none") return text;
 
   let output = text;
-  if (foreground && foreground !== DEFAULT_COLOR) output = paint(output, foreground, false, theme);
-  if (background && background !== DEFAULT_COLOR) output = paint(output, background, true, theme);
+  if (foreground && foreground !== DEFAULT_COLOR) {
+    output = paint(output, foreground, false, level, theme);
+  }
+  if (background && background !== DEFAULT_COLOR) {
+    output = paint(output, background, true, level, theme);
+  }
   if (bold) output = `\x1b[1m${output}\x1b[22m`;
   return output;
 }
 
-function paint(text: string, color: ColorName, background: boolean, theme?: Theme): string {
+function paint(
+  text: string,
+  color: ColorName,
+  background: boolean,
+  level: ColorLevel,
+  theme?: Theme,
+): string {
   if (color.startsWith(PI_PREFIX)) {
     // Theme exposes named foregrounds only. Its bg() takes a separate union of
     // background roles, none of which a widget color can name.
@@ -96,9 +123,92 @@ function paint(text: string, color: ColorName, background: boolean, theme?: Them
     return themeForeground(theme, themeColor, text) ?? text;
   }
 
-  const codes = NAMED_COLORS[color as keyof typeof NAMED_COLORS];
+  let name: string = color;
+  if (name.startsWith("#")) {
+    const rgb = parseHex(name);
+    if (!rgb) return text;
+    if (level === "truecolor") {
+      const [red, green, blue] = rgb;
+      return background
+        ? `\x1b[48;2;${red};${green};${blue}m${text}\x1b[49m`
+        : `\x1b[38;2;${red};${green};${blue}m${text}\x1b[39m`;
+    }
+    name = nearestAnsi(rgb);
+  }
+
+  const codes = NAMED_COLORS[name as BasicColor];
   if (!codes) return text;
   return background ? `\x1b[${codes[1]}m${text}\x1b[49m` : `\x1b[${codes[0]}m${text}\x1b[39m`;
+}
+
+export type Rgb = readonly [number, number, number];
+
+const HEX_PATTERN = /^#([0-9a-f]{6})$/i;
+
+/** Undefined for anything but six hex digits: no #rgb shorthand, no #rrggbbaa. */
+export function parseHex(color: string): Rgb | undefined {
+  const match = HEX_PATTERN.exec(color);
+  if (!match) return undefined;
+  const value = Number.parseInt(match[1]!, 16);
+  return [(value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff];
+}
+
+/** The six hue sectors, each as [dim, bright]. Index is the hue rounded to 60deg. */
+const HUE_SECTORS = [
+  ["red", "brightRed"],
+  ["yellow", "brightYellow"],
+  ["green", "brightGreen"],
+  ["cyan", "brightCyan"],
+  ["blue", "brightBlue"],
+  ["magenta", "brightMagenta"],
+] as const satisfies readonly (readonly [BasicColor, BasicColor])[];
+
+/**
+ * Below this saturation a color reads as grey however its channels lean. Set
+ * from the schemes themselves: their washed-out foregrounds sit near 0.22 and
+ * their palest accents near 0.29, and the cut has to land between the two.
+ */
+const GREY_SATURATION = 0.25;
+/** Below this brightness everything reads as black, saturated or not. */
+const BLACK_VALUE = 0.25;
+/** Above this brightness a hue sector uses its bright code instead of its dim one. */
+const BRIGHT_VALUE = 0.75;
+
+/**
+ * The basic color a hex degrades to when the terminal cannot take the hex
+ * itself. Matches on hue, then picks dim or bright by brightness.
+ *
+ * Not nearest-by-RGB-distance, which is the obvious answer and the wrong one:
+ * a pastel palette sits closer to grey than to any saturated code, so every
+ * scheme would collapse into white and the footer would lose its color
+ * altogether. Hue keeps blue blue.
+ *
+ * ponytail: the 16 basic codes are the whole target set. A 6x6x6 cube tier
+ * would land much closer, and is what to add if 256-color terminals ever
+ * matter more than they do today.
+ */
+export function nearestAnsi(rgb: Rgb): BasicColor {
+  const [red, green, blue] = rgb;
+  const max = Math.max(red, green, blue);
+  const min = Math.min(red, green, blue);
+  const value = max / 255;
+  const saturation = max === 0 ? 0 : (max - min) / max;
+
+  if (saturation < GREY_SATURATION || value < BLACK_VALUE) {
+    if (value < BLACK_VALUE) return "black";
+    if (value < 0.55) return "brightBlack";
+    return value < 0.9 ? "white" : "brightWhite";
+  }
+
+  const delta = max - min;
+  const turns =
+    max === red
+      ? ((green - blue) / delta + 6) % 6
+      : max === green
+        ? (blue - red) / delta + 2
+        : (red - green) / delta + 4;
+  const [dim, bright] = HUE_SECTORS[Math.round(turns) % 6]!;
+  return value < BRIGHT_VALUE ? dim : bright;
 }
 
 /**
