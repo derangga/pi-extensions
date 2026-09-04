@@ -104,9 +104,15 @@ function joinSegments(
   const segments = entries.map((entry) => entry.segment).filter((segment) => segment.length > 0);
   if (segments.length === 0) return "";
 
+  // A scheme fills in a separator colour the user never chose, so the footer
+  // does not read as half painted. Substituted here rather than inside paint:
+  // "default" still means inherit everywhere a widget names it, and this is the
+  // separator asking for the scheme's dim, not the sentinel being reinterpreted.
+  const separatorFg =
+    ctx.scheme && settings.separatorFg === "default" ? ctx.scheme.dim : settings.separatorFg;
   const separator = applyColors(
     separatorText(settings.separator),
-    settings.separatorFg,
+    separatorFg,
     settings.separatorBg,
     false,
     ctx.colorLevel,
@@ -136,7 +142,10 @@ function extensionStatusLine(
   const values = extensionStatusValues(statuses);
   if (values.length === 0) return undefined;
 
-  const dim = hasThemeColor(options.theme, "dim") ? "pi:dim" : "brightBlack";
+  // Other extensions' text, which is the argument for leaving it on Pi's theme.
+  // Overruled deliberately: while a scheme is active the whole footer is that
+  // scheme, and half a footer in each palette is worse than either.
+  const dim = scheme ? scheme.dim : hasThemeColor(options.theme, "dim") ? "pi:dim" : "brightBlack";
   const painted = applyColors(
     values.join(" "),
     dim,

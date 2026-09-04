@@ -15,7 +15,7 @@ export const ThinkingLevelWidget = defineWidget({
   defaultStyle: { fg: "magenta", bg: "default", bold: false },
   render({ ctx, options, renderWidget }) {
     const fg = options.thinkingLevelColors
-      ? thinkingLevelForeground(ctx.thinkingLevel, options.fg, ctx.theme)
+      ? thinkingLevelForeground(ctx.thinkingLevel, options.fg, ctx.theme, ctx.scheme)
       : options.fg;
     return renderWidget(ctx.thinkingLevel, colorPair(fg, options.bg));
   },

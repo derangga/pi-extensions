@@ -1,6 +1,7 @@
 import type { ExtensionAPI, Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 
 import { hasThemeColor, type ColorName } from "../../colors.js";
+import type { ColorScheme } from "../../schemes.js";
 
 /**
  * Pi's own level union, derived from the accessor rather than re-declared, so a
@@ -35,24 +36,33 @@ export const THINKING_LEVEL_COLORS_PROPERTY = {
 } as const;
 
 /**
- * The color the thinking segment paints with, in three descending preferences:
- * the theme's own color for that level, a fixed palette when the theme does not
- * define it, and the widget's configured color when the level means nothing to
- * this build.
+ * The color the thinking segment paints with.
+ *
+ * An active scheme owns the whole ladder and answers first. This segment's color
+ * is the package's headline feature, so it must not be the one part of a
+ * catppuccin footer still wearing Pi's palette. A scheme hands back a hex, so
+ * Theme.fg is not called at all on that path -- strictly fewer ways to throw
+ * than before, not more.
+ *
+ * Without a scheme, three descending preferences as before: the theme's own
+ * color for that level, a fixed palette when the theme does not define it, and
+ * the widget's configured color when the level means nothing to this build.
  *
  * The theme is asked before painting rather than painted and caught, because a
  * widget hands the renderer a color name and not styled text. Theme.fg throws
  * on a color the loaded theme omits, and from Pi 0.84 both thinkingMax and
- * searchMatchText are optional, so the middle preference is a live path.
+ * searchMatchText are optional, so that middle preference is a live path.
  */
 export function thinkingLevelForeground(
   level: string | undefined,
   configured: ColorName | undefined,
   theme: Theme | undefined,
+  scheme?: ColorScheme,
 ): ColorName | undefined {
   if (level === undefined) return configured;
   const levelColor = LEVEL_COLORS[level as ThinkingLevel];
   if (!levelColor) return configured;
 
+  if (scheme) return scheme.thinking[level as ThinkingLevel];
   return hasThemeColor(theme, levelColor.theme) ? `pi:${levelColor.theme}` : levelColor.fallback;
 }

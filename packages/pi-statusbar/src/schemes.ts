@@ -11,6 +11,14 @@
  * is what a terminal theme is, so it is easier to source correctly and easier to
  * check against the original.
  *
+ * `dim` is the palette's own comment color, and the separator and the row of
+ * other extensions' statuses both take it. It is a scheme-level slot rather
+ * than ANSI brightBlack because several projects collapse black and brightBlack
+ * onto the same near-black -- ayu-dark publishes #0a0000 for both -- which
+ * would leave those two the only invisible parts of the footer. It currently
+ * holds the same hex as the off thinking level, since both want the comment
+ * color; they are named apart so neither can silently move the other.
+ *
  * Foregrounds only. A scheme never fills a background, so the footer keeps
  * sitting on the terminal's own and a light scheme cannot paint a bright band
  * across the bottom of a dark screen. `light` says which terminal background a
@@ -36,6 +44,8 @@ import type { ThinkingLevel } from "./widgets/utils/thinking.js";
 export interface ColorScheme {
   /** True when the scheme expects a light terminal background. */
   light: boolean;
+  /** The palette's comment color, for the separator and the status row. */
+  dim: HexColor;
   ansi: Record<BasicColor, HexColor>;
   thinking: Record<ThinkingLevel, HexColor>;
 }
@@ -44,6 +54,7 @@ const SCHEMES = {
   "ayu-dark": {
     // ayu, themes/dark.yaml
     light: false,
+    dim: "#5a6673",
     ansi: {
       black: "#0a0000",
       red: "#e6495a",
@@ -75,6 +86,7 @@ const SCHEMES = {
   "ayu-light": {
     // ayu, themes/light.yaml
     light: true,
+    dim: "#adaeb1",
     ansi: {
       black: "#86878c",
       red: "#f07171",
@@ -106,6 +118,7 @@ const SCHEMES = {
   "catppuccin-frappe": {
     // catppuccin/palette, frappe ansiColors
     light: false,
+    dim: "#737994",
     ansi: {
       black: "#51576d",
       red: "#e78284",
@@ -137,6 +150,7 @@ const SCHEMES = {
   "catppuccin-latte": {
     // catppuccin/palette, latte ansiColors
     light: true,
+    dim: "#9ca0b0",
     ansi: {
       black: "#5c5f77",
       red: "#d20f39",
@@ -168,6 +182,7 @@ const SCHEMES = {
   "catppuccin-macchiato": {
     // catppuccin/palette, macchiato ansiColors
     light: false,
+    dim: "#6e738d",
     ansi: {
       black: "#494d64",
       red: "#ed8796",
@@ -199,6 +214,7 @@ const SCHEMES = {
   "catppuccin-mocha": {
     // catppuccin/palette, mocha ansiColors
     light: false,
+    dim: "#6c7086",
     ansi: {
       black: "#45475a",
       red: "#f38ba8",
@@ -230,6 +246,7 @@ const SCHEMES = {
   "github-dark": {
     // primer/primitives, dark.json ansi
     light: false,
+    dim: "#6e7681",
     ansi: {
       black: "#484f58",
       red: "#ff7b72",
@@ -261,6 +278,7 @@ const SCHEMES = {
   "github-light": {
     // primer/primitives, light.json ansi
     light: true,
+    dim: "#8c959f",
     ansi: {
       black: "#24292f",
       red: "#cf222e",
@@ -292,6 +310,7 @@ const SCHEMES = {
   "tokyo-night": {
     // tokyonight.nvim, alacritty/tokyonight_night
     light: false,
+    dim: "#565f89",
     ansi: {
       black: "#15161e",
       red: "#f7768e",
@@ -323,6 +342,7 @@ const SCHEMES = {
   "tokyo-night-day": {
     // tokyonight.nvim, alacritty/tokyonight_day
     light: true,
+    dim: "#848cb5",
     ansi: {
       black: "#b4b5b9",
       red: "#f52a65",
@@ -354,6 +374,7 @@ const SCHEMES = {
   "tokyo-night-moon": {
     // tokyonight.nvim, alacritty/tokyonight_moon
     light: false,
+    dim: "#636da6",
     ansi: {
       black: "#1b1d2b",
       red: "#ff757f",
@@ -385,6 +406,7 @@ const SCHEMES = {
   "tokyo-night-storm": {
     // tokyonight.nvim, alacritty/tokyonight_storm
     light: false,
+    dim: "#565f89",
     ansi: {
       black: "#1d202f",
       red: "#f7768e",

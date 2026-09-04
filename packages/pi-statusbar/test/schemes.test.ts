@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { BASIC_COLOR_NAMES } from "../src/colors.js";
+import { BASIC_COLOR_NAMES, parseHex } from "../src/colors.js";
 import { COLOR_SCHEMES, SCHEME_NAMES, type SchemeName } from "../src/schemes.js";
 import { THINKING_LEVELS } from "../src/widgets/utils/thinking.js";
 
@@ -51,7 +51,8 @@ describe("COLOR_SCHEMES", () => {
     ).toEqual(Object.fromEntries(SCHEME_NAMES.map((name) => [name, expected])));
   });
 
-  it("carries 276 values, every one a lowercase six-digit hex", () => {
+  it("carries 288 values, every one a lowercase six-digit hex", () => {
+    // 16 ANSI names, 7 thinking levels and the dim slot, times twelve.
     const malformed: string[] = [];
     let counted = 0;
     for (const [name, scheme] of entries) {
@@ -64,9 +65,27 @@ describe("COLOR_SCHEMES", () => {
         if (!HEX.test(value)) malformed.push(`${name}.thinking.${level}=${value}`);
         counted += 1;
       }
+      if (!HEX.test(scheme.dim)) malformed.push(`${name}.dim=${scheme.dim}`);
+      counted += 1;
     }
     expect(malformed).toEqual([]);
-    expect(counted).toBe(276);
+    expect(counted).toBe(288);
+  });
+
+  it("gives every scheme a dim that is readable against its own background", () => {
+    // The reason dim is its own slot: several projects collapse black and
+    // brightBlack onto the same near-black, and ayu-dark publishes #0a0000 for
+    // both, so borrowing brightBlack would leave that scheme's separator and
+    // status row invisible. Checked as a mid-range brightness, since dim has to
+    // sit off the terminal's own background whichever end it is at.
+    const tooFlat = entries
+      .map(([name, scheme]) => {
+        const [red, green, blue] = parseHex(scheme.dim)!;
+        return [name, Math.max(red, green, blue) / 255] as const;
+      })
+      .filter(([, value]) => value < 0.2 || value > 0.85)
+      .map(([name, value]) => `${name}=${value.toFixed(2)}`);
+    expect(tooFlat).toEqual([]);
   });
 
   it("flags the light-background schemes in the data, not by their names", () => {
