@@ -96,7 +96,7 @@ describe("pi-statusbar manifest", () => {
 
   it("is public, MIT, and starts at 0.1.0", () => {
     const manifest = readManifest();
-    expect(manifest.name).toBe("pi-statusbar");
+    expect(manifest.name).toBe("pi-status-widget");
     expect(manifest.version).toBe("0.1.0");
     expect(manifest.license).toBe("MIT");
     expect(manifest.publishConfig?.access).toBe("public");

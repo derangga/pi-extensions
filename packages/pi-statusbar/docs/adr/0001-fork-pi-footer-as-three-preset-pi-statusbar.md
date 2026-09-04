@@ -16,6 +16,13 @@ behind them.
 
 - npm `pi-statusbar`, unscoped, starting at 0.1.0. The name was verified free on
   npm. `pi-statusline` and `pi-bar` are taken.
+
+  **Amendment, first publish attempt:** unscoped `pi-statusbar` had been taken
+  by someone else in the time between that check and shipping. Published as
+  `pi-status-widget` 0.1.0 instead, still unscoped. Nothing else in this
+  document changes: the internal status label and command name printed in the
+  footer stay `pi-statusbar`, since that string is display text, not the npm
+  package name, and the package still lives at `packages/pi-statusbar/`.
 - The package lives at `packages/pi-statusbar/` in this workspaces monorepo.
   Shared tooling sits at the root, and root scripts are scoped to `packages/` so
   the vendored reference clones never get linted, formatted or tested.
