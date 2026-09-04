@@ -19,13 +19,14 @@ behind them.
 
   **Amendment, first publish attempt:** unscoped `pi-statusbar` had been taken
   by someone else in the time between that check and shipping. Published as
-  `pi-status-widget` 0.1.0 instead, still unscoped. Nothing else in this
-  document changes: the internal status label and command name printed in the
-  footer stay `pi-statusbar`, since that string is display text, not the npm
-  package name, and the package still lives at `packages/pi-statusbar/`.
-- The package lives at `packages/pi-statusbar/` in this workspaces monorepo.
-  Shared tooling sits at the root, and root scripts are scoped to `packages/` so
-  the vendored reference clones never get linted, formatted or tested.
+  `pi-status-widget` 0.1.0 instead, still unscoped, and the directory moved to
+  `packages/pi-status-widget/` to match. The internal status label and command
+  name printed in the footer stay `pi-statusbar`, since that string is display
+  text, not the npm package name or the directory.
+- The package lives at `packages/pi-status-widget/` in this workspaces
+  monorepo (`packages/pi-statusbar/` before the amendment above). Shared
+  tooling sits at the root, and root scripts are scoped to `packages/` so the
+  vendored reference clones never get linted, formatted or tested.
 - Author `derangga <contact@rangga.site>`. The LICENSE is MIT carrying
   wobondar's original copyright line plus derangga's, as the MIT terms require
   of a fork.
