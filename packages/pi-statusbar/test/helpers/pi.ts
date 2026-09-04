@@ -20,6 +20,8 @@ export interface ContextStub {
   footers: (FooterFactory | undefined)[];
   statuses: (string | undefined)[];
   notifications: { message: string; type: string | undefined }[];
+  /** Every picker the code opened, in order, with the rows it offered. */
+  selects: { title: string; options: string[] }[];
 }
 
 export type FooterFactory = (
@@ -36,12 +38,16 @@ export interface ContextOptions {
   contextUsage?: { tokens: number | null; contextWindow: number } | undefined;
   entries?: readonly unknown[];
   theme?: Theme;
+  /** One answer per ui.select call, in order. Undefined is a cancel. */
+  selections?: readonly (string | undefined)[];
 }
 
 export function stubContext(options: ContextOptions = {}): ContextStub {
   const footers: (FooterFactory | undefined)[] = [];
   const statuses: (string | undefined)[] = [];
   const notifications: { message: string; type: string | undefined }[] = [];
+  const selects: { title: string; options: string[] }[] = [];
+  const answers = [...(options.selections ?? [])];
 
   const ctx = {
     hasUI: options.hasUI ?? true,
@@ -58,10 +64,17 @@ export function stubContext(options: ContextOptions = {}): ContextStub {
       setFooter: (factory: FooterFactory | undefined) => footers.push(factory),
       setStatus: (_key: string, text: string | undefined) => statuses.push(text),
       notify: (message: string, type?: string) => notifications.push({ message, type }),
+      select: (title: string, choices: string[]) => {
+        selects.push({ title, options: choices });
+        // Running past the script is a cancel, not a hang: a test that opens
+        // one more picker than it scripted should fail on the commit it did
+        // not make rather than on a timeout.
+        return Promise.resolve(answers.shift());
+      },
     },
   } as unknown as ExtensionContext;
 
-  return { ctx, footers, statuses, notifications };
+  return { ctx, footers, statuses, notifications, selects };
 }
 
 export interface CommandStub {

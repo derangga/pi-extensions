@@ -2,9 +2,11 @@ import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it } from "vitest";
 
 import {
+  buildMenu,
   COMMAND_NAME,
   describeSettings,
   parseStatusbarCommand,
+  MENU_TITLE,
   registerStatusbarCommand,
   USAGE,
 } from "../src/command.js";
@@ -90,10 +92,13 @@ interface HostStub {
 }
 
 /** Drives the command against a host that records commits instead of touching disk. */
-function hosted(initial: StatusbarConfig = cloneConfig(DEFAULT_CONFIG)) {
+function hosted(
+  initial: StatusbarConfig = cloneConfig(DEFAULT_CONFIG),
+  contextOptions: Parameters<typeof stubContext>[0] = {},
+) {
   const state: HostStub = { config: initial, commits: [] };
   const api = stubApi();
-  const context = stubContext();
+  const context = stubContext(contextOptions);
 
   registerStatusbarCommand(api.pi, {
     current: () => state.config,
@@ -117,8 +122,8 @@ describe("registerStatusbarCommand", () => {
     expect(commands.get(COMMAND_NAME)?.description).toBeTruthy();
   });
 
-  it("prints the current settings and the config path when given nothing", async () => {
-    const host = hosted();
+  it("prints the current settings and the config path with no terminal to draw in", async () => {
+    const host = hosted(cloneConfig(DEFAULT_CONFIG), { hasUI: false });
     await host.run("");
 
     expect(host.state.commits).toHaveLength(0);
@@ -199,11 +204,113 @@ describe("registerStatusbarCommand", () => {
   });
 
   it("commits once per mutation and never for a read", async () => {
-    const host = hosted();
+    const host = hosted(cloneConfig(DEFAULT_CONFIG), { hasUI: false });
     await host.run("");
     await host.run("nonsense");
     await host.run("on");
 
     expect(host.state.commits).toHaveLength(1);
+  });
+});
+
+describe("buildMenu", () => {
+  it("shows the current value on the row that changes it", () => {
+    const config: StatusbarConfig = {
+      ...cloneConfig(DEFAULT_CONFIG),
+      preset: "git-heavy",
+      iconMode: "nerd",
+    };
+    const labels = buildMenu(config).map((entry) => entry.label);
+
+    expect(labels[0]).toContain("git-heavy");
+    expect(labels[1]).toContain("nerd");
+  });
+
+  it("names the direction the toggle would move, not the state it is in", () => {
+    // A row reading "on" is ambiguous: it could be the current state or the
+    // thing about to happen. Naming the action leaves nothing to guess.
+    expect(buildMenu(cloneConfig(DEFAULT_CONFIG))[2]?.label).toBe("Turn the footer off");
+    expect(buildMenu({ ...cloneConfig(DEFAULT_CONFIG), enabled: false })[2]?.label).toBe(
+      "Turn the footer on",
+    );
+  });
+
+  it("offers every preset and every icon mode, and nothing that cannot be parsed", () => {
+    const menu = buildMenu(cloneConfig(DEFAULT_CONFIG));
+    expect(menu[0]?.options.map((option) => option.label)).toEqual([
+      "default",
+      "compact",
+      "git-heavy",
+    ]);
+    expect(menu[1]?.options.map((option) => option.label)).toEqual(["emoji", "nerd"]);
+  });
+
+  it("gives every row at least one option, so no row is a dead end", () => {
+    for (const entry of buildMenu(cloneConfig(DEFAULT_CONFIG))) {
+      expect(entry.options.length).toBeGreaterThan(0);
+      expect(entry.label.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("the /statusbar picker", () => {
+  it("opens on the bare command and drills into a second picker", async () => {
+    const host = hosted(cloneConfig(DEFAULT_CONFIG), {
+      selections: ["Layout preset · default", "compact"],
+    });
+    await host.run("");
+
+    expect(host.context.selects[0]?.title).toBe(MENU_TITLE);
+    expect(host.context.selects[1]?.title).toBe("Layout preset · default");
+    expect(host.context.selects[1]?.options).toEqual(["default", "compact", "git-heavy"]);
+    expect(host.state.config.preset).toBe("compact");
+  });
+
+  it("applies a single-option row without a second picker", async () => {
+    const host = hosted(cloneConfig(DEFAULT_CONFIG), { selections: ["Turn the footer off"] });
+    await host.run("");
+
+    expect(host.context.selects).toHaveLength(1);
+    expect(host.state.config.enabled).toBe(false);
+  });
+
+  it("commits nothing when the first picker is cancelled", async () => {
+    const host = hosted(cloneConfig(DEFAULT_CONFIG), { selections: [undefined] });
+    await host.run("");
+
+    expect(host.context.selects).toHaveLength(1);
+    expect(host.state.commits).toHaveLength(0);
+    expect(host.context.notifications).toHaveLength(0);
+  });
+
+  it("commits nothing when the second picker is cancelled", async () => {
+    // The escape has to hold at both depths. Backing out of the preset list
+    // must not leave the first choice half-applied.
+    const host = hosted(cloneConfig(DEFAULT_CONFIG), {
+      selections: ["Layout preset · default", undefined],
+    });
+    await host.run("");
+
+    expect(host.context.selects).toHaveLength(2);
+    expect(host.state.commits).toHaveLength(0);
+  });
+
+  it("stays out of the way when arguments are typed", async () => {
+    const host = hosted(cloneConfig(DEFAULT_CONFIG), { selections: ["Reset to defaults"] });
+    await host.run("preset compact");
+
+    expect(host.context.selects).toHaveLength(0);
+    expect(host.state.config.preset).toBe("compact");
+  });
+
+  it("reaches the settings text through the picker too", async () => {
+    const host = hosted(cloneConfig(DEFAULT_CONFIG), {
+      selections: ["Show settings and config path"],
+    });
+    await host.run("");
+
+    expect(host.context.selects).toHaveLength(1);
+    expect(host.state.commits).toHaveLength(0);
+    expect(host.context.notifications[0]?.message).toContain("pi-statusbar.json");
   });
 });
