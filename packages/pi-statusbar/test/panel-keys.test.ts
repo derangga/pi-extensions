@@ -3,6 +3,7 @@ import { KeybindingsManager, setKeybindings, TUI_KEYBINDINGS } from "@earendil-w
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { COMMAND_NAME, PANEL_HINT, registerStatusbarCommand } from "../src/command.js";
+import { stripAnsi } from "../src/colors.js";
 import { cloneConfig, DEFAULT_CONFIG } from "../src/config.js";
 import type { StatusbarConfig } from "../src/types.js";
 import { stubApi, stubContext } from "./helpers/pi.js";
@@ -218,8 +219,25 @@ describe("the /statusbar panel", () => {
     expect(panel.context.closed()).toBe(false);
   });
 
-  it("names the arrows, which the list's own hint does not", async () => {
+  it("puts the reset line directly under the list's hint, with no gap", async () => {
+    // The two read as one block. A blank line between them makes the second
+    // look like a stray line of output rather than part of the same footnote.
     const panel = await openPanel();
-    expect(panel.lines().join("\n")).toContain(PANEL_HINT);
+    const lines = panel.lines().map((line) => stripAnsi(line).trimEnd());
+    const hint = lines.findIndex((line) => line.includes("Enter/Space to change"));
+
+    expect(hint).toBeGreaterThan(-1);
+    expect(lines[hint + 1]).toBe(`  ${PANEL_HINT}`);
+  });
+
+  it("says nothing about the arrows, which would rival Enter for the same job", async () => {
+    // The rightward arrow is SettingsList's cursor glyph, so only the hint
+    // block can be checked for arrows, not the whole panel.
+    const panel = await openPanel();
+    const lines = panel.lines().map((line) => stripAnsi(line));
+    const hint = lines.findIndex((line) => line.includes("Enter/Space to change"));
+
+    expect(PANEL_HINT).not.toMatch(/[\u2190\u2192]/);
+    for (const line of lines.slice(hint)) expect(line).not.toMatch(/[\u2190\u2192]/);
   });
 });

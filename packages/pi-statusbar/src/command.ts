@@ -1,6 +1,6 @@
 import { getSettingsListTheme } from "@earendil-works/pi-coding-agent";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import { Container, SettingsList, Text } from "@earendil-works/pi-tui";
+import { Container, SettingsList, type SettingsListTheme, Text } from "@earendil-works/pi-tui";
 
 import {
   cloneConfig,
@@ -88,12 +88,23 @@ export interface StatusbarCommandHost {
 }
 
 /**
- * Only what SettingsList's own hint line leaves out. It already names Enter,
- * Space and Esc, and repeating those wrapped the line at 64 columns.
+ * The one thing the rows cannot do, printed directly under SettingsList's own
+ * hint. Nothing about the keys: the list already names Enter, Space and Esc,
+ * and a second line naming the arrows only raises the question of which of the
+ * two ways to change a value is the real one.
  */
-export const PANEL_HINT = "\u2190\u2192 change  ·  /statusbar reset restores defaults";
+export const PANEL_HINT = "/statusbar reset restores defaults";
 
 export const PANEL_TITLE = "pi-statusbar";
+
+/**
+ * Matches SettingsList's own hint exactly: its two-space indent, its hint
+ * colour, and no padding, so the two lines read as one block rather than as a
+ * hint and some other thing below it.
+ */
+function hintLine(settingsTheme: SettingsListTheme): Text {
+  return new Text(settingsTheme.hint(`  ${PANEL_HINT}`), 0, 0);
+}
 
 /**
  * Opens the panel. Each row applies as it changes, so the config on disk is
@@ -114,10 +125,11 @@ async function openPanel(
     const container = new Container();
     container.addChild(new Text(theme.fg("accent", PANEL_TITLE), 1, 1));
 
+    const settingsTheme = getSettingsListTheme();
     const list = new SettingsList(
       items,
       items.length,
-      getSettingsListTheme(),
+      settingsTheme,
       (id, value) => {
         const command = commandForSettingChange(id, value);
         if (command) void apply(command);
@@ -125,7 +137,7 @@ async function openPanel(
       () => void dismiss(),
     );
     container.addChild(list);
-    container.addChild(new Text(theme.fg("dim", PANEL_HINT), 1, 1));
+    container.addChild(hintLine(settingsTheme));
 
     async function dismiss(): Promise<void> {
       await host.commit(opened, ctx);
