@@ -6,7 +6,7 @@ import { hasThemeColor, type ColorName } from "../../colors.js";
  * Pi's own level union, derived from the accessor rather than re-declared, so a
  * level added upstream becomes a compile error here instead of a silent gap.
  */
-type ThinkingLevel = ReturnType<ExtensionAPI["getThinkingLevel"]>;
+export type ThinkingLevel = ReturnType<ExtensionAPI["getThinkingLevel"]>;
 
 interface LevelColor {
   /** The color Pi paints its own thinking indicator with. */
@@ -24,6 +24,9 @@ const LEVEL_COLORS: Record<ThinkingLevel, LevelColor> = {
   xhigh: { theme: "thinkingXhigh", fallback: "red" },
   max: { theme: "thinkingMax", fallback: "brightRed" },
 };
+
+/** The seven levels at runtime, taken from the map so the two cannot drift. */
+export const THINKING_LEVELS = Object.keys(LEVEL_COLORS) as readonly ThinkingLevel[];
 
 export const THINKING_LEVEL_COLORS_PROPERTY = {
   id: "thinkingLevelColors",

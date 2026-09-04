@@ -33,6 +33,11 @@ const DEFAULT_COLOR = "default";
 
 /** The 16 ANSI names without the default sentinel: what a hex degrades to. */
 export type BasicColor = keyof typeof NAMED_COLORS;
+/**
+ * The same 16 names at runtime, so a table keyed by them can be walked rather
+ * than sampled. Object.keys widens to string[], hence the cast.
+ */
+export const BASIC_COLOR_NAMES = Object.keys(NAMED_COLORS) as readonly BasicColor[];
 export type NamedColor = typeof DEFAULT_COLOR | BasicColor;
 /**
  * Well-formedness is checked when the color is painted, not by the type. TS can
