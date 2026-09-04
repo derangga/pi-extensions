@@ -11,7 +11,7 @@ case headings, and the rest.
 ## Installation
 
 ```sh
-pi install pi-unslop-rules
+pi install npm:pi-unslop-rules
 ```
 
 That is the whole setup. There is no config, no command and no toggle. Load the
