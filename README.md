@@ -10,6 +10,7 @@ its own README. Install one without installing the others.
 | Package | What it does | Status |
 | --- | --- | --- |
 | [`pi-ask-popup`](packages/pi-ask-popup) | A tabbed terminal questionnaire the model opens instead of guessing | In progress |
+| [`pi-status-widget`](packages/pi-status-widget) | A footer with three presets, emoji or nerd icons, twelve color schemes, and a thinking level that colors itself | In progress |
 
 ## Working in this repo
 
