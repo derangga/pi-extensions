@@ -19,6 +19,7 @@ const SETTINGS: StatusbarSettings = {
   separatorFg: "default",
   separatorBg: "default",
   iconMode: "emoji",
+  colorScheme: "default",
 };
 
 interface WidgetSpecInput {

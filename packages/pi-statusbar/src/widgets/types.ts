@@ -1,6 +1,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 
 import type { ColorLevel } from "../colors.js";
+import type { ColorScheme } from "../schemes.js";
 import type { IconMode, StatusbarData, WidgetEntry, WidgetOptions, WidgetStyle } from "../types.js";
 
 /**
@@ -48,6 +49,8 @@ export interface BaseWidgetContext {
   iconMode: IconMode;
   colorLevel: ColorLevel;
   theme?: Theme;
+  /** Absent at the "default" setting, which is what makes a scheme opt-in. */
+  scheme?: ColorScheme;
 }
 
 export type WidgetContext<TDeps extends readonly WidgetDependency[] = readonly []> =

@@ -421,3 +421,28 @@ export const COLOR_SCHEMES: Record<SchemeName, ColorScheme> = SCHEMES;
 
 /** Sorted, so a picker walking them lists them the same way every time. */
 export const SCHEME_NAMES = Object.keys(SCHEMES).sort() as readonly SchemeName[];
+
+/**
+ * Inherit. Named colors and pi: tokens behave exactly as they did before any
+ * scheme existed, no truecolor is emitted, and it stays correct if Pi's theme
+ * changes later. It is the shipped value and the way back out of a scheme.
+ */
+export const DEFAULT_SCHEME = "default";
+
+export type ColorSchemeName = SchemeName | typeof DEFAULT_SCHEME;
+
+/**
+ * Undefined for a name this build does not know, which the config turns into
+ * "default" rather than a failed load, the same way an unknown preset and an
+ * unknown separator already do.
+ */
+export function normalizeColorSchemeName(value: unknown): ColorSchemeName | undefined {
+  if (typeof value !== "string") return undefined;
+  if (value === DEFAULT_SCHEME) return DEFAULT_SCHEME;
+  return Object.hasOwn(SCHEMES, value) ? (value as SchemeName) : undefined;
+}
+
+/** Undefined at "default", which is what tells the color layer to inherit. */
+export function activeScheme(name: ColorSchemeName): ColorScheme | undefined {
+  return name === DEFAULT_SCHEME ? undefined : COLOR_SCHEMES[name];
+}

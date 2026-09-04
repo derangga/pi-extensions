@@ -5,6 +5,7 @@ import { getAgentDir } from "@earendil-works/pi-coding-agent";
 
 import { normalizeColor } from "./colors.js";
 import { PRESET_DEFINITIONS, type Preset, type PresetWidget } from "./presets.js";
+import { DEFAULT_SCHEME, normalizeColorSchemeName } from "./schemes.js";
 import { SEPARATOR_VALUES, type SeparatorStyle } from "./separators.js";
 import type { IconMode, StatusbarConfig, StatusbarSettings, WidgetEntry } from "./types.js";
 import { ICON_MODE_VALUES, isRecord } from "./types.js";
@@ -24,6 +25,7 @@ export const DEFAULT_CONFIG: StatusbarConfig = {
   separatorFg: "default",
   separatorBg: "default",
   iconMode: "emoji",
+  colorScheme: DEFAULT_SCHEME,
 };
 
 export function getConfigPath(): string {
@@ -67,6 +69,7 @@ export function normalizeConfig(input: unknown): StatusbarConfig {
     separatorFg: normalizeColor(input.separatorFg) ?? DEFAULT_CONFIG.separatorFg,
     separatorBg: normalizeColor(input.separatorBg) ?? DEFAULT_CONFIG.separatorBg,
     iconMode: isIconMode(input.iconMode) ? input.iconMode : DEFAULT_CONFIG.iconMode,
+    colorScheme: normalizeColorSchemeName(input.colorScheme) ?? DEFAULT_CONFIG.colorScheme,
   };
 }
 

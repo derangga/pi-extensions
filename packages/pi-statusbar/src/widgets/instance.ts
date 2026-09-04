@@ -119,5 +119,6 @@ function renderWidgetValue(
     renderOptions.bold ?? options.bold,
     ctx.colorLevel,
     ctx.theme,
+    ctx.scheme,
   );
 }

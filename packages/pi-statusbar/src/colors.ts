@@ -1,5 +1,7 @@
 import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 
+import type { ColorScheme } from "./schemes.js";
+
 /**
  * ANSI 16-color codes, keyed by the name a config file uses. Each pair is
  * [foreground, background].
@@ -92,6 +94,13 @@ export function hasThemeColor(theme: Theme | undefined, color: ThemeColor): bool
   return themeForeground(theme, color, "") !== undefined;
 }
 
+/**
+ * The scheme rides along as the last argument rather than folded into an object
+ * with level and theme. Seven positional parameters is not a shape to be proud
+ * of, but every one of the callers and the assertions that pin their output
+ * already spell the first six, and this issue's whole claim is that their bytes
+ * do not move.
+ */
 export function applyColors(
   text: string,
   foreground: ColorName | undefined,
@@ -99,15 +108,16 @@ export function applyColors(
   bold: boolean | undefined,
   level: ColorLevel,
   theme?: Theme,
+  scheme?: ColorScheme,
 ): string {
   if (level === "none") return text;
 
   let output = text;
   if (foreground && foreground !== DEFAULT_COLOR) {
-    output = paint(output, foreground, false, level, theme);
+    output = paint(output, foreground, false, level, theme, scheme);
   }
   if (background && background !== DEFAULT_COLOR) {
-    output = paint(output, background, true, level, theme);
+    output = paint(output, background, true, level, theme, scheme);
   }
   if (bold) output = `\x1b[1m${output}\x1b[22m`;
   return output;
@@ -119,6 +129,7 @@ function paint(
   background: boolean,
   level: ColorLevel,
   theme?: Theme,
+  scheme?: ColorScheme,
 ): string {
   if (color.startsWith(PI_PREFIX)) {
     // Theme exposes named foregrounds only. Its bg() takes a separate union of
@@ -128,7 +139,11 @@ function paint(
     return themeForeground(theme, themeColor, text) ?? text;
   }
 
+  // The scheme redefines the 16 names, so a widget keeps naming its slot and
+  // the scheme decides what that slot looks like. The default sentinel never
+  // arrives here, which is what keeps "inherit" outside a scheme's reach.
   let name: string = color;
+  if (scheme && isBasicColor(color)) name = scheme.ansi[color];
   if (name.startsWith("#")) {
     const rgb = parseHex(name);
     if (!rgb) return text;
@@ -144,6 +159,10 @@ function paint(
   const codes = NAMED_COLORS[name as BasicColor];
   if (!codes) return text;
   return background ? `\x1b[${codes[1]}m${text}\x1b[49m` : `\x1b[${codes[0]}m${text}\x1b[39m`;
+}
+
+function isBasicColor(color: ColorName): color is BasicColor {
+  return Object.hasOwn(NAMED_COLORS, color);
 }
 
 export type Rgb = readonly [number, number, number];

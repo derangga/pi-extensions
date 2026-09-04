@@ -1,5 +1,6 @@
 import type { ColorName } from "./colors.js";
 import type { Preset } from "./presets.js";
+import type { ColorSchemeName } from "./schemes.js";
 import type { SeparatorStyle } from "./separators.js";
 import type { WidgetType } from "./widgets/registry.js";
 
@@ -47,6 +48,7 @@ export interface StatusbarSettings {
   separatorFg: ColorName;
   separatorBg: ColorName;
   iconMode: IconMode;
+  colorScheme: ColorSchemeName;
 }
 
 export interface StatusbarConfig extends StatusbarSettings {

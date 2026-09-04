@@ -14,6 +14,7 @@ import { getConfigPath, loadConfig, saveConfig, STATUS_KEY } from "./config.js";
 import { collectStatusbarData } from "./data.js";
 import { gitCommandsFor, type GitCommand } from "./git.js";
 import { renderStatusbar } from "./render.js";
+import { activeScheme } from "./schemes.js";
 import type { StatusbarConfig } from "./types.js";
 import { WidgetStore } from "./widgets/store.js";
 
@@ -50,7 +51,15 @@ export default async function statusbarExtension(pi: ExtensionAPI): Promise<void
   function statusLabel(ctx: ExtensionContext): string {
     const accent = hasThemeColor(ctx.ui.theme, "accent") ? "pi:accent" : "cyan";
     const colorLevel = resolveColorLevel(process.env, ctx.ui.theme);
-    return applyColors(STATUS_LABEL, accent, undefined, false, colorLevel, ctx.ui.theme);
+    return applyColors(
+      STATUS_LABEL,
+      accent,
+      undefined,
+      false,
+      colorLevel,
+      ctx.ui.theme,
+      activeScheme(config.colorScheme),
+    );
   }
 
   function apply(ctx: ExtensionContext): void {

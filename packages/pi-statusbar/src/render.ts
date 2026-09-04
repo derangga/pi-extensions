@@ -3,6 +3,7 @@ import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 import { applyColors, hasThemeColor, type ColorLevel } from "./colors.js";
 import { extensionStatusValues, type GetExtensionStatuses } from "./extension-statuses.js";
+import { activeScheme, type ColorScheme } from "./schemes.js";
 import { separatorText } from "./separators.js";
 import type { StatusbarData, StatusbarSettings } from "./types.js";
 import { contextForDependencies } from "./widgets/context.js";
@@ -37,17 +38,19 @@ export function renderStatusbar(
   const settings = store.settings;
   if (!settings.enabled || width <= 0) return [];
 
+  const scheme = activeScheme(settings.colorScheme);
   const baseCtx: BaseWidgetContext = {
     iconMode: settings.iconMode,
     colorLevel: options.colorLevel,
     ...(options.theme ? { theme: options.theme } : {}),
+    ...(scheme ? { scheme } : {}),
   };
 
   const lines = store.lines
     .map((line) => renderLine(line, settings, width, baseCtx, data))
     .filter((line) => line.trim().length > 0);
 
-  const statusLine = extensionStatusLine(width, options);
+  const statusLine = extensionStatusLine(width, options, scheme);
   return statusLine === undefined ? lines : [...lines, statusLine];
 }
 
@@ -108,6 +111,7 @@ function joinSegments(
     false,
     ctx.colorLevel,
     ctx.theme,
+    ctx.scheme,
   );
   return segments.join(separator);
 }
@@ -121,7 +125,11 @@ function padRight(left: string, right: string, width: number): string {
  * Other extensions' statuses, dimmed, below the footer. Undefined when nobody
  * published one, so an empty row never costs a terminal line.
  */
-function extensionStatusLine(width: number, options: RenderStatusbarOptions): string | undefined {
+function extensionStatusLine(
+  width: number,
+  options: RenderStatusbarOptions,
+  scheme: ColorScheme | undefined,
+): string | undefined {
   const statuses = options.getExtensionStatuses?.();
   if (!statuses) return undefined;
 
@@ -136,6 +144,7 @@ function extensionStatusLine(width: number, options: RenderStatusbarOptions): st
     false,
     options.colorLevel,
     options.theme,
+    scheme,
   );
   return truncateToWidth(painted, width, ELLIPSIS);
 }
