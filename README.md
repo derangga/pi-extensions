@@ -9,9 +9,9 @@ its own README. Install one without installing the others.
 
 | Package | What it does | Status |
 | --- | --- | --- |
-| [`pi-ask-popup`](packages/pi-ask-popup) | A tabbed terminal questionnaire the model opens instead of guessing | In progress |
-| [`pi-status-widget`](packages/pi-status-widget) | A footer with three presets, emoji or nerd icons, twelve color schemes, and a thinking level that colors itself | In progress |
-| [`pi-catppuccin-themes`](packages/pi-catppuccin-themes) | The four Catppuccin flavors (latte, frappe, macchiato, mocha) vendored in-house | In progress |
+| [`pi-ask-popup`](packages/pi-ask-popup) | A tabbed terminal questionnaire the model opens instead of guessing | Published |
+| [`pi-status-widget`](packages/pi-status-widget) | A footer with three presets, emoji or nerd icons, twelve color schemes, and a thinking level that colors itself | Published |
+| [`pi-catppuccin-themes`](packages/pi-catppuccin-themes) | The four Catppuccin flavors (latte, frappe, macchiato, mocha) vendored in-house | Published |
 
 ## Working in this repo
 
