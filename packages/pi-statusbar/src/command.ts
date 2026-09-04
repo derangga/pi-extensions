@@ -10,7 +10,14 @@ import {
   isIconMode,
   isPreset,
 } from "./config.js";
-import { buildSettingItems, commandForSettingChange, cycleValue, stepForKey } from "./panel.js";
+import {
+  buildPanelItems,
+  commandForSettingChange,
+  cycleValue,
+  isActionRow,
+  ROW_DISMISS,
+  stepForKey,
+} from "./panel.js";
 import type { Preset } from "./presets.js";
 import type { IconMode, StatusbarConfig } from "./types.js";
 
@@ -89,62 +96,57 @@ export const PANEL_HINT = "\u2190\u2192 change  ·  /statusbar reset restores de
 export const PANEL_TITLE = "pi-statusbar";
 
 /**
- * Opens the panel and applies each change as it happens. Nothing is returned:
- * every row commits through `apply` on the way past, so closing the panel is
- * not a save and escape is not a cancel.
+ * Opens the panel. Each row applies as it changes, so the config on disk is
+ * always what the rows say, and Dismiss puts back the config as it stood when
+ * the panel opened. Escape does the same, because SettingsList prints "Esc to
+ * cancel" under the rows and that has to be true.
  */
 async function openPanel(
   host: StatusbarCommandHost,
   ctx: ExtensionCommandContext,
   apply: (command: StatusbarCommand) => Promise<void>,
 ): Promise<void> {
-  const items = buildSettingItems(host.current());
+  const opened = host.current();
+  const items = buildPanelItems(opened);
   let cursor = 0;
 
-  await ctx.ui.custom<undefined>(
-    (tui, theme, keybindings, done) => {
-      const container = new Container();
-      container.addChild(new Text(theme.fg("accent", PANEL_TITLE), 1, 1));
+  await ctx.ui.custom<undefined>((tui, theme, keybindings, done) => {
+    const container = new Container();
+    container.addChild(new Text(theme.fg("accent", PANEL_TITLE), 1, 1));
 
-      const list = new SettingsList(
-        items,
-        items.length,
-        getSettingsListTheme(),
-        (id, value) => {
-          const command = commandForSettingChange(id, value);
-          if (command) void apply(command);
-        },
-        () => done(undefined),
-      );
-      container.addChild(list);
-      container.addChild(new Text(theme.fg("dim", PANEL_HINT), 1, 1));
+    const list = new SettingsList(
+      items,
+      items.length,
+      getSettingsListTheme(),
+      (id, value) => {
+        const command = commandForSettingChange(id, value);
+        if (command) void apply(command);
+      },
+      () => void dismiss(),
+    );
+    container.addChild(list);
+    container.addChild(new Text(theme.fg("dim", PANEL_HINT), 1, 1));
 
-      /** Moves my cursor and mirrors it into the list, whose own index is private. */
-      const move = (step: number): void => {
-        cursor = (cursor + step + items.length) % items.length;
+    async function dismiss(): Promise<void> {
+      await host.commit(opened, ctx);
+      done(undefined);
+    }
+
+    /** Moves my cursor and mirrors it into the list, whose own index is private. */
+    const move = (step: number): void => {
+      cursor = (cursor + step + items.length) % items.length;
+      const item = items[cursor];
+      if (item) list.selectItem(item.id);
+    };
+
+    return {
+      render: (width: number) => container.render(width),
+      invalidate: () => container.invalidate(),
+      handleInput: (data: string) => {
         const item = items[cursor];
-        if (item) list.selectItem(item.id);
-      };
+        const step = stepForKey(data);
 
-      return {
-        render: (width: number) => container.render(width),
-        invalidate: () => container.invalidate(),
-        handleInput: (data: string) => {
-          const step = stepForKey(data);
-          if (step === undefined) {
-            // Up, down, Enter, space and escape are all the list's own. Its
-            // cursor is private, so the same keypress moves this one too, and
-            // it is read through the keybindings manager rather than as a
-            // hardcoded escape sequence: a user who has bound j and k must not
-            // end up moving one cursor and changing the other row's value.
-            list.handleInput?.(data);
-            if (keybindings.matches(data, "tui.select.up")) move(-1);
-            else if (keybindings.matches(data, "tui.select.down")) move(1);
-            tui.requestRender();
-            return;
-          }
-
-          const item = items[cursor];
+        if (step !== undefined) {
           if (item?.values) {
             const value = cycleValue(item.values, item.currentValue, step);
             item.currentValue = value;
@@ -153,18 +155,31 @@ async function openPanel(
             if (command) void apply(command);
           }
           tui.requestRender();
-        },
-      };
-    },
-    { overlay: true },
-  );
+          return;
+        }
+
+        // A closing row carries no values, so SettingsList would do nothing
+        // with the keypress. Taking it here is what makes the row an action.
+        if (item && isActionRow(item.id) && keybindings.matches(data, "tui.select.confirm")) {
+          if (item.id === ROW_DISMISS) void dismiss();
+          else done(undefined);
+          return;
+        }
+
+        // Up, down and escape are all the list's own. Its cursor is private, so
+        // the same keypress moves this one too, and it is read through the
+        // keybindings manager rather than as a hardcoded escape sequence: a
+        // user who has bound j and k must not end up moving one cursor and
+        // changing another row's value.
+        list.handleInput?.(data);
+        if (keybindings.matches(data, "tui.select.up")) move(-1);
+        else if (keybindings.matches(data, "tui.select.down")) move(1);
+        tui.requestRender();
+      },
+    };
+  });
 }
 
-/**
- * `quiet` suppresses the confirmation for changes made from the panel, where
- * the row already shows the new value and a notification per arrow press would
- * bury the panel it came from.
- */
 async function applyCommand(
   command: StatusbarCommand,
   host: StatusbarCommandHost,

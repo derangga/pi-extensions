@@ -19,6 +19,16 @@ export const ROW_PRESET = "preset";
 export const ROW_ICONS = "icons";
 export const ROW_ENABLED = "enabled";
 
+/** Rows that close the panel rather than holding a value. */
+export const ROW_DONE = "done";
+export const ROW_DISMISS = "dismiss";
+
+const ACTION_ROWS = new Set<string>([ROW_DONE, ROW_DISMISS]);
+
+export function isActionRow(id: string): boolean {
+  return ACTION_ROWS.has(id);
+}
+
 const ON = "on";
 const OFF = "off";
 
@@ -69,6 +79,19 @@ export function buildSettingItems(config: StatusbarConfig): SettingItem[] {
       currentValue: config.enabled ? ON : OFF,
       values: [ON, OFF],
     },
+  ];
+}
+
+/**
+ * The rows as the panel shows them: the three that hold a value, then the two
+ * that close. The closing rows carry no value, so the arrows pass over them and
+ * SettingsList draws them as a bare label.
+ */
+export function buildPanelItems(config: StatusbarConfig): SettingItem[] {
+  return [
+    ...buildSettingItems(config),
+    { id: ROW_DONE, label: "Done", currentValue: "keep changes" },
+    { id: ROW_DISMISS, label: "Dismiss", currentValue: "undo them" },
   ];
 }
 

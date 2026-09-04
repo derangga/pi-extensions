@@ -19,6 +19,7 @@ const ESC = String.fromCodePoint(0x1b);
 const UP = `${ESC}[A`;
 const DOWN = `${ESC}[B`;
 const LEFT = `${ESC}[D`;
+const ENTER = "\r";
 const RIGHT = `${ESC}[C`;
 
 beforeAll(() => {
@@ -148,11 +149,73 @@ describe("the /statusbar panel", () => {
     expect(panel.context.notifications).toEqual([]);
   });
 
-  it("closes on escape", async () => {
+  it("closes on Done, keeping what the rows say", async () => {
     const panel = await openPanel();
-    expect(panel.context.closed()).toBe(false);
+    await panel.press(RIGHT);
+    await panel.press(DOWN);
+    await panel.press(DOWN);
+    await panel.press(DOWN);
+    await panel.press(ENTER);
+
+    expect(panel.context.closed()).toBe(true);
+    expect(panel.latest().preset).toBe("compact");
+  });
+
+  it("puts back the config the panel opened with on Dismiss", async () => {
+    const panel = await openPanel();
+    await panel.press(RIGHT);
+    await panel.press(DOWN);
+    await panel.press(RIGHT);
+    expect(panel.latest().preset).toBe("compact");
+    expect(panel.latest().iconMode).toBe("nerd");
+
+    for (let step = 0; step < 3; step += 1) await panel.press(DOWN);
+    await panel.press(ENTER);
+
+    expect(panel.context.closed()).toBe(true);
+    expect(panel.latest().preset).toBe("default");
+    expect(panel.latest().iconMode).toBe("emoji");
+  });
+
+  it("restores the config it opened with, which need not be the default one", async () => {
+    // Dismiss on a hand-edited config must put that config back, not the
+    // shipped defaults. Opening on the defaults in every other test cannot
+    // tell those two apart.
+    const panel = await openPanel({
+      ...cloneConfig(DEFAULT_CONFIG),
+      preset: "git-heavy",
+      iconMode: "nerd",
+    });
+    await panel.press(RIGHT);
+    expect(panel.latest().preset).toBe("default");
+
+    await panel.press(ESC);
+    expect(panel.latest().preset).toBe("git-heavy");
+    expect(panel.latest().iconMode).toBe("nerd");
+  });
+
+  it("undoes the same way on escape, because the list says cancel", async () => {
+    // SettingsList draws "Esc to cancel" under the rows and that string is not
+    // ours to change, so escape has to actually cancel.
+    const panel = await openPanel();
+    await panel.press(RIGHT);
+    expect(panel.latest().preset).toBe("compact");
+
     await panel.press(ESC);
     expect(panel.context.closed()).toBe(true);
+    expect(panel.latest().preset).toBe("default");
+  });
+
+  it("leaves the closing rows alone under the arrows", async () => {
+    // They hold no value to cycle, so an arrow there must not wrap into some
+    // other row's setting.
+    const panel = await openPanel();
+    for (let step = 0; step < 3; step += 1) await panel.press(DOWN);
+    await panel.press(RIGHT);
+    await panel.press(LEFT);
+
+    expect(panel.commits).toHaveLength(0);
+    expect(panel.context.closed()).toBe(false);
   });
 
   it("names the arrows, which the list's own hint does not", async () => {

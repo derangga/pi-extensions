@@ -2,9 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import { cloneConfig, DEFAULT_CONFIG } from "../src/config.js";
 import {
+  buildPanelItems,
   buildSettingItems,
   commandForSettingChange,
   cycleValue,
+  isActionRow,
+  ROW_DISMISS,
+  ROW_DONE,
   ROW_ENABLED,
   ROW_ICONS,
   ROW_PRESET,
@@ -124,5 +128,40 @@ describe("commandForSettingChange", () => {
     expect(commandForSettingChange(ROW_ICONS, "ascii")).toBeUndefined();
     expect(commandForSettingChange(ROW_ENABLED, "maybe")).toBeUndefined();
     expect(commandForSettingChange("nonsense", "compact")).toBeUndefined();
+  });
+});
+
+describe("buildPanelItems", () => {
+  it("puts the closing rows last, after everything that holds a value", () => {
+    const ids = buildPanelItems(cloneConfig(DEFAULT_CONFIG)).map((item) => item.id);
+    expect(ids).toEqual([ROW_PRESET, ROW_ICONS, ROW_ENABLED, ROW_DONE, ROW_DISMISS]);
+  });
+
+  it("gives the closing rows no values, so the arrows pass over them", () => {
+    const rows = buildPanelItems(cloneConfig(DEFAULT_CONFIG));
+    const counts = (wanted: boolean) =>
+      rows
+        .filter((item) => isActionRow(item.id) === wanted)
+        .map((item) => item.values?.length ?? 0);
+
+    expect(counts(true)).toEqual([0, 0]);
+    expect(counts(false)).toEqual([3, 2, 2]);
+  });
+
+  it("says what each closing row will do", () => {
+    const rows = buildPanelItems(cloneConfig(DEFAULT_CONFIG));
+    const done = rows.find((item) => item.id === ROW_DONE);
+    const dismiss = rows.find((item) => item.id === ROW_DISMISS);
+
+    expect(done?.currentValue).toContain("keep");
+    expect(dismiss?.currentValue).toContain("undo");
+  });
+
+  it("knows a closing row from a setting", () => {
+    expect(isActionRow(ROW_DONE)).toBe(true);
+    expect(isActionRow(ROW_DISMISS)).toBe(true);
+    expect(isActionRow(ROW_PRESET)).toBe(false);
+    expect(isActionRow(ROW_ICONS)).toBe(false);
+    expect(isActionRow(ROW_ENABLED)).toBe(false);
   });
 });
