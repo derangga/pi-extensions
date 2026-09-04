@@ -44,6 +44,7 @@ export class WidgetInstance<TSpec extends WidgetSpecUnion = WidgetSpecUnion> imp
   // TODO(widget-spec): remove casts once the render context and hydrated entries preserve
   // concrete spec types.
   render(ctx: WidgetContext): string | undefined {
+    // SAFETY: WidgetInstance is constructed only via registry.createWidget with matching spec, so the spec's render signature matches TSpec at runtime
     const spec = this.spec as unknown as TSpec & {
       render(args: TypedWidgetRenderArgs<TSpec>): string | undefined;
     };
