@@ -13,9 +13,11 @@ import type { SettingItem } from "@earendil-works/pi-tui";
 
 import type { StatusbarCommand } from "./command.js";
 import { PRESET_VALUES, type Preset } from "./presets.js";
+import { SEPARATOR_VALUES, type SeparatorStyle } from "./separators.js";
 import { ICON_MODE_VALUES, type IconMode, type StatusbarConfig } from "./types.js";
 
 export const ROW_PRESET = "preset";
+export const ROW_SEPARATOR = "separator";
 export const ROW_ICONS = "icons";
 export const ROW_ENABLED = "enabled";
 
@@ -65,6 +67,12 @@ export function buildSettingItems(config: StatusbarConfig): SettingItem[] {
       values: [...PRESET_VALUES],
     },
     {
+      id: ROW_SEPARATOR,
+      label: "Separator",
+      currentValue: config.separator,
+      values: [...SEPARATOR_VALUES],
+    },
+    {
       id: ROW_ICONS,
       label: "Icon set",
       currentValue: config.iconMode,
@@ -102,6 +110,11 @@ export function commandForSettingChange(id: string, value: string): StatusbarCom
   if (id === ROW_PRESET) {
     return PRESET_VALUES.includes(value as Preset)
       ? { kind: "preset", preset: value as Preset }
+      : undefined;
+  }
+  if (id === ROW_SEPARATOR) {
+    return SEPARATOR_VALUES.includes(value as SeparatorStyle)
+      ? { kind: "separator", separator: value as SeparatorStyle }
       : undefined;
   }
   if (id === ROW_ICONS) {

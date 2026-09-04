@@ -155,7 +155,7 @@ export function isPreset(value: unknown): value is Preset {
   return typeof value === "string" && Object.hasOwn(PRESET_DEFINITIONS, value);
 }
 
-function isSeparatorStyle(value: unknown): value is SeparatorStyle {
+export function isSeparatorStyle(value: unknown): value is SeparatorStyle {
   return typeof value === "string" && SEPARATORS.has(value as SeparatorStyle);
 }
 

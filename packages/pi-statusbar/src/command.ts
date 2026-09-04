@@ -9,15 +9,18 @@ import {
   getConfigPath,
   isIconMode,
   isPreset,
+  isSeparatorStyle,
 } from "./config.js";
 import {
   buildPanelItems,
+  buildSettingItems,
   commandForSettingChange,
   cycleValue,
   isActionRow,
   stepForKey,
 } from "./panel.js";
 import type { Preset } from "./presets.js";
+import { SEPARATOR_VALUES, type SeparatorStyle } from "./separators.js";
 import type { IconMode, StatusbarConfig } from "./types.js";
 
 export const COMMAND_NAME = "statusbar";
@@ -32,6 +35,7 @@ export const USAGE = [
   "Usage:",
   "  /statusbar                                    open the settings panel",
   "  /statusbar preset <default|compact|git-heavy> switch layout",
+  `  /statusbar separator <${SEPARATOR_VALUES.join("|")}>`,
   "  /statusbar icons <emoji|nerd>                 switch icon set",
   "  /statusbar on | off                           show or hide the footer",
   "  /statusbar reset                              restore defaults",
@@ -40,6 +44,7 @@ export const USAGE = [
 export type StatusbarCommand =
   | { kind: "show" }
   | { kind: "preset"; preset: Preset }
+  | { kind: "separator"; separator: SeparatorStyle }
   | { kind: "icons"; iconMode: IconMode }
   | { kind: "enabled"; enabled: boolean }
   | { kind: "reset" }
@@ -59,6 +64,8 @@ export function parseStatusbarCommand(args: string): StatusbarCommand {
   if (name === "reset") return { kind: "reset" };
   if (name === "preset" && isPreset(value)) return { kind: "preset", preset: value };
   if (name === "icons" && isIconMode(value)) return { kind: "icons", iconMode: value };
+  if (name === "separator" && isSeparatorStyle(value))
+    return { kind: "separator", separator: value };
 
   return { kind: "usage" };
 }
@@ -72,7 +79,7 @@ export function parseStatusbarCommand(args: string): StatusbarCommand {
 export function describeSettings(config: StatusbarConfig, path: string): string {
   const state = config.enabled ? "on" : "off";
   return [
-    `pi-statusbar ${state} · preset ${config.preset} · icons ${config.iconMode}`,
+    `pi-statusbar ${state} · preset ${config.preset} · separator ${config.separator} · icons ${config.iconMode}`,
     path,
     "",
     USAGE,
@@ -129,12 +136,31 @@ async function openPanel(
       settingsTheme,
       (id, value) => {
         const command = commandForSettingChange(id, value);
-        if (command) void apply(command);
+        if (command) applyAndSync(command);
       },
       () => done(undefined),
     );
     container.addChild(list);
     container.addChild(hintLine(settingsTheme));
+
+    /**
+     * Puts every row back in step with the config after a change. A preset
+     * carries its own separator, so moving the preset row rewrites a value
+     * another row is displaying, and without this that row would go on showing
+     * a separator the config no longer holds.
+     */
+    const syncRows = (): void => {
+      for (const fresh of buildSettingItems(host.current())) {
+        list.updateValue(fresh.id, fresh.currentValue);
+      }
+    };
+
+    const applyAndSync = (command: StatusbarCommand): void => {
+      void apply(command).then(() => {
+        syncRows();
+        tui.requestRender();
+      });
+    };
 
     /** Moves my cursor and mirrors it into the list, whose own index is private. */
     const move = (step: number): void => {
@@ -153,10 +179,12 @@ async function openPanel(
         if (step !== undefined) {
           if (item?.values) {
             const value = cycleValue(item.values, item.currentValue, step);
-            item.currentValue = value;
+            // updateValue writes through to this same item: SettingsList holds
+            // the array, it does not copy it. So this is the only assignment
+            // needed, and item.currentValue reads back the new value.
             list.updateValue(item.id, value);
             const command = commandForSettingChange(item.id, value);
-            if (command) void apply(command);
+            if (command) applyAndSync(command);
           }
           tui.requestRender();
           return;
@@ -210,6 +238,10 @@ async function applyCommand(
     case "icons":
       await host.commit({ ...host.current(), iconMode: command.iconMode }, ctx);
       say(`pi-statusbar icons: ${command.iconMode}`, "info");
+      return;
+    case "separator":
+      await host.commit({ ...host.current(), separator: command.separator }, ctx);
+      say(`pi-statusbar separator: ${command.separator}`, "info");
       return;
     case "enabled":
       await host.commit({ ...host.current(), enabled: command.enabled }, ctx);

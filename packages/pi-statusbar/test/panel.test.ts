@@ -11,8 +11,10 @@ import {
   ROW_ENABLED,
   ROW_ICONS,
   ROW_PRESET,
+  ROW_SEPARATOR,
   stepForKey,
 } from "../src/panel.js";
+import { SEPARATOR_VALUES } from "../src/separators.js";
 import type { StatusbarConfig } from "../src/types.js";
 
 const LEFT = "\u001b[D";
@@ -71,20 +73,37 @@ describe("cycleValue", () => {
 });
 
 describe("buildSettingItems", () => {
+  it("offers every separator style the renderer can draw", () => {
+    // The row and separatorText are two lists of the same names. A style in
+    // one and not the other is either a row that draws nothing or a style
+    // nobody can reach.
+    const row = buildSettingItems(cloneConfig(DEFAULT_CONFIG)).find(
+      (item) => item.id === ROW_SEPARATOR,
+    );
+    expect(row?.values).toEqual([...SEPARATOR_VALUES]);
+  });
+
   it("offers one row per setting the arrows can change", () => {
     const items = buildSettingItems(cloneConfig(DEFAULT_CONFIG));
-    expect(items.map((item) => item.id)).toEqual([ROW_PRESET, ROW_ICONS, ROW_ENABLED]);
+    expect(items.map((item) => item.id)).toEqual([
+      ROW_PRESET,
+      ROW_SEPARATOR,
+      ROW_ICONS,
+      ROW_ENABLED,
+    ]);
   });
 
   it("shows the value the config actually holds", () => {
     const config: StatusbarConfig = {
       ...cloneConfig(DEFAULT_CONFIG),
       preset: "git-heavy",
+      separator: "pipe",
       iconMode: "nerd",
       enabled: false,
     };
     expect(buildSettingItems(config).map((item) => item.currentValue)).toEqual([
       "git-heavy",
+      "pipe",
       "nerd",
       "off",
     ]);
@@ -114,6 +133,10 @@ describe("commandForSettingChange", () => {
       kind: "preset",
       preset: "compact",
     });
+    expect(commandForSettingChange(ROW_SEPARATOR, "pipe")).toEqual({
+      kind: "separator",
+      separator: "pipe",
+    });
     expect(commandForSettingChange(ROW_ICONS, "nerd")).toEqual({ kind: "icons", iconMode: "nerd" });
     expect(commandForSettingChange(ROW_ENABLED, "off")).toEqual({
       kind: "enabled",
@@ -124,6 +147,7 @@ describe("commandForSettingChange", () => {
 
   it("commits nothing for a value the row could not have produced", () => {
     expect(commandForSettingChange(ROW_PRESET, "powerline")).toBeUndefined();
+    expect(commandForSettingChange(ROW_SEPARATOR, "powerline-left")).toBeUndefined();
     expect(commandForSettingChange(ROW_ICONS, "ascii")).toBeUndefined();
     expect(commandForSettingChange(ROW_ENABLED, "maybe")).toBeUndefined();
     expect(commandForSettingChange("nonsense", "compact")).toBeUndefined();
@@ -133,7 +157,7 @@ describe("commandForSettingChange", () => {
 describe("buildPanelItems", () => {
   it("puts the one closing row last, after everything that holds a value", () => {
     const ids = buildPanelItems(cloneConfig(DEFAULT_CONFIG)).map((item) => item.id);
-    expect(ids).toEqual([ROW_PRESET, ROW_ICONS, ROW_ENABLED, ROW_DISMISS]);
+    expect(ids).toEqual([ROW_PRESET, ROW_SEPARATOR, ROW_ICONS, ROW_ENABLED, ROW_DISMISS]);
   });
 
   it("gives the closing row no values, so the arrows pass over it", () => {
@@ -144,7 +168,7 @@ describe("buildPanelItems", () => {
         .map((item) => item.values?.length ?? 0);
 
     expect(counts(true)).toEqual([0]);
-    expect(counts(false)).toEqual([3, 2, 2]);
+    expect(counts(false)).toEqual([3, 7, 2, 2]);
   });
 
   it("leaves the closing row's value column empty", () => {

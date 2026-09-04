@@ -9,6 +9,8 @@ import {
   USAGE,
 } from "../src/command.js";
 import { cloneConfig, DEFAULT_CONFIG } from "../src/config.js";
+import { PRESET_DEFINITIONS } from "../src/presets.js";
+import { SEPARATOR_VALUES } from "../src/separators.js";
 import type { StatusbarConfig } from "../src/types.js";
 import { stubApi, stubContext } from "./helpers/pi.js";
 
@@ -33,6 +35,15 @@ describe("parseStatusbarCommand", () => {
     }
   });
 
+  it("reads each separator style", () => {
+    for (const separator of SEPARATOR_VALUES) {
+      expect(parseStatusbarCommand(`separator ${separator}`)).toEqual({
+        kind: "separator",
+        separator,
+      });
+    }
+  });
+
   it("reads each icon mode", () => {
     expect(parseStatusbarCommand("icons emoji")).toEqual({ kind: "icons", iconMode: "emoji" });
     expect(parseStatusbarCommand("icons nerd")).toEqual({ kind: "icons", iconMode: "nerd" });
@@ -52,12 +63,20 @@ describe("parseStatusbarCommand", () => {
     expect(parseStatusbarCommand("preset powerline")).toEqual({ kind: "usage" });
     expect(parseStatusbarCommand("icons")).toEqual({ kind: "usage" });
     expect(parseStatusbarCommand("icons text")).toEqual({ kind: "usage" });
+    expect(parseStatusbarCommand("separator")).toEqual({ kind: "usage" });
+    expect(parseStatusbarCommand("separator powerline-left")).toEqual({ kind: "usage" });
     expect(parseStatusbarCommand("enable")).toEqual({ kind: "usage" });
     expect(parseStatusbarCommand("nonsense")).toEqual({ kind: "usage" });
   });
 });
 
 describe("describeSettings", () => {
+  it("names the separator, which is otherwise invisible when it is a space", () => {
+    // compact ships a space separator, which looks exactly like a missing one.
+    const config: StatusbarConfig = { ...cloneConfig(DEFAULT_CONFIG), separator: "space" };
+    expect(describeSettings(config, "/path")).toContain("separator space");
+  });
+
   it("names the state, the layout, the icons and the file to hand-edit", () => {
     const config: StatusbarConfig = { ...cloneConfig(DEFAULT_CONFIG), iconMode: "nerd" };
     const described = describeSettings(config, "/home/dev/.pi/extensions/pi-statusbar.json");
@@ -167,6 +186,29 @@ describe("registerStatusbarCommand", () => {
     await toEmoji.run("preset git-heavy");
     expect(toEmoji.state.config.iconMode).toBe("emoji");
     expect(toEmoji.state.config.preset).toBe("git-heavy");
+  });
+
+  it("sets the separator on its own, leaving the layout alone", async () => {
+    const host = hosted();
+    await host.run("separator pipe");
+
+    expect(host.state.config.separator).toBe("pipe");
+    expect(host.state.config.preset).toBe(DEFAULT_CONFIG.preset);
+    expect(host.context.notifications[0]?.message).toContain("pipe");
+  });
+
+  it("lets the preset take the separator back, which is the preset's job", async () => {
+    // A preset is a whole look, separator included. Anyone who wants one
+    // style to outlive a preset switch has the config file.
+    const host = hosted();
+    await host.run("separator pipe");
+    await host.run("preset compact");
+
+    expect(host.state.config.separator).toBe(PRESET_DEFINITIONS.compact.separator);
+  });
+
+  it("names every separator style in the usage, so none is undiscoverable", () => {
+    for (const separator of SEPARATOR_VALUES) expect(USAGE).toContain(separator);
   });
 
   it("switches icons without disturbing the layout", async () => {

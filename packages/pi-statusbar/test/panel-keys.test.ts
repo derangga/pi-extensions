@@ -2,9 +2,19 @@ import { initTheme, type ExtensionCommandContext } from "@earendil-works/pi-codi
 import { KeybindingsManager, setKeybindings, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { COMMAND_NAME, PANEL_HINT, registerStatusbarCommand } from "../src/command.js";
 import { stripAnsi } from "../src/colors.js";
+import { COMMAND_NAME, PANEL_HINT, registerStatusbarCommand } from "../src/command.js";
 import { cloneConfig, DEFAULT_CONFIG } from "../src/config.js";
+import {
+  buildPanelItems,
+  ROW_DISMISS,
+  ROW_ENABLED,
+  ROW_ICONS,
+  ROW_PRESET,
+  ROW_SEPARATOR,
+} from "../src/panel.js";
+import { PRESET_DEFINITIONS } from "../src/presets.js";
+import { SEPARATOR_VALUES } from "../src/separators.js";
 import type { StatusbarConfig } from "../src/types.js";
 import { stubApi, stubContext } from "./helpers/pi.js";
 
@@ -52,20 +62,46 @@ async function openPanel(initial: StatusbarConfig = cloneConfig(DEFAULT_CONFIG))
   const panel = context.panel();
   if (!panel) throw new Error("the command opened no panel");
 
+  const rowIds = buildPanelItems(initial).map((item) => item.id);
+  // Mirrors where the panel's own cursor should be, so goTo can walk a
+  // relative distance. The panel keeps that index private, which is the same
+  // reason the panel itself has to keep one.
+  let at = 0;
+
+  const flush = () =>
+    new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+
   return {
     context,
     commits,
     latest: () => config,
+    /** Walks the cursor to a row by id, so a new row does not shift the count. */
+    goTo: async (id: string) => {
+      const target = rowIds.indexOf(id);
+      if (target === -1) throw new Error(`no row ${id}`);
+      for (let step = 0; step < (target - at + rowIds.length) % rowIds.length; step += 1) {
+        panel.handleInput?.(DOWN);
+      }
+      at = target;
+      await flush();
+    },
     // Awaits a turn of the event loop. The component applies a change with a
     // floating promise, since handleInput cannot be async, so a synchronous
     // assertion right after a keypress sees whatever happened before the first
     // suspension and nothing after it. Without this flush a test asserting on
     // notifications passes no matter what the code does.
+    /** Several keys inside one tick, with no chance for a resync between them. */
+    burst: async (...keys: string[]) => {
+      for (const key of keys) panel.handleInput?.(key);
+      await flush();
+    },
     press: async (keys: string) => {
       panel.handleInput?.(keys);
-      await new Promise((resolve) => {
-        setTimeout(resolve, 0);
-      });
+      if (keys === DOWN) at = (at + 1) % rowIds.length;
+      else if (keys === UP) at = (at - 1 + rowIds.length) % rowIds.length;
+      await flush();
     },
     lines: () => panel.render(80),
   };
@@ -102,7 +138,7 @@ describe("the /statusbar panel", () => {
     // list's, the arrows edit the wrong setting while the highlight says
     // otherwise.
     const panel = await openPanel();
-    await panel.press(DOWN);
+    await panel.goTo(ROW_ICONS);
     await panel.press(RIGHT);
 
     expect(panel.latest().iconMode).toBe("nerd");
@@ -111,8 +147,7 @@ describe("the /statusbar panel", () => {
 
   it("follows the cursor back up again", async () => {
     const panel = await openPanel();
-    await panel.press(DOWN);
-    await panel.press(DOWN);
+    await panel.goTo(ROW_ENABLED);
     await panel.press(UP);
     await panel.press(RIGHT);
 
@@ -122,8 +157,7 @@ describe("the /statusbar panel", () => {
 
   it("reaches the last row and toggles the footer there", async () => {
     const panel = await openPanel();
-    await panel.press(DOWN);
-    await panel.press(DOWN);
+    await panel.goTo(ROW_ENABLED);
     await panel.press(RIGHT);
 
     expect(panel.latest().enabled).toBe(false);
@@ -153,10 +187,10 @@ describe("the /statusbar panel", () => {
   it("closes on Dismiss and keeps every change already applied", async () => {
     const panel = await openPanel();
     await panel.press(RIGHT);
-    await panel.press(DOWN);
+    await panel.goTo(ROW_ICONS);
     await panel.press(RIGHT);
 
-    for (let step = 0; step < 2; step += 1) await panel.press(DOWN);
+    await panel.goTo(ROW_DISMISS);
     await panel.press(ENTER);
 
     expect(panel.context.closed()).toBe(true);
@@ -183,17 +217,77 @@ describe("the /statusbar panel", () => {
     await panel.press(RIGHT);
     const before = panel.commits.length;
 
-    for (let step = 0; step < 3; step += 1) await panel.press(DOWN);
+    await panel.goTo(ROW_DISMISS);
     await panel.press(ENTER);
 
     expect(panel.commits).toHaveLength(before);
+  });
+
+  it("cycles the separator, which is why compact looked like it had none", async () => {
+    const panel = await openPanel();
+    await panel.goTo(ROW_SEPARATOR);
+    await panel.press(RIGHT);
+
+    expect(panel.latest().separator).toBe("pipe");
+    expect(panel.lines().join("\n")).toContain("pipe");
+  });
+
+  it("redraws the separator row when a preset rewrites it underneath", async () => {
+    // A preset carries its own separator, so moving the preset row changes a
+    // value another row is showing. Without a resync that row keeps drawing
+    // the old style, and the next arrow press there cycles from a value the
+    // config no longer holds.
+    const panel = await openPanel();
+    await panel.goTo(ROW_SEPARATOR);
+    await panel.press(RIGHT);
+    expect(panel.latest().separator).toBe("pipe");
+
+    await panel.goTo(ROW_PRESET);
+    await panel.press(RIGHT);
+
+    const applied = PRESET_DEFINITIONS.compact.separator;
+    expect(panel.latest().preset).toBe("compact");
+    expect(panel.latest().separator).toBe(applied);
+
+    const row = panel
+      .lines()
+      .map((line) => stripAnsi(line))
+      .find((line) => line.includes("Separator"));
+    expect(row).toContain(applied);
+    expect(row).not.toContain("pipe");
+  });
+
+  it("keeps arrowing from the value the config holds after a resync", async () => {
+    // The row's own currentValue is what cycleValue steps from, so a stale one
+    // would send the next press somewhere unrelated.
+    const panel = await openPanel();
+    await panel.goTo(ROW_SEPARATOR);
+    await panel.press(RIGHT);
+    await panel.goTo(ROW_PRESET);
+    await panel.press(RIGHT);
+    await panel.goTo(ROW_SEPARATOR);
+    await panel.press(RIGHT);
+
+    const from = SEPARATOR_VALUES.indexOf(PRESET_DEFINITIONS.compact.separator);
+    expect(panel.latest().separator).toBe(SEPARATOR_VALUES[from + 1]);
+  });
+
+  it("steps twice for two presses inside one tick", async () => {
+    // Each press has to leave the row holding its new value straight away.
+    // The row is what the next press cycles from, and the resync that would
+    // otherwise correct it only lands a tick later, so both presses would
+    // step from the same value and the second would be a no-op.
+    const panel = await openPanel();
+    await panel.burst(RIGHT, RIGHT);
+
+    expect(panel.latest().preset).toBe("git-heavy");
   });
 
   it("leaves the closing row alone under the arrows", async () => {
     // It holds no value to cycle, so an arrow there must not wrap into some
     // other row's setting.
     const panel = await openPanel();
-    for (let step = 0; step < 3; step += 1) await panel.press(DOWN);
+    await panel.goTo(ROW_DISMISS);
     await panel.press(RIGHT);
     await panel.press(LEFT);
 
