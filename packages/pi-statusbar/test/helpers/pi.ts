@@ -5,7 +5,7 @@ import type {
   ReadonlyFooterDataProvider,
   Theme,
 } from "@earendil-works/pi-coding-agent";
-import type { TUI } from "@earendil-works/pi-tui";
+import { getKeybindings, type KeybindingsManager, type TUI } from "@earendil-works/pi-tui";
 
 import { taggedTheme } from "./theme.js";
 
@@ -20,9 +20,24 @@ export interface ContextStub {
   footers: (FooterFactory | undefined)[];
   statuses: (string | undefined)[];
   notifications: { message: string; type: string | undefined }[];
-  /** Every picker the code opened, in order, with the rows it offered. */
-  selects: { title: string; options: string[] }[];
+  /** The panel component, once something has opened it through ui.custom. */
+  panel(): PanelComponent | undefined;
+  /** Whether the panel called done(), which is what escape does. */
+  closed(): boolean;
 }
+
+export interface PanelComponent {
+  render(width: number): string[];
+  invalidate(): void;
+  handleInput?(data: string): void;
+}
+
+export type PanelFactory = (
+  tui: unknown,
+  theme: Theme,
+  keybindings: KeybindingsManager,
+  done: (result: undefined) => void,
+) => PanelComponent;
 
 export type FooterFactory = (
   tui: TUI,
@@ -38,16 +53,15 @@ export interface ContextOptions {
   contextUsage?: { tokens: number | null; contextWindow: number } | undefined;
   entries?: readonly unknown[];
   theme?: Theme;
-  /** One answer per ui.select call, in order. Undefined is a cancel. */
-  selections?: readonly (string | undefined)[];
 }
 
 export function stubContext(options: ContextOptions = {}): ContextStub {
   const footers: (FooterFactory | undefined)[] = [];
   const statuses: (string | undefined)[] = [];
   const notifications: { message: string; type: string | undefined }[] = [];
-  const selects: { title: string; options: string[] }[] = [];
-  const answers = [...(options.selections ?? [])];
+  let panel: PanelComponent | undefined;
+  let closed = false;
+  const tui = { requestRender: () => {} };
 
   const ctx = {
     hasUI: options.hasUI ?? true,
@@ -64,17 +78,18 @@ export function stubContext(options: ContextOptions = {}): ContextStub {
       setFooter: (factory: FooterFactory | undefined) => footers.push(factory),
       setStatus: (_key: string, text: string | undefined) => statuses.push(text),
       notify: (message: string, type?: string) => notifications.push({ message, type }),
-      select: (title: string, choices: string[]) => {
-        selects.push({ title, options: choices });
-        // Running past the script is a cancel, not a hang: a test that opens
-        // one more picker than it scripted should fail on the commit it did
-        // not make rather than on a timeout.
-        return Promise.resolve(answers.shift());
+      // Builds the component with the real pi-tui pieces and hands it back to
+      // the test rather than drawing it, so keystrokes can be fed in directly.
+      custom: (factory: PanelFactory) => {
+        panel = factory(tui, options.theme ?? taggedTheme, getKeybindings(), () => {
+          closed = true;
+        });
+        return Promise.resolve(undefined);
       },
     },
   } as unknown as ExtensionContext;
 
-  return { ctx, footers, statuses, notifications, selects };
+  return { ctx, footers, statuses, notifications, panel: () => panel, closed: () => closed };
 }
 
 export interface CommandStub {
