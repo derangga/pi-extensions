@@ -1,0 +1,38 @@
+{
+  "name": "pi-catppuccin-themes",
+  "version": "0.1.0",
+  "description": "Pi themes. The four Catppuccin flavors (latte, frappe, macchiato, mocha) vendored in-house so no third-party install is needed.",
+  "type": "module",
+  "license": "MIT",
+  "author": "derangga <contact@rangga.site>",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-coding-agent",
+    "themes",
+    "theme",
+    "catppuccin"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "pi": {
+    "themes": [
+      "./themes/catppuccin-frappe.json",
+      "./themes/catppuccin-latte.json",
+      "./themes/catppuccin-macchiato.json",
+      "./themes/catppuccin-mocha.json"
+    ]
+  },
+  "files": [
+    "themes/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

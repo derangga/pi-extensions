@@ -11,6 +11,7 @@ its own README. Install one without installing the others.
 | --- | --- | --- |
 | [`pi-ask-popup`](packages/pi-ask-popup) | A tabbed terminal questionnaire the model opens instead of guessing | In progress |
 | [`pi-status-widget`](packages/pi-status-widget) | A footer with three presets, emoji or nerd icons, twelve color schemes, and a thinking level that colors itself | In progress |
+| [`pi-catppuccin-themes`](packages/pi-catppuccin-themes) | The four Catppuccin flavors (latte, frappe, macchiato, mocha) vendored in-house | In progress |
 
 ## Working in this repo
 
@@ -29,11 +30,15 @@ so they stay local to this checkout and never reach anyone else's.
 
 Create `packages/<name>/` with a `package.json`, a `tsconfig.json` extending
 `../../tsconfig.base.json`, `src/`, and `test/`. The workspace glob, the linter,
-the formatter and the test runner pick it up with no further wiring.
+the formatter and the test runner pick it up with no further wiring. Run
+`npm install` afterwards so `package-lock.json` registers the new workspace;
+without that, `npm ci` in CI fails.
 
 A Pi extension package needs `"pi": { "extensions": ["./src/index.ts"] }` and a
 default-exported function taking `ExtensionAPI`. Extensions ship raw TypeScript;
-Pi loads it through jiti, so there is no build step.
+Pi loads it through jiti, so there is no build step. A themes-only package
+instead needs `"pi": { "themes": ["./themes/<name>.json", ...] }` and ships
+no code; see `pi-catppuccin-themes` for the shape.
 
 ## License
 
