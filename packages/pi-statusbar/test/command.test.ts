@@ -1,4 +1,5 @@
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import { visibleWidth } from "@earendil-works/pi-tui";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -8,8 +9,9 @@ import {
   registerStatusbarCommand,
   USAGE,
 } from "../src/command.js";
-import { cloneConfig, DEFAULT_CONFIG } from "../src/config.js";
+import { cloneConfig, DEFAULT_CONFIG, normalizeConfig } from "../src/config.js";
 import { PRESET_DEFINITIONS } from "../src/presets.js";
+import { SCHEME_NAMES } from "../src/schemes.js";
 import { SEPARATOR_VALUES } from "../src/separators.js";
 import type { StatusbarConfig } from "../src/types.js";
 import { stubApi, stubContext } from "./helpers/pi.js";
@@ -67,6 +69,18 @@ describe("parseStatusbarCommand", () => {
     expect(parseStatusbarCommand("separator powerline-left")).toEqual({ kind: "usage" });
     expect(parseStatusbarCommand("enable")).toEqual({ kind: "usage" });
     expect(parseStatusbarCommand("nonsense")).toEqual({ kind: "usage" });
+  });
+});
+
+describe("describeSettings and the scheme", () => {
+  it("names the active scheme, so the headless summary says which one is on", () => {
+    expect(describeSettings(cloneConfig(DEFAULT_CONFIG), "/path")).toContain("colors default");
+    expect(
+      describeSettings(
+        { ...cloneConfig(DEFAULT_CONFIG), colorScheme: "catppuccin-mocha" },
+        "/path",
+      ),
+    ).toContain("colors catppuccin-mocha");
   });
 });
 
@@ -209,6 +223,83 @@ describe("registerStatusbarCommand", () => {
 
   it("names every separator style in the usage, so none is undiscoverable", () => {
     for (const separator of SEPARATOR_VALUES) expect(USAGE).toContain(separator);
+  });
+
+  it("sets every one of the twelve schemes, and default to get back out", async () => {
+    // Walked, because a scheme that parses nowhere is a scheme nobody can
+    // reach from the prompt, and the panel is the only other way in.
+    const names = [...SCHEME_NAMES, "default"];
+    const applied: string[] = [];
+    for (const name of names) {
+      const host = hosted();
+      await host.run(`colors ${name}`);
+      const said = host.context.notifications[0]?.message ?? "";
+      applied.push(
+        `${name}: commits=${host.state.commits.length} set=${host.state.config.colorScheme} said=${said.includes(name)}`,
+      );
+    }
+    expect(applied).toEqual(names.map((name) => `${name}: commits=1 set=${name} said=true`));
+  });
+
+  it("warns with the usage and changes nothing on a scheme it does not know", async () => {
+    const bad = ["gruvbox", "", "catppuccin", "tokyo", "mocha", "#f38ba8"];
+    const outcomes: string[] = [];
+    for (const value of bad) {
+      const host = hosted();
+      await host.run(`colors ${value}`.trim());
+      const notification = host.context.notifications[0];
+      outcomes.push(
+        `${value || "(none)"}: commits=${host.state.commits.length} ${notification?.type} usage=${notification?.message === USAGE}`,
+      );
+    }
+    expect(outcomes).toEqual(
+      bad.map((value) => `${value || "(none)"}: commits=0 warning usage=true`),
+    );
+  });
+
+  it("takes a scheme name in any case, like every other typed argument", async () => {
+    // The command lowercases its arguments, so `preset DEFAULT` already works.
+    // The config file stays case-sensitive: that is data, not something typed.
+    const host = hosted();
+    await host.run("colors Catppuccin-Mocha");
+
+    expect(host.state.config.colorScheme).toBe("catppuccin-mocha");
+    expect(normalizeConfig({ colorScheme: "Catppuccin-Mocha" }).colorScheme).toBe("default");
+  });
+
+  it("sets a scheme without disturbing the layout or the icons", async () => {
+    const host = hosted();
+    await host.run("colors tokyo-night");
+
+    expect(host.state.config.colorScheme).toBe("tokyo-night");
+    expect(host.state.config.preset).toBe(DEFAULT_CONFIG.preset);
+    expect(host.state.config.iconMode).toBe(DEFAULT_CONFIG.iconMode);
+  });
+
+  it("names the subcommand in the usage without listing all twelve schemes", () => {
+    expect(USAGE).toContain("/statusbar colors <scheme>");
+    // Naming one would mean naming twelve, which is what the panel is for.
+    const named = SCHEME_NAMES.filter((name) => USAGE.includes(name));
+    expect(named).toEqual([]);
+  });
+
+  it("keeps every usage line inside 80 columns", () => {
+    // Notifications are not wrapped for us, so a long line breaks the column
+    // the descriptions line up in.
+    const tooWide = USAGE.split("\n")
+      .filter((line) => visibleWidth(line) > 80)
+      .map((line) => `${visibleWidth(line)}: ${line}`);
+    expect(tooWide).toEqual([]);
+  });
+
+  it("keeps the settings summary inside 80 columns for the longest scheme name", () => {
+    const widest = [...SCHEME_NAMES].sort((a, b) => b.length - a.length)[0]!;
+    const described = describeSettings(
+      { ...cloneConfig(DEFAULT_CONFIG), colorScheme: widest, preset: "git-heavy" },
+      "/path",
+    );
+    const tooWide = described.split("\n").filter((line) => visibleWidth(line) > 80);
+    expect(tooWide).toEqual([]);
   });
 
   it("switches icons without disturbing the layout", async () => {

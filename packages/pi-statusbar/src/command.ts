@@ -20,6 +20,7 @@ import {
   stepForKey,
 } from "./panel.js";
 import type { Preset } from "./presets.js";
+import { normalizeColorSchemeName, type ColorSchemeName } from "./schemes.js";
 import { SEPARATOR_VALUES, type SeparatorStyle } from "./separators.js";
 import type { IconMode, StatusbarConfig } from "./types.js";
 
@@ -37,6 +38,9 @@ export const USAGE = [
   "  /statusbar preset <default|compact|git-heavy> switch layout",
   `  /statusbar separator <${SEPARATOR_VALUES.join("|")}>`,
   "  /statusbar icons <emoji|nerd>                 switch icon set",
+  // <scheme> rather than the twelve names. The separator line above already
+  // spells its seven inline and is at the limit of what fits in 80 columns.
+  "  /statusbar colors <scheme>                    the panel lists every scheme",
   "  /statusbar on | off                           show or hide the footer",
   "  /statusbar reset                              restore defaults",
 ].join("\n");
@@ -46,6 +50,7 @@ export type StatusbarCommand =
   | { kind: "preset"; preset: Preset }
   | { kind: "separator"; separator: SeparatorStyle }
   | { kind: "icons"; iconMode: IconMode }
+  | { kind: "colors"; colorScheme: ColorSchemeName }
   | { kind: "enabled"; enabled: boolean }
   | { kind: "reset" }
   | { kind: "usage" };
@@ -66,6 +71,12 @@ export function parseStatusbarCommand(args: string): StatusbarCommand {
   if (name === "icons" && isIconMode(value)) return { kind: "icons", iconMode: value };
   if (name === "separator" && isSeparatorStyle(value))
     return { kind: "separator", separator: value };
+  if (name === "colors") {
+    // Named colors, not theme. The word theme belongs to the Pi-wide setting
+    // in /settings, which this feature does not touch.
+    const colorScheme = normalizeColorSchemeName(value);
+    if (colorScheme) return { kind: "colors", colorScheme };
+  }
 
   return { kind: "usage" };
 }
@@ -80,6 +91,9 @@ export function describeSettings(config: StatusbarConfig, path: string): string 
   const state = config.enabled ? "on" : "off";
   return [
     `pi-statusbar ${state} · preset ${config.preset} · separator ${config.separator} · icons ${config.iconMode}`,
+    // Its own line. Appended to the one above, the longest scheme name would
+    // push that line past 80 columns and wrap it.
+    `colors ${config.colorScheme}`,
     path,
     "",
     USAGE,
@@ -242,6 +256,10 @@ async function applyCommand(
     case "separator":
       await host.commit({ ...host.current(), separator: command.separator }, ctx);
       say(`pi-statusbar separator: ${command.separator}`, "info");
+      return;
+    case "colors":
+      await host.commit({ ...host.current(), colorScheme: command.colorScheme }, ctx);
+      say(`pi-statusbar colors: ${command.colorScheme}`, "info");
       return;
     case "enabled":
       await host.commit({ ...host.current(), enabled: command.enabled }, ctx);
