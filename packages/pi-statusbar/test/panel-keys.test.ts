@@ -3,10 +3,13 @@ import { KeybindingsManager, setKeybindings, TUI_KEYBINDINGS } from "@earendil-w
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { stripAnsi } from "../src/colors.js";
+import { ACTIVE_MARK, LIGHT_NOTE, schemeEntries, SWATCH_CELL } from "../src/scheme-picker.js";
+import { COLOR_SCHEMES, SCHEME_NAMES } from "../src/schemes.js";
 import { COMMAND_NAME, PANEL_HINT, registerStatusbarCommand } from "../src/command.js";
 import { cloneConfig, DEFAULT_CONFIG } from "../src/config.js";
 import {
   buildPanelItems,
+  ROW_COLORS,
   ROW_DISMISS,
   ROW_ENABLED,
   ROW_ICONS,
@@ -27,6 +30,9 @@ import { stubApi, stubContext } from "./helpers/pi.js";
  */
 
 const ESC = String.fromCodePoint(0x1b);
+/** A swatch cell that actually carries colour: any SGR sequence, then the block. */
+const PAINTED_CELL = new RegExp(String.raw`\x1B\[[0-9;]*m` + SWATCH_CELL, "g");
+const SWATCH_SLOT_COUNT = 6;
 const UP = `${ESC}[A`;
 const DOWN = `${ESC}[B`;
 const LEFT = `${ESC}[D`;
@@ -47,6 +53,7 @@ beforeAll(() => {
 async function openPanel(initial: StatusbarConfig = cloneConfig(DEFAULT_CONFIG)) {
   let config = initial;
   const commits: StatusbarConfig[] = [];
+  const previews: StatusbarConfig[] = [];
   const api = stubApi();
   const context = stubContext();
 
@@ -55,6 +62,12 @@ async function openPanel(initial: StatusbarConfig = cloneConfig(DEFAULT_CONFIG))
     commit: async (next: StatusbarConfig, _ctx: ExtensionCommandContext) => {
       config = next;
       commits.push(next);
+    },
+    // Mirrors what index.ts does: in memory only, so counting these apart from
+    // commits is what proves browsing the picker writes nothing.
+    preview: (next: StatusbarConfig, _ctx: ExtensionCommandContext) => {
+      config = next;
+      previews.push(next);
     },
   });
 
@@ -76,6 +89,7 @@ async function openPanel(initial: StatusbarConfig = cloneConfig(DEFAULT_CONFIG))
   return {
     context,
     commits,
+    previews,
     latest: () => config,
     /** Walks the cursor to a row by id, so a new row does not shift the count. */
     goTo: async (id: string) => {
@@ -315,5 +329,182 @@ describe("the /statusbar panel", () => {
 
     expect(PANEL_HINT).not.toMatch(/[\u2190\u2192]/);
     for (const line of lines.slice(hint)) expect(line).not.toMatch(/[\u2190\u2192]/);
+  });
+});
+
+describe("the Color scheme picker", () => {
+  /**
+   * The name the cursor lands on after that many downs from the top, read off
+   * the same list the picker builds. Spelling a name here instead would drift
+   * silently the first time a scheme is added.
+   */
+  const entryAt = (index: number): string => schemeEntries()[index]!.name;
+
+  const openPicker = async (initial?: StatusbarConfig) => {
+    const panel = await openPanel(initial ?? cloneConfig(DEFAULT_CONFIG));
+    await panel.goTo(ROW_COLORS);
+    await panel.press(ENTER);
+    return panel;
+  };
+
+  it("opens under Enter rather than cycling the row in place", async () => {
+    const panel = await openPanel();
+    await panel.goTo(ROW_COLORS);
+
+    // The arrows must do nothing here: thirteen entries is too many to walk
+    // one repaint at a time, which is the whole reason for the submenu.
+    await panel.press(RIGHT);
+    expect(panel.commits).toHaveLength(0);
+    expect(panel.previews).toHaveLength(0);
+    expect(panel.latest().colorScheme).toBe("default");
+
+    await panel.press(ENTER);
+    const text = stripAnsi(panel.lines().join("\n"));
+    expect(text).toContain("catppuccin-mocha");
+    expect(text).toContain("tokyo-night");
+  });
+
+  it("marks the scheme it opened with, with a plain check", async () => {
+    const panel = await openPicker({
+      ...cloneConfig(DEFAULT_CONFIG),
+      colorScheme: "tokyo-night",
+    });
+    const marked = () =>
+      stripAnsi(panel.lines().join("\n"))
+        .split("\n")
+        .filter((line) => line.includes(ACTIVE_MARK));
+
+    expect(marked()).toHaveLength(1);
+    expect(marked()[0]).toContain("tokyo-night");
+
+    // Moved off it, because the picker opens with the cursor on the active
+    // scheme: at that moment a check following the cursor is indistinguishable
+    // from one marking what is live. The check answers "what do I get if I
+    // escape", so browsing must not move it.
+    await panel.burst(DOWN);
+    expect(marked()).toHaveLength(1);
+    expect(marked()[0]).toContain("tokyo-night");
+    expect(marked()[0]).not.toContain("→");
+  });
+
+  it("shows a swatch per scheme, and says which ones want a light terminal", async () => {
+    const panel = await openPicker();
+    const text = panel.lines().join("\n");
+    const plain = stripAnsi(text);
+
+    // Counted on the swatch cells specifically, not on the row carrying any
+    // escape at all: the name beside it is painted too, so a bare "has colour
+    // somewhere" check passes with the swatch left grey. Counted rather than
+    // matched against a hex, because the level the picker paints at follows the
+    // terminal, and below truecolor these cells carry basic codes instead.
+    const painted = plain
+      .split("\n")
+      .map((line, index) => ({ line, source: text.split("\n")[index] ?? "" }))
+      .filter((row) => row.line.includes("catppuccin-mocha"))
+      .map((row) => row.source.match(PAINTED_CELL)?.length ?? 0);
+    expect(painted).toEqual([SWATCH_SLOT_COUNT]);
+    expect(plain).toContain("(follow Pi's theme)");
+    expect(plain).toContain("light");
+
+    // Only the light ones say so: a label on a dark scheme is worse than none.
+    const mislabelled = plain
+      .split("\n")
+      .filter((line) => line.trimEnd().endsWith(LIGHT_NOTE))
+      .filter((line) => {
+        const name = SCHEME_NAMES.find((scheme) => line.includes(scheme));
+        return !name || !COLOR_SCHEMES[name].light;
+      });
+    expect(mislabelled).toEqual([]);
+  });
+
+  it("previews as the cursor moves and writes nothing", async () => {
+    // The acceptance that matters. Asserted on the commit count rather than by
+    // looking at the footer, because a preview that quietly writes looks
+    // identical on screen.
+    const panel = await openPicker();
+    await panel.burst(DOWN, DOWN, DOWN, UP);
+
+    expect(panel.commits).toHaveLength(0);
+    // One per keypress, not one per net move: each is a repaint.
+    expect(panel.previews).toHaveLength(4);
+    expect(panel.latest().colorScheme).toBe(entryAt(2));
+  });
+
+  it("commits exactly one change on Enter", async () => {
+    const panel = await openPicker();
+    await panel.burst(DOWN, DOWN);
+    await panel.press(ENTER);
+
+    expect(panel.commits).toHaveLength(1);
+    expect(panel.latest().colorScheme).toBe(entryAt(2));
+    // Back on the row, showing what was picked.
+    expect(stripAnsi(panel.lines().join("\n"))).toContain("Color scheme");
+  });
+
+  it("commits nothing on escape and goes back to the scheme it opened with", async () => {
+    const panel = await openPicker({
+      ...cloneConfig(DEFAULT_CONFIG),
+      colorScheme: "tokyo-night",
+    });
+    await panel.burst(DOWN, DOWN);
+    expect(panel.latest().colorScheme).not.toBe("tokyo-night");
+
+    await panel.press(ESC);
+    expect(panel.commits).toHaveLength(0);
+    expect(panel.latest().colorScheme).toBe("tokyo-night");
+    expect(stripAnsi(panel.lines().join("\n"))).toContain("Color scheme");
+  });
+
+  it("scrolls rather than drawing all thirteen at once", async () => {
+    const panel = await openPicker();
+    const lines = panel.lines();
+    const plain = lines.map((line) => stripAnsi(line));
+
+    // Thirteen entries, a fixed window, and a counter saying where you are.
+    const shown = SCHEME_NAMES.filter((name) => plain.some((line) => line.includes(name)));
+    expect(shown.length).toBeLessThan(SCHEME_NAMES.length);
+    expect(plain.some((line) => /\(\d+\/13\)/.test(line))).toBe(true);
+  });
+
+  it("leaves the rows behind it alone while it is open", async () => {
+    // The panel keeps its own cursor and its own arrow handling. Both have to
+    // stand down while the picker owns the keyboard, or browsing schemes would
+    // also be cycling whichever row sits underneath.
+    const panel = await openPicker();
+    await panel.burst(RIGHT, LEFT, DOWN);
+
+    expect(panel.commits).toHaveLength(0);
+    expect(panel.latest().preset).toBe("default");
+    expect(panel.latest().separator).toBe(DEFAULT_CONFIG.separator);
+  });
+
+  it("leaves the panel's own cursor where it was, not where the picker walked", async () => {
+    // The panel keeps a cursor the list will not expose, and the picker's downs
+    // would move it too. The drift is invisible while the picker is open and
+    // shows up afterwards as the arrows editing a row other than the
+    // highlighted one, so it is caught here by pressing an arrow after escape:
+    // the cursor is back on the Color scheme row, which holds no values, so a
+    // correct panel changes nothing at all.
+    const panel = await openPicker();
+    // Exactly one down. Three would drift the cursor onto Dismiss, which holds
+    // no values either, and the arrow would do nothing there for the wrong
+    // reason. One lands on Icon set, which does hold values, so a drifted
+    // cursor commits and a correct one does not.
+    await panel.burst(DOWN);
+    await panel.press(ESC);
+
+    const before = panel.latest();
+    await panel.press(RIGHT);
+    expect(panel.commits).toHaveLength(0);
+    expect(panel.latest()).toEqual(before);
+  });
+
+  it("returns the keyboard to the panel after it closes", async () => {
+    const panel = await openPicker();
+    await panel.press(ESC);
+    await panel.goTo(ROW_PRESET);
+    await panel.press(RIGHT);
+
+    expect(panel.latest().preset).toBe("compact");
   });
 });

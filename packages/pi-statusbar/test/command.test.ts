@@ -120,6 +120,8 @@ describe("describeSettings", () => {
 interface HostStub {
   config: StatusbarConfig;
   commits: StatusbarConfig[];
+  /** Kept apart from commits, since a preview is the case that must not write. */
+  previews: StatusbarConfig[];
 }
 
 /** Drives the command against a host that records commits instead of touching disk. */
@@ -127,7 +129,7 @@ function hosted(
   initial: StatusbarConfig = cloneConfig(DEFAULT_CONFIG),
   contextOptions: Parameters<typeof stubContext>[0] = {},
 ) {
-  const state: HostStub = { config: initial, commits: [] };
+  const state: HostStub = { config: initial, commits: [], previews: [] };
   const api = stubApi();
   const context = stubContext(contextOptions);
 
@@ -136,6 +138,10 @@ function hosted(
     commit: async (next: StatusbarConfig, _ctx: ExtensionCommandContext) => {
       state.config = next;
       state.commits.push(next);
+    },
+    preview: (next: StatusbarConfig, _ctx: ExtensionCommandContext) => {
+      state.config = next;
+      state.previews.push(next);
     },
   });
 

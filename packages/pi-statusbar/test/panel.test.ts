@@ -7,6 +7,7 @@ import {
   commandForSettingChange,
   cycleValue,
   isActionRow,
+  ROW_COLORS,
   ROW_DISMISS,
   ROW_ENABLED,
   ROW_ICONS,
@@ -83,11 +84,12 @@ describe("buildSettingItems", () => {
     expect(row?.values).toEqual([...SEPARATOR_VALUES]);
   });
 
-  it("offers one row per setting the arrows can change", () => {
+  it("offers one row per setting", () => {
     const items = buildSettingItems(cloneConfig(DEFAULT_CONFIG));
     expect(items.map((item) => item.id)).toEqual([
       ROW_PRESET,
       ROW_SEPARATOR,
+      ROW_COLORS,
       ROW_ICONS,
       ROW_ENABLED,
     ]);
@@ -98,22 +100,36 @@ describe("buildSettingItems", () => {
       ...cloneConfig(DEFAULT_CONFIG),
       preset: "git-heavy",
       separator: "pipe",
+      colorScheme: "tokyo-night",
       iconMode: "nerd",
       enabled: false,
     };
     expect(buildSettingItems(config).map((item) => item.currentValue)).toEqual([
       "git-heavy",
       "pipe",
+      "tokyo-night",
       "nerd",
       "off",
     ]);
   });
 
-  it("gives every row values that cycleValue can walk", () => {
+  it("gives every cycling row values that cycleValue can walk", () => {
     for (const item of buildSettingItems(cloneConfig(DEFAULT_CONFIG))) {
+      if (item.id === ROW_COLORS) continue;
       expect(item.values?.length ?? 0).toBeGreaterThan(1);
       expect(item.values).toContain(item.currentValue);
     }
+  });
+
+  it("gives the Color scheme row no values, so the arrows do not cycle it", () => {
+    // Thirteen entries is too many to arrow through one repaint at a time. No
+    // values is what makes SettingsList open the submenu on Enter instead, and
+    // what makes the panel's own arrow handler pass over the row.
+    const rows = buildSettingItems(cloneConfig(DEFAULT_CONFIG));
+    const colors = rows.find((item) => item.id === ROW_COLORS);
+    expect(colors?.values).toBeUndefined();
+    expect(colors?.label).toBe("Color scheme");
+    expect(rows.filter((item) => item.values === undefined)).toHaveLength(1);
   });
 
   it("keeps every offered value one the command layer accepts", () => {
@@ -138,6 +154,14 @@ describe("commandForSettingChange", () => {
       separator: "pipe",
     });
     expect(commandForSettingChange(ROW_ICONS, "nerd")).toEqual({ kind: "icons", iconMode: "nerd" });
+    expect(commandForSettingChange(ROW_COLORS, "catppuccin-mocha")).toEqual({
+      kind: "colors",
+      colorScheme: "catppuccin-mocha",
+    });
+    expect(commandForSettingChange(ROW_COLORS, "default")).toEqual({
+      kind: "colors",
+      colorScheme: "default",
+    });
     expect(commandForSettingChange(ROW_ENABLED, "off")).toEqual({
       kind: "enabled",
       enabled: false,
@@ -149,6 +173,7 @@ describe("commandForSettingChange", () => {
     expect(commandForSettingChange(ROW_PRESET, "powerline")).toBeUndefined();
     expect(commandForSettingChange(ROW_SEPARATOR, "powerline-left")).toBeUndefined();
     expect(commandForSettingChange(ROW_ICONS, "ascii")).toBeUndefined();
+    expect(commandForSettingChange(ROW_COLORS, "gruvbox")).toBeUndefined();
     expect(commandForSettingChange(ROW_ENABLED, "maybe")).toBeUndefined();
     expect(commandForSettingChange("nonsense", "compact")).toBeUndefined();
   });
@@ -157,7 +182,14 @@ describe("commandForSettingChange", () => {
 describe("buildPanelItems", () => {
   it("puts the one closing row last, after everything that holds a value", () => {
     const ids = buildPanelItems(cloneConfig(DEFAULT_CONFIG)).map((item) => item.id);
-    expect(ids).toEqual([ROW_PRESET, ROW_SEPARATOR, ROW_ICONS, ROW_ENABLED, ROW_DISMISS]);
+    expect(ids).toEqual([
+      ROW_PRESET,
+      ROW_SEPARATOR,
+      ROW_COLORS,
+      ROW_ICONS,
+      ROW_ENABLED,
+      ROW_DISMISS,
+    ]);
   });
 
   it("gives the closing row no values, so the arrows pass over it", () => {
@@ -168,7 +200,9 @@ describe("buildPanelItems", () => {
         .map((item) => item.values?.length ?? 0);
 
     expect(counts(true)).toEqual([0]);
-    expect(counts(false)).toEqual([3, 7, 2, 2]);
+    // The Color scheme row is the other zero: it opens a picker on Enter
+    // rather than holding a list the arrows walk.
+    expect(counts(false)).toEqual([3, 7, 0, 2, 2]);
   });
 
   it("leaves the closing row's value column empty", () => {
@@ -184,5 +218,8 @@ describe("buildPanelItems", () => {
     expect(isActionRow(ROW_PRESET)).toBe(false);
     expect(isActionRow(ROW_ICONS)).toBe(false);
     expect(isActionRow(ROW_ENABLED)).toBe(false);
+    // The picker row is a setting, not an action: Enter belongs to the list,
+    // which opens the submenu, rather than to the panel's closing handler.
+    expect(isActionRow(ROW_COLORS)).toBe(false);
   });
 });

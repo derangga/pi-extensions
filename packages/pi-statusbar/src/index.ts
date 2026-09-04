@@ -113,6 +113,12 @@ export default async function statusbarExtension(pi: ExtensionAPI): Promise<void
 
   registerStatusbarCommand(pi, {
     current: () => config,
+    // In memory and on screen, nothing on disk. The scheme picker's cursor
+    // moves through this so browsing thirteen schemes costs no writes.
+    preview: (next, ctx) => {
+      replaceConfig(next);
+      apply(ctx);
+    },
     // Repaint before persisting. A change the user just asked for is live for
     // this session whichever way the write goes, and saying so beats a command
     // that appears to have done nothing because the disk refused it.

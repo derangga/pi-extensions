@@ -2,6 +2,7 @@ import { getSettingsListTheme } from "@earendil-works/pi-coding-agent";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { Container, SettingsList, type SettingsListTheme, Text } from "@earendil-works/pi-tui";
 
+import { resolveColorLevel } from "./colors.js";
 import {
   cloneConfig,
   configWithPreset,
@@ -17,10 +18,12 @@ import {
   commandForSettingChange,
   cycleValue,
   isActionRow,
+  ROW_COLORS,
   stepForKey,
 } from "./panel.js";
 import type { Preset } from "./presets.js";
-import { normalizeColorSchemeName, type ColorSchemeName } from "./schemes.js";
+import { SchemePicker } from "./scheme-picker.js";
+import { DEFAULT_SCHEME, normalizeColorSchemeName, type ColorSchemeName } from "./schemes.js";
 import { SEPARATOR_VALUES, type SeparatorStyle } from "./separators.js";
 import type { IconMode, StatusbarConfig } from "./types.js";
 
@@ -105,6 +108,15 @@ export interface StatusbarCommandHost {
   current(): StatusbarConfig;
   /** Apply in memory, repaint, then persist. Reports a failed write itself. */
   commit(next: StatusbarConfig, ctx: ExtensionCommandContext): Promise<void>;
+  /**
+   * Apply in memory and repaint, without persisting.
+   *
+   * The one place the panel has a notion of current that differs from what is
+   * saved, and deliberate: browsing thirteen schemes must not cost thirteen
+   * writes, and escape has to mean no change here the way it does everywhere
+   * else. Nothing but the scheme picker uses it.
+   */
+  preview(next: StatusbarConfig, ctx: ExtensionCommandContext): void;
 }
 
 /**
@@ -138,6 +150,12 @@ async function openPanel(
 ): Promise<void> {
   const items = buildPanelItems(host.current());
   let cursor = 0;
+  /**
+   * Set while the picker is open. Without it the panel would go on taking the
+   * arrows and up and down for itself, cycling the row underneath the picker
+   * and moving a cursor nobody can see.
+   */
+  let submenuOpen = false;
 
   await ctx.ui.custom<undefined>((tui, theme, keybindings, done) => {
     const container = new Container();
@@ -156,6 +174,39 @@ async function openPanel(
     );
     container.addChild(list);
     container.addChild(hintLine(settingsTheme));
+
+    const colorsRow = items.find((item) => item.id === ROW_COLORS);
+    if (colorsRow) {
+      colorsRow.submenu = (opened, close) => {
+        submenuOpen = true;
+        const setScheme = (colorScheme: ColorSchemeName): void => {
+          host.preview({ ...host.current(), colorScheme }, ctx);
+          tui.requestRender();
+        };
+        const leave = (chosen?: ColorSchemeName): void => {
+          submenuOpen = false;
+          close(chosen);
+          tui.requestRender();
+        };
+        return new SchemePicker(
+          normalizeColorSchemeName(opened) ?? DEFAULT_SCHEME,
+          resolveColorLevel(process.env, theme),
+          {
+            onMove: setScheme,
+            // close() with a value is what makes SettingsList fire onChange,
+            // which is the single commit. The preview already applied it in
+            // memory, so this is the write and nothing more.
+            onPick: (name) => leave(name),
+            // Back to what the picker opened with, in memory. close() with no
+            // value commits nothing, exactly as escape does on every other row.
+            onCancel: () => {
+              setScheme(normalizeColorSchemeName(opened) ?? DEFAULT_SCHEME);
+              leave();
+            },
+          },
+        );
+      };
+    }
 
     /**
      * Puts every row back in step with the config after a change. A preset
@@ -187,6 +238,14 @@ async function openPanel(
       render: (width: number) => container.render(width),
       invalidate: () => container.invalidate(),
       handleInput: (data: string) => {
+        // Everything belongs to the picker while it is open. SettingsList
+        // forwards to it and nothing else here may look at the keypress.
+        if (submenuOpen) {
+          list.handleInput?.(data);
+          tui.requestRender();
+          return;
+        }
+
         const item = items[cursor];
         const step = stepForKey(data);
 

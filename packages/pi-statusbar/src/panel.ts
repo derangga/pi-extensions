@@ -13,10 +13,12 @@ import type { SettingItem } from "@earendil-works/pi-tui";
 
 import type { StatusbarCommand } from "./command.js";
 import { PRESET_VALUES, type Preset } from "./presets.js";
+import { normalizeColorSchemeName } from "./schemes.js";
 import { SEPARATOR_VALUES, type SeparatorStyle } from "./separators.js";
 import { ICON_MODE_VALUES, type IconMode, type StatusbarConfig } from "./types.js";
 
 export const ROW_PRESET = "preset";
+export const ROW_COLORS = "colors";
 export const ROW_SEPARATOR = "separator";
 export const ROW_ICONS = "icons";
 export const ROW_ENABLED = "enabled";
@@ -73,6 +75,15 @@ export function buildSettingItems(config: StatusbarConfig): SettingItem[] {
       values: [...SEPARATOR_VALUES],
     },
     {
+      // No `values`, which is what stops the arrows cycling it in place.
+      // Thirteen entries is too many to arrow through one repaint at a time, so
+      // Enter opens a picker instead; command.ts attaches it, since the submenu
+      // is a pi-tui component and everything else in this file is plain data.
+      id: ROW_COLORS,
+      label: "Color scheme",
+      currentValue: config.colorScheme,
+    },
+    {
       id: ROW_ICONS,
       label: "Icon set",
       currentValue: config.iconMode,
@@ -88,7 +99,7 @@ export function buildSettingItems(config: StatusbarConfig): SettingItem[] {
 }
 
 /**
- * The rows as the panel shows them: the three that hold a value, then the one
+ * The rows as the panel shows them: the ones that hold a value, then the one
  * that closes. It carries no value, so the arrows pass over it and SettingsList
  * draws it as a bare label.
  *
@@ -121,6 +132,10 @@ export function commandForSettingChange(id: string, value: string): StatusbarCom
     return ICON_MODE_VALUES.includes(value as IconMode)
       ? { kind: "icons", iconMode: value as IconMode }
       : undefined;
+  }
+  if (id === ROW_COLORS) {
+    const colorScheme = normalizeColorSchemeName(value);
+    return colorScheme ? { kind: "colors", colorScheme } : undefined;
   }
   if (id === ROW_ENABLED && (value === ON || value === OFF)) {
     return { kind: "enabled", enabled: value === ON };
