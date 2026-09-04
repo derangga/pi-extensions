@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [pi-ask-popup, pi-status-widget, pi-catppuccin-themes]
+        package: [pi-ask-popup, pi-status-widget, pi-catppuccin-themes, pi-unslop]
 
     env:
       PI_TELEMETRY: "0"

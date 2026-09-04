@@ -1,0 +1,43 @@
+{
+  "name": "pi-unslop",
+  "version": "0.1.0",
+  "description": "Pi extension. Appends the pstack unslop writing rules to the system prompt every turn, so the model's prose stays free of AI tells for the whole session.",
+  "type": "module",
+  "license": "MIT",
+  "author": "derangga <contact@rangga.site>",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "pi",
+    "pi-coding-agent",
+    "unslop",
+    "pstack",
+    "writing",
+    "system-prompt"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": ">=0.80"
+  }
+}
