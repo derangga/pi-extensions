@@ -11,7 +11,7 @@ export const ThinkingLevelWidget = defineWidget({
   properties: [THINKING_LEVEL_COLORS_PROPERTY],
   // Placeholder glyph, inherited from pi-footer. The intended one is a GitHub
   // Copilot nerd glyph; swap the escape below once its codepoint is settled.
-  icons: { emoji: "\u{1f9e0}", nerd: "\u{f0208}" },
+  icons: { emoji: "\u{1f9e0}", nerd: "\u{f09d1}" },
   defaultStyle: { fg: "magenta", bg: "default", bold: false },
   render({ ctx, options, renderWidget }) {
     const fg = options.thinkingLevelColors

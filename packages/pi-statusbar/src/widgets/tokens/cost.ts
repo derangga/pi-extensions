@@ -9,7 +9,7 @@ export const CostWidget = defineWidget({
     { id: "costFormatStyle", kind: "choice", default: "default", choices: ["default", "compact"] },
     { id: "showSubscription", kind: "boolean", default: false },
   ],
-  icons: { emoji: "💸", nerd: "\u{f0af1}" },
+  icons: { emoji: "💸", nerd: "\u{f0114}" },
   defaultStyle: { fg: "green", bg: "default", bold: false },
   render({ ctx, options, renderWidget }) {
     // Default widens the precision under a dollar, where four decimals are the

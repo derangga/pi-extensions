@@ -6,7 +6,7 @@ export const ModelProviderWidget = defineWidget({
   dependencies: ["model", "provider"],
   baseOptions: ["raw", "icon"],
   properties: [],
-  icons: { emoji: "🤖", nerd: "\u{f0129}" },
+  icons: { emoji: "🤖", nerd: "\u{f06a9}" },
   defaultStyle: { fg: "cyan", bg: "default", bold: false },
   render({ ctx, renderWidget }) {
     const value = ctx.provider
