@@ -1,4 +1,4 @@
-# pi-unslop
+# pi-unslop-rules
 
 Keeps the [Pi coding agent](https://pi.dev) writing like a person for a whole
 session, not just for the reply after you ask it to.
@@ -11,7 +11,7 @@ case headings, and the rest.
 ## Installation
 
 ```sh
-pi install pi-unslop
+pi install pi-unslop-rules
 ```
 
 That is the whole setup. There is no config, no command and no toggle. Load the

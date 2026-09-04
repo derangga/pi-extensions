@@ -12,7 +12,7 @@ its own README. Install one without installing the others.
 | [`pi-ask-popup`](packages/pi-ask-popup) | A tabbed terminal questionnaire the model opens instead of guessing | Published |
 | [`pi-status-widget`](packages/pi-status-widget) | A footer with three presets, emoji or nerd icons, twelve color schemes, and a thinking level that colors itself | Published |
 | [`pi-catppuccin-themes`](packages/pi-catppuccin-themes) | The four Catppuccin flavors (latte, frappe, macchiato, mocha) vendored in-house | Published |
-| [`pi-unslop`](packages/pi-unslop) | Appends the pstack unslop writing rules to the system prompt every turn, so the prose stays free of AI tells | In progress |
+| [`pi-unslop-rules`](packages/pi-unslop-rules) | Appends the pstack unslop writing rules to the system prompt every turn, so the prose stays free of AI tells | In progress |
 
 ## Working in this repo
 

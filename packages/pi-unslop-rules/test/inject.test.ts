@@ -53,7 +53,7 @@ async function inject(systemPrompt: string): Promise<string> {
   return injected;
 }
 
-describe("pi-unslop injection", () => {
+describe("pi-unslop-rules injection", () => {
   it("subscribes to before_agent_start and nothing else", () => {
     // Every other turn-scoped hook loses the text to compaction or resume.
     const { pi, handlers } = stubApi();

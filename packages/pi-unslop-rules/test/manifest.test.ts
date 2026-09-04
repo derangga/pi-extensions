@@ -28,7 +28,7 @@ function readManifest(): Manifest {
   return JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8")) as Manifest;
 }
 
-describe("pi-unslop manifest", () => {
+describe("pi-unslop-rules manifest", () => {
   it("ships zero runtime dependencies", () => {
     expect(readManifest().dependencies).toBeUndefined();
   });
@@ -80,7 +80,7 @@ describe("pi-unslop manifest", () => {
 
   it("is public, MIT, and starts at 0.1.0", () => {
     const manifest = readManifest();
-    expect(manifest.name).toBe("pi-unslop");
+    expect(manifest.name).toBe("pi-unslop-rules");
     expect(manifest.version).toBe("0.1.0");
     expect(manifest.license).toBe("MIT");
     expect(manifest.publishConfig?.access).toBe("public");

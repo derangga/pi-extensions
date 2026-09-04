@@ -1,5 +1,5 @@
 {
-  "name": "pi-unslop",
+  "name": "pi-unslop-rules",
   "version": "0.1.0",
   "description": "Pi extension. Appends the pstack unslop writing rules to the system prompt every turn, so the model's prose stays free of AI tells for the whole session.",
   "type": "module",

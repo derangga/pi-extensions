@@ -1,5 +1,5 @@
 /**
- * pi-unslop — appends the unslop writing rules to the system prompt on every
+ * pi-unslop-rules — appends the unslop writing rules to the system prompt on every
  * turn, so the model's voice stays cut of AI tells for the whole session.
  *
  * Pi's own skill loader cannot do this. `formatSkillsForPrompt` drops any skill
