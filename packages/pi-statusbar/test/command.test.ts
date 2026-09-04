@@ -68,6 +68,16 @@ describe("describeSettings", () => {
     expect(described).toContain("/home/dev/.pi/extensions/pi-statusbar.json");
   });
 
+  it("lists what else is typeable, so the bare command is never a dead end", () => {
+    // The first thing anyone types is `/statusbar` with no argument. If that
+    // prints only the current state, every other subcommand is undiscoverable.
+    const described = describeSettings(cloneConfig(DEFAULT_CONFIG), "/path");
+    expect(described).toContain(USAGE);
+    for (const word of ["preset", "icons", "reset", "on | off"]) {
+      expect(described).toContain(`/statusbar ${word}`);
+    }
+  });
+
   it("reports a disabled footer as off", () => {
     const config: StatusbarConfig = { ...cloneConfig(DEFAULT_CONFIG), enabled: false };
     expect(describeSettings(config, "/path")).toContain("off");
@@ -115,6 +125,7 @@ describe("registerStatusbarCommand", () => {
     expect(host.context.notifications).toHaveLength(1);
     expect(host.context.notifications[0]?.message).toContain("preset default");
     expect(host.context.notifications[0]?.message).toContain("pi-statusbar.json");
+    expect(host.context.notifications[0]?.message).toContain(USAGE);
   });
 
   it("warns with the usage text and changes nothing on a bad argument", async () => {

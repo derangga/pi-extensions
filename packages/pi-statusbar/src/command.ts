@@ -54,9 +54,20 @@ export function parseStatusbarCommand(args: string): StatusbarCommand {
   return { kind: "usage" };
 }
 
+/**
+ * The bare command's whole reply: state, then the file to hand-edit, then what
+ * else is typeable. The usage belongs here rather than only on a bad argument,
+ * because a command that answers a first-time `/statusbar` with three facts and
+ * no next step reads as a command that did nothing.
+ */
 export function describeSettings(config: StatusbarConfig, path: string): string {
   const state = config.enabled ? "on" : "off";
-  return `pi-statusbar ${state} · preset ${config.preset} · icons ${config.iconMode}\n${path}`;
+  return [
+    `pi-statusbar ${state} · preset ${config.preset} · icons ${config.iconMode}`,
+    path,
+    "",
+    USAGE,
+  ].join("\n");
 }
 
 export interface StatusbarCommandHost {
