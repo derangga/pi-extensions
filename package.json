@@ -5,7 +5,7 @@
   "description": "Monorepo for independently published Pi Coding Agent extensions.",
   "type": "module",
   "license": "MIT",
-  "author": "derangga <derangga1011@gmail.com>",
+  "author": "derangga <contact@rangga.site>",
   "workspaces": [
     "packages/*"
   ],
