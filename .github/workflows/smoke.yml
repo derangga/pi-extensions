@@ -1,0 +1,62 @@
+name: pi install smoke
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pi-install-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: ${{ matrix.package }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [pi-ask-popup, pi-status-widget]
+
+    env:
+      PI_TELEMETRY: "0"
+      PACKAGE_DIR: ${{ github.workspace }}/packages/${{ matrix.package }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install pi
+        run: |
+          npm install -g --ignore-scripts @earendil-works/pi-coding-agent
+          pi --version
+
+      - name: Configure temporary pi paths
+        run: |
+          set -euo pipefail
+          echo "PI_CODING_AGENT_DIR=$RUNNER_TEMP/pi-agent" >> "$GITHUB_ENV"
+          sessions="$RUNNER_TEMP/pi-sessions"
+          echo "PI_CODING_AGENT_SESSION_DIR=$sessions" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/pi-agent" "$RUNNER_TEMP/pi-sessions"
+
+      - name: Install ${{ matrix.package }} through pi
+        run: |
+          set -euo pipefail
+          pi install "./packages/${{ matrix.package }}"
+          pi list
+
+      - name: Verify ${{ matrix.package }} loads in a real pi session
+        env:
+          PI_OFFLINE: "1"
+        run: "$GITHUB_WORKSPACE/.github/scripts/verify-load.sh"

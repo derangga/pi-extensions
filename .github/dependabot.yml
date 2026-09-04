@@ -1,0 +1,30 @@
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    assignees:
+      - derangga
+    labels:
+      - github_actions
+    commit-message:
+      prefix: deps
+      include: scope
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    assignees:
+      - derangga
+    labels:
+      - dependencies
+    commit-message:
+      prefix: deps
+      include: scope

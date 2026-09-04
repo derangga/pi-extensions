@@ -1,0 +1,65 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "pi-*@v*"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Parse package and version from tag
+        id: pkg
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          package="${tag%%@*}"
+          version="${tag#*@}"
+          version="${version#v}"
+
+          if [[ ! -f "packages/$package/package.json" ]]; then
+            echo "No package directory: packages/$package" >&2
+            exit 1
+          fi
+
+          manifest_version="$(node -p \
+            "require('./packages/$package/package.json').version")"
+          if [[ "$manifest_version" != "$version" ]]; then
+            echo "Tag v$version does not match packages/$package" >&2
+            echo "manifest version $manifest_version" >&2
+            exit 1
+          fi
+
+          echo "package=$package" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci
+      - run: npm run check
+
+      # Trusted publishing (OIDC) needs npm >= 11.5.1; the runner may ship an
+      # older npm bundled with Node 24.
+      - name: Ensure npm supports trusted publishing
+        run: |
+          npm install -g npm@latest
+          npm --version
+
+      - name: Publish ${{ steps.pkg.outputs.package }}
+        working-directory: packages/${{ steps.pkg.outputs.package }}
+        run: npm publish --provenance --access public
