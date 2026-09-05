@@ -10,8 +10,28 @@ prompt. No edges means plain parallel.
 Children are read-only, and you pick their model and thinking effort rather
 than letting the orchestrating model guess.
 
-**Under construction.** The package is scaffolded; the manager is not written
-yet. Nothing here is installable.
+**Under construction.** Settings work; the manager that spawns children does
+not exist yet.
+
+## Settings
+
+`/subagent` opens a panel with four rows.
+
+| Row | What it does |
+|---|---|
+| Model | `inherit` follows the parent session, or pick one concrete model that every child runs on |
+| Thinking effort | `inherit` leaves the per-task choice in charge, or pin a level. The list is only what the resolved model accepts |
+| Concurrency | How many children run at once |
+| Max turns | Turn budget per child before it is asked to wrap up |
+
+Changes apply and save as you make them, so closing the panel saves nothing
+further. Settings live in `pi-subagent.json` under Pi's agent directory, and
+the panel prints the path because hand-editing reaches anything the rows do
+not offer. `PI_SUBAGENT_CONFIG` overrides the location.
+
+A settings file that cannot be read or parsed falls back to defaults and says
+so, rather than failing the extension load. A single out-of-range field is
+dropped on its own, leaving the rest of the file in force.
 
 ## Dependencies
 
