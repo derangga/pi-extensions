@@ -128,6 +128,25 @@ names, that every `exports` and `pi.extensions` target exists on disk, and that
 the tarball excludes tests. Those are the mistakes that are cheap to prevent and
 expensive to find after publishing.
 
+## Learning more about Effect
+
+Some packages here use the Effect TypeScript library.
+
+Before writing any Effect code, first read `node_modules/effect/AGENTS.md`
+**completely**, and follow the links in the file when required.
+
+If you need to learn more about particular Effect apis and concepts that the
+guide doesn't cover, search through the source code in `node_modules/effect/src`.
+
+That is not a formality. The installed version is a release candidate and its
+API moves, so anything written from memory or from a third-party guide is a
+guess. `Schema` has no `regex`, the string-pattern check is
+`Schema.isPattern`, and `Context.Service` takes its interface as a second type
+parameter. Each of those was found by hitting it. Root pins `effect` as a
+devDependency at the exact installed version, which is what keeps
+`node_modules/effect/src` readable and every package typechecking against one
+version.
+
 ## Forked code
 
 Some packages derive from other MIT-licensed work. Where they do, the package
