@@ -143,6 +143,24 @@ whatever it does not, including a future pi that clamps for a reason the map
 never mentioned. Re-validate after any model fallback, which is the case both
 halves miss alone.
 
+**The rung a value came from decides what happens when it fails.** A level
+someone wrote down in an agent file, the settings menu or the tool call fails
+the run and names the supported set. A level that merely rode in from the parent
+session is clamped to the strongest one the child's model accepts, with a note.
+Nobody asked for `max` on a child that happens to be a haiku, so refusing the
+run over it would be obnoxious. This is why the precedence rung is kept on the
+resolved task rather than discarded once the value is picked.
+
+**The preflight probe is kept, deduplicated per run.** pi-core-subagent sends a
+real 16-token ping for any model that differs from the session's and falls back
+with a note when it errors. The failure that catches is exactly the one a
+hand-picked model produces: a provider configured once whose key has since
+expired. Here the ping is sent once per distinct non-session model rather than
+once per task, so a batch of eight tasks on one model costs one request. A model
+that fails falls back to the session's, and the level is resolved again against
+that fallback, because the pair that was validated is not the pair that will
+run.
+
 **Turn limit primary, wall clock as backstop.** 30 turns with 5 grace turns,
 then abort, plus a 30 minute wall-clock bound. Both reference extensions default
 turns to unlimited, which leaves the clock doing all the work and lets a broken
