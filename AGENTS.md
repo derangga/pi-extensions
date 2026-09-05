@@ -102,8 +102,12 @@ export default function myExtension(pi: ExtensionAPI): void {
 
 Conventions that apply to every package here:
 
-- **Zero runtime dependencies.** Peer-depend on Pi, nothing else. If something
-  seems to need a dependency, it almost certainly needs forty lines instead.
+- **Fewest runtime dependencies.** Peer-depend on Pi and reach for forty lines
+  before a package: most things that look like they need a dependency need code
+  instead. One earns its place only by carrying a capability the package is
+  built *on* rather than merely uses, and the package's README says which one
+  and why. The count is pinned by that package's manifest test, so changing it
+  is a deliberate edit rather than a drift.
 - **Peer `typebox`, never `@sinclair/typebox`.** Pi depends on the renamed v1
   package. The old name is a different package that Pi never loads, so peering
   it silently resolves to something unused.
@@ -119,10 +123,10 @@ Create `packages/<name>/` with a `package.json`, a `tsconfig.json` extending
 formatter and test runner pick it up with no further wiring.
 
 Add a manifest test. `packages/pi-ask-popup/test/manifest.test.ts` is the
-template: it asserts zero runtime dependencies, the correct peer names, that
-every `exports` and `pi.extensions` target exists on disk, and that the tarball
-excludes tests. Those are the mistakes that are cheap to prevent and expensive
-to find after publishing.
+template: it pins the package's exact runtime dependency count, the correct peer
+names, that every `exports` and `pi.extensions` target exists on disk, and that
+the tarball excludes tests. Those are the mistakes that are cheap to prevent and
+expensive to find after publishing.
 
 ## Forked code
 
