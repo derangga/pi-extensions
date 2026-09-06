@@ -13,4 +13,5 @@ export default function lazyFffFixture(pi: ExtensionAPI): void {
       },
     });
   });
+  pi.on("session_shutdown", () => undefined);
 }

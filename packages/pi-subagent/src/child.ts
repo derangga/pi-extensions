@@ -51,6 +51,33 @@ export interface CreatedChildSession {
   readonly notes: readonly string[];
 }
 
+type ShutdownSession = Pick<AgentSession, "dispose" | "extensionRunner">;
+
+/** Closes the extension lifecycle opened by bindExtensions before invalidating it. */
+export async function shutdownChildSession(
+  session: ShutdownSession,
+  timeoutMs = 3_000,
+): Promise<void> {
+  try {
+    if (session.extensionRunner.hasHandlers("session_shutdown")) {
+      await new Promise<void>((resolve) => {
+        const timeout = setTimeout(resolve, timeoutMs);
+        void session.extensionRunner
+          .emit({ type: "session_shutdown", reason: "quit" })
+          .catch(() => undefined)
+          .finally(() => {
+            clearTimeout(timeout);
+            resolve();
+          });
+      });
+    }
+  } catch {
+    // A broken shutdown handler must not prevent the session from being invalidated.
+  } finally {
+    session.dispose();
+  }
+}
+
 export function resolveFffEntry(
   resolve: (specifier: string) => string = (specifier) => import.meta.resolve(specifier),
 ): string | undefined {
@@ -111,10 +138,15 @@ export async function createChildSession(
     }),
   );
 
-  created.session.setSessionName(`subagent: ${options.name}`);
-  await created.session.bindExtensions({
-    onError: (error) => notes.push(`child extension failed: ${error.extensionPath}`),
-  });
+  try {
+    created.session.setSessionName(`subagent: ${options.name}`);
+    await created.session.bindExtensions({
+      onError: (error) => notes.push(`child extension failed: ${error.extensionPath}`),
+    });
+  } catch (cause) {
+    await shutdownChildSession(created.session);
+    throw cause;
+  }
 
   if (created.session.thinkingLevel !== options.thinking) {
     notes.push(

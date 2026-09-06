@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { ModelRuntime } from "@earendil-works/pi-coding-agent";
+import { type AgentSession, ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -11,6 +11,7 @@ import {
   CHILD_TOOL_NAMES,
   createChildSession,
   resolveFffEntry,
+  shutdownChildSession,
   SUBAGENT_INSTRUCTIONS,
 } from "../src/child.js";
 import type { PiModel } from "../src/thinking.js";
@@ -69,6 +70,7 @@ describe("child session", () => {
       fffEntry: fixture,
     });
 
+    const emit = vi.spyOn(created.session.extensionRunner, "emit");
     try {
       expect(created.fffLoaded).toBe(true);
       expect(created.notes).toEqual([]);
@@ -89,8 +91,9 @@ describe("child session", () => {
         "/tmp/parent-session.jsonl",
       );
     } finally {
-      created.session.dispose();
+      await shutdownChildSession(created.session);
     }
+    expect(emit).toHaveBeenCalledWith({ type: "session_shutdown", reason: "quit" });
   });
 
   it("creates a usable built-in-only child when fff is absent", async () => {
@@ -120,5 +123,20 @@ describe("child session", () => {
     } finally {
       created.session.dispose();
     }
+  });
+
+  it("bounds shutdown handlers before disposing", async () => {
+    const dispose = vi.fn<() => void>();
+    const session = {
+      extensionRunner: {
+        hasHandlers: () => true,
+        emit: () => new Promise<never>(() => undefined),
+      },
+      dispose,
+    } as unknown as AgentSession;
+
+    await shutdownChildSession(session, 1);
+
+    expect(dispose).toHaveBeenCalledOnce();
   });
 });
