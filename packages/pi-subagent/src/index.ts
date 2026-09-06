@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { Effect, ManagedRuntime } from "effect";
 
+import { inChildSessionContext } from "./child-context.js";
 import { registerSubagentCommand } from "./command.js";
 import { DEFAULT_SETTINGS, getSettingsPath, Settings, type SubagentSettings } from "./settings.js";
 
@@ -13,6 +14,8 @@ import { DEFAULT_SETTINGS, getSettingsPath, Settings, type SubagentSettings } fr
  * it with `runPromise`, because Pi's own surface is callbacks and promises.
  */
 export default function subagentExtension(pi: ExtensionAPI): void {
+  if (inChildSessionContext()) return;
+
   const runtime = ManagedRuntime.make(Settings.layer);
 
   /**
