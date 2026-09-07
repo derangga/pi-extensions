@@ -3,8 +3,10 @@ import type { SettingItem } from "@earendil-works/pi-tui";
 import {
   INHERIT,
   MAX_CONCURRENCY,
+  MAX_TASKS,
   MAX_TURNS,
   MIN_CONCURRENCY,
+  MIN_TASKS,
   MIN_TURNS,
   type SubagentSettings,
   type ThinkingChoice,
@@ -15,6 +17,7 @@ export const ROW_MODEL = "model";
 export const ROW_THINKING = "thinking";
 export const ROW_CONCURRENCY = "concurrency";
 export const ROW_MAX_TURNS = "maxTurns";
+export const ROW_MAX_TASKS = "maxTasks";
 
 /**
  * The numbers cycle through a fixed list rather than opening an input.
@@ -26,6 +29,9 @@ export const ROW_MAX_TURNS = "maxTurns";
 export const CONCURRENCY_VALUES = range(MIN_CONCURRENCY, MAX_CONCURRENCY).map(String);
 export const MAX_TURNS_VALUES = [10, 20, 30, 50, 75, 100, 150, MAX_TURNS]
   .filter((value) => value >= MIN_TURNS && value <= MAX_TURNS)
+  .map(String);
+export const MAX_TASKS_VALUES = [1, 2, 3, 4, 6, 8, 12, MAX_TASKS]
+  .filter((value) => value >= MIN_TASKS && value <= MAX_TASKS)
   .map(String);
 
 /**
@@ -97,6 +103,13 @@ export function buildSettingItems(
       currentValue: String(settings.maxTurns),
       values: MAX_TURNS_VALUES,
     },
+    {
+      id: ROW_MAX_TASKS,
+      label: "Max tasks",
+      description: "Most children one call may spawn. Over it, the call is refused.",
+      currentValue: String(settings.maxTasks),
+      values: MAX_TASKS_VALUES,
+    },
   ];
 }
 
@@ -131,6 +144,8 @@ export function settingsWithRowChange(
       return withNumber(settings, "concurrency", value, MIN_CONCURRENCY, MAX_CONCURRENCY);
     case ROW_MAX_TURNS:
       return withNumber(settings, "maxTurns", value, MIN_TURNS, MAX_TURNS);
+    case ROW_MAX_TASKS:
+      return withNumber(settings, "maxTasks", value, MIN_TASKS, MAX_TASKS);
     default:
       return settings;
   }
@@ -139,7 +154,7 @@ export function settingsWithRowChange(
 /** The bare command's reply, and what the panel falls back to with no terminal. */
 export function describeSettings(settings: SubagentSettings, path: string): string {
   return [
-    `model ${settings.model} · thinking ${settings.thinking} · concurrency ${settings.concurrency} · max turns ${settings.maxTurns}`,
+    `model ${settings.model} · thinking ${settings.thinking} · concurrency ${settings.concurrency} · max turns ${settings.maxTurns} · max tasks ${settings.maxTasks}`,
     path,
   ].join("\n");
 }
@@ -164,7 +179,7 @@ function modelDescription(
 
 function withNumber(
   settings: SubagentSettings,
-  key: "concurrency" | "maxTurns",
+  key: "concurrency" | "maxTurns" | "maxTasks",
   value: string,
   minimum: number,
   maximum: number,

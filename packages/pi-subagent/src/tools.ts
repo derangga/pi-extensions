@@ -7,12 +7,11 @@ import type {
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 
-import { MAX_TASKS } from "./graph.js";
 import type { ParentTraffic } from "./intercom.js";
 import type { ReplyOutcome } from "./intercom.js";
 import type { RunView, TaskRequest, TaskView, WaitOutcome } from "./run.js";
 import { callLines, formatCost, resultLines } from "./render.js";
-import { MAX_TURNS, MIN_TURNS } from "./settings.js";
+import { MAX_TASKS, MAX_TURNS, MIN_TURNS } from "./settings.js";
 import { THINKING_LEVELS } from "./thinking.js";
 
 /**

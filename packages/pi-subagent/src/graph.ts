@@ -1,13 +1,6 @@
 import { Effect, Option, Schema } from "effect";
 
-import { Settings } from "./settings.js";
-
-/**
- * The batch cap. Sixteen matches pi-core-subagent, and there is no reason to
- * differ: past that the orchestrator is describing a program rather than
- * delegating, and every task costs a session.
- */
-export const MAX_TASKS = 16;
+import { MAX_TASKS, Settings } from "./settings.js";
 
 /** What the task text writes to ask for its first upstream's output. */
 export const PREVIOUS = "{previous}";
@@ -86,7 +79,7 @@ export function formatGraphError(error: GraphError): string {
     case "EmptyTaskList":
       return "No tasks were given. Pass at least one.";
     case "TooManyTasks":
-      return `Too many tasks (${error.count}). The limit is ${error.limit}.`;
+      return `Too many tasks (${error.count}). The limit is ${error.limit}. Split the work, or ask the user to raise max tasks in /subagent.`;
     case "InvalidTaskId":
       return `Task ${error.position} has the id "${error.id}". Ids may only contain letters, digits, underscore and hyphen.`;
     case "DuplicateTaskId":
@@ -122,10 +115,11 @@ function generatedId(index: number): string {
  */
 export const planGraph = Effect.fn("Graph.plan")(function* (
   inputs: readonly TaskInput[],
+  limit: number = MAX_TASKS,
 ): Effect.fn.Return<readonly PlannedTask[], GraphError> {
   if (inputs.length === 0) return yield* new EmptyTaskList();
-  if (inputs.length > MAX_TASKS) {
-    return yield* new TooManyTasks({ count: inputs.length, limit: MAX_TASKS });
+  if (inputs.length > limit) {
+    return yield* new TooManyTasks({ count: inputs.length, limit });
   }
 
   const explicit = new Set<string>();

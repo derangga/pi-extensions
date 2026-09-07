@@ -552,7 +552,8 @@ export class Manager extends Context.Service<
         const start = Effect.fn("Manager.start")(function* (
           request: StartRequest,
         ): Effect.fn.Return<RunView, StartError> {
-          const plan = yield* planGraph(request.tasks);
+          const current = yield* settings.current;
+          const plan = yield* planGraph(request.tasks, current.maxTasks);
 
           const files = yield* Effect.forEach(request.tasks, (task) =>
             readAgentFile(task.agent, request.cwd),
@@ -573,7 +574,6 @@ export class Manager extends Context.Service<
           const resolved = yield* resolveTasks(request.source, request.parent, choices).pipe(
             Effect.provideService(Settings, settings),
           );
-          const current = yield* settings.current;
 
           const states: TaskState[] = [];
           for (const task of plan) {

@@ -52,6 +52,10 @@ describe("decodeSettings", () => {
     expect(decodeSettings({ concurrency: 8 }).settings.concurrency).toBe(8);
     expect(decodeSettings({ concurrency: 0 }).warnings).toHaveLength(1);
     expect(decodeSettings({ concurrency: 9 }).warnings).toHaveLength(1);
+    expect(decodeSettings({ maxTasks: 1 }).settings.maxTasks).toBe(1);
+    expect(decodeSettings({ maxTasks: 16 }).settings.maxTasks).toBe(16);
+    expect(decodeSettings({ maxTasks: 0 }).warnings).toHaveLength(1);
+    expect(decodeSettings({ maxTasks: 17 }).warnings).toHaveLength(1);
   });
 
   it("leaves absent fields at their defaults without warning", () => {
@@ -92,6 +96,7 @@ describe("loadSettings", () => {
       thinking: "low",
       concurrency: 5,
       maxTurns: 20,
+      maxTasks: 8,
     };
 
     await Effect.runPromise(saveSettings(settings, path));

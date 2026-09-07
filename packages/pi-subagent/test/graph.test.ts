@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import {
   composePrompt,
   formatGraphError,
-  MAX_TASKS,
   planGraph,
   PREVIOUS,
   runGraph,
@@ -12,7 +11,7 @@ import {
   type Settlement,
   type TaskInput,
 } from "../src/graph.js";
-import { DEFAULT_SETTINGS, Settings, type SubagentSettings } from "../src/settings.js";
+import { DEFAULT_SETTINGS, MAX_TASKS, Settings, type SubagentSettings } from "../src/settings.js";
 
 function task(fields: Partial<TaskInput> = {}): TaskInput {
   return { task: "look", prompt: "look at the thing", ...fields };
@@ -54,6 +53,15 @@ describe("planGraph validation", () => {
   it("accepts exactly the cap", async () => {
     const planned = await plan(Array.from({ length: MAX_TASKS }, () => task()));
     expect(planned).toHaveLength(MAX_TASKS);
+  });
+
+  it("takes a tighter cap from the caller", async () => {
+    const three = Array.from({ length: 3 }, () => task());
+    const message = await Effect.runPromise(
+      planGraph(three, 2).pipe(Effect.flip, Effect.map(formatGraphError)),
+    );
+    expect(message).toContain("The limit is 2");
+    expect(await Effect.runPromise(planGraph(three, 3))).toHaveLength(3);
   });
 
   it("refuses an id outside letters, digits, underscore and hyphen", async () => {

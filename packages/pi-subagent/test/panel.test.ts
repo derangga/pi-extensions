@@ -7,6 +7,7 @@ import {
   describeSettings,
   resolveModel,
   ROW_CONCURRENCY,
+  ROW_MAX_TASKS,
   ROW_MAX_TURNS,
   ROW_MODEL,
   ROW_THINKING,
@@ -72,9 +73,9 @@ describe("clampThinking", () => {
 });
 
 describe("buildSettingItems", () => {
-  it("builds the four rows in order", () => {
+  it("builds the five rows in order", () => {
     const ids = buildSettingItems(settings(), AVAILABLE, OPUS).map((item) => item.id);
-    expect(ids).toEqual([ROW_MODEL, ROW_THINKING, ROW_CONCURRENCY, ROW_MAX_TURNS]);
+    expect(ids).toEqual([ROW_MODEL, ROW_THINKING, ROW_CONCURRENCY, ROW_MAX_TURNS, ROW_MAX_TASKS]);
   });
 
   it("gives the model row no values, because its list opens a submenu", () => {
@@ -91,9 +92,14 @@ describe("buildSettingItems", () => {
   });
 
   it("shows the numbers as strings, which is what SettingItem carries", () => {
-    const rows = buildSettingItems(settings({ concurrency: 5, maxTurns: 50 }), AVAILABLE, OPUS);
+    const rows = buildSettingItems(
+      settings({ concurrency: 5, maxTurns: 50, maxTasks: 4 }),
+      AVAILABLE,
+      OPUS,
+    );
     expect(rows[2]?.currentValue).toBe("5");
     expect(rows[3]?.currentValue).toBe("50");
+    expect(rows[4]?.currentValue).toBe("4");
   });
 });
 
@@ -129,6 +135,9 @@ describe("settingsWithRowChange", () => {
     expect(settingsWithRowChange(base, ROW_CONCURRENCY, "0", AVAILABLE, OPUS)).toEqual(base);
     expect(settingsWithRowChange(base, ROW_CONCURRENCY, "99", AVAILABLE, OPUS)).toEqual(base);
     expect(settingsWithRowChange(base, ROW_MAX_TURNS, "abc", AVAILABLE, OPUS)).toEqual(base);
+    expect(settingsWithRowChange(base, ROW_MAX_TASKS, "4", AVAILABLE, OPUS).maxTasks).toBe(4);
+    expect(settingsWithRowChange(base, ROW_MAX_TASKS, "0", AVAILABLE, OPUS)).toEqual(base);
+    expect(settingsWithRowChange(base, ROW_MAX_TASKS, "17", AVAILABLE, OPUS)).toEqual(base);
   });
 
   it("ignores a row it does not know", () => {
@@ -155,8 +164,12 @@ describe("cycleValue", () => {
 
 describe("describeSettings", () => {
   it("names every setting and the file to hand-edit", () => {
-    const text = describeSettings(settings({ concurrency: 4 }), "/tmp/pi-subagent.json");
+    const text = describeSettings(
+      settings({ concurrency: 4, maxTasks: 6 }),
+      "/tmp/pi-subagent.json",
+    );
     expect(text).toContain("concurrency 4");
+    expect(text).toContain("max tasks 6");
     expect(text).toContain("/tmp/pi-subagent.json");
   });
 });

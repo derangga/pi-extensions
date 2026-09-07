@@ -20,6 +20,7 @@ export interface SubagentSettings {
   readonly thinking: ThinkingChoice;
   readonly concurrency: number;
   readonly maxTurns: number;
+  readonly maxTasks: number;
 }
 
 /** Both bounds are the menu's range as well as the file's. */
@@ -27,12 +28,23 @@ export const MIN_CONCURRENCY = 1;
 export const MAX_CONCURRENCY = 8;
 export const MIN_TURNS = 1;
 export const MAX_TURNS = 200;
+export const MIN_TASKS = 1;
+
+/**
+ * The ceiling on the batch cap, and the tool schema's `maxItems`. Sixteen
+ * matches pi-core-subagent, and there is no reason to differ: past that the
+ * orchestrator is describing a program rather than delegating, and every task
+ * costs a session. The `maxTasks` setting tightens it further; nothing widens
+ * it, because the schema is fixed at load and cannot be rewritten per call.
+ */
+export const MAX_TASKS = 16;
 
 export const DEFAULT_SETTINGS: SubagentSettings = {
   model: INHERIT,
   thinking: INHERIT,
   concurrency: 3,
   maxTurns: 30,
+  maxTasks: MAX_TASKS,
 };
 
 const CONFIG_ENV = "PI_SUBAGENT_CONFIG";
@@ -59,6 +71,9 @@ const decodeConcurrency = Schema.decodeUnknownOption(
 );
 const decodeMaxTurns = Schema.decodeUnknownOption(
   Schema.Int.check(Schema.isBetween({ minimum: MIN_TURNS, maximum: MAX_TURNS })),
+);
+const decodeMaxTasks = Schema.decodeUnknownOption(
+  Schema.Int.check(Schema.isBetween({ minimum: MIN_TASKS, maximum: MAX_TASKS })),
 );
 
 type ParseOutcome =
@@ -106,6 +121,7 @@ export function decodeSettings(raw: unknown): LoadedSettings {
       thinking: take("thinking", decodeThinking, DEFAULT_SETTINGS.thinking),
       concurrency: take("concurrency", decodeConcurrency, DEFAULT_SETTINGS.concurrency),
       maxTurns: take("maxTurns", decodeMaxTurns, DEFAULT_SETTINGS.maxTurns),
+      maxTasks: take("maxTasks", decodeMaxTasks, DEFAULT_SETTINGS.maxTasks),
     },
     warnings,
   };
