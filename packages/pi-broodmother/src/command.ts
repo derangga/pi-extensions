@@ -1,6 +1,8 @@
 import { getSelectListTheme, getSettingsListTheme } from "@earendil-works/pi-coding-agent";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import { Container, SelectList, type SelectItem, SettingsList, Text } from "@earendil-works/pi-tui";
+import { Container, type SelectItem, SettingsList, Text } from "@earendil-works/pi-tui";
+
+import { FilterableSelectList } from "./model-picker.js";
 
 import {
   buildSettingItems,
@@ -80,7 +82,7 @@ async function openPanel(host: SubagentCommandHost, ctx: ExtensionCommandContext
     if (modelRow) {
       modelRow.submenu = (opened, close) => {
         submenuOpen = true;
-        const picker = new SelectList(
+        const picker = new FilterableSelectList(
           modelChoices(available, parent),
           Math.min(12, available.length + 1),
           getSelectListTheme(),
