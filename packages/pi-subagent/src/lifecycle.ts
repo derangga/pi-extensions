@@ -51,7 +51,7 @@ interface LifecycleChild extends Omit<CreatedChildSession, "session"> {
   readonly session: LifecycleSession;
 }
 
-type ChildFactory = (options: ChildSessionOptions) => Promise<LifecycleChild>;
+export type ChildFactory = (options: ChildSessionOptions) => Promise<LifecycleChild>;
 
 export interface ChildRunOptions {
   readonly child: ChildSessionOptions;

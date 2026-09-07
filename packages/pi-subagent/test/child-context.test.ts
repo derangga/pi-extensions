@@ -35,6 +35,7 @@ describe("child session context", () => {
     let shutdown: (() => void | Promise<void>) | undefined;
     const pi = {
       registerCommand: vi.fn<() => void>(),
+      registerTool: vi.fn<() => void>(),
       sendUserMessage: vi.fn<() => void>(),
       on: vi.fn<(event: string, handler: () => void | Promise<void>) => void>((event, handler) => {
         if (event === "session_shutdown") shutdown = handler;

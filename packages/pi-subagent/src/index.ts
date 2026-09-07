@@ -1,16 +1,23 @@
-import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionCommandContext,
+  ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
 import { Effect, Layer, ManagedRuntime } from "effect";
 
 import { inChildSessionContext } from "./child-context.js";
 import { registerSubagentCommand } from "./command.js";
 import { Intercom } from "./intercom.js";
+import { modelSourceFrom } from "./resolve.js";
+import { formatManagerError, Manager, type ManagerError } from "./run.js";
 import { DEFAULT_SETTINGS, getSettingsPath, Settings, type SubagentSettings } from "./settings.js";
+import { registerSubagentTools } from "./tools.js";
 
 /**
  * Entry point. Pi resolves this through `pi.extensions` and loads it with jiti,
  * so it stays raw TypeScript with no build step.
  *
- * Effect owns the settings and, later, the run manager. It stops at this
+ * Effect owns the settings, the intercom and the run manager. It stops at this
  * boundary: the runtime is built once here and every Pi callback bridges into
  * it with `runPromise`, because Pi's own surface is callbacks and promises.
  */
@@ -18,13 +25,58 @@ export default function subagentExtension(pi: ExtensionAPI): void {
   if (inChildSessionContext()) return;
 
   const runtime = ManagedRuntime.make(
-    Layer.mergeAll(
-      Settings.layer,
-      Intercom.layer({
-        send: (message, mode) => pi.sendUserMessage(message, { deliverAs: mode }),
-      }),
+    Manager.layer.pipe(
+      Layer.provideMerge(
+        Layer.mergeAll(
+          Settings.layer,
+          Intercom.layer({
+            send: (message, mode) => pi.sendUserMessage(message, { deliverAs: mode }),
+          }),
+        ),
+      ),
     ),
   );
+
+  /**
+   * The one place a typed manager failure becomes something the model reads.
+   * Pi turns a thrown tool error into an error tool result carrying the
+   * message, which is exactly where these belong.
+   */
+  const call = async <A>(
+    build: (manager: Manager["Service"]) => Effect.Effect<A, ManagerError>,
+  ): Promise<A> => {
+    const outcome = await runtime.runPromise(
+      Effect.gen(function* () {
+        const manager = yield* Manager;
+        return yield* build(manager).pipe(
+          Effect.match({
+            onFailure: (error: ManagerError) =>
+              ({ ok: false, message: formatManagerError(error) }) as const,
+            onSuccess: (value: A) => ({ ok: true, value }) as const,
+          }),
+        );
+      }),
+    );
+    if (!outcome.ok) throw new Error(outcome.message);
+    return outcome.value;
+  };
+
+  registerSubagentTools(pi, {
+    start: (tasks, ctx: ExtensionContext) =>
+      call((manager) =>
+        manager.start({
+          tasks,
+          cwd: ctx.cwd,
+          parent: { model: ctx.model, thinking: ctx.thinkingLevel },
+          parentSession: ctx.sessionManager.getSessionFile(),
+          source: modelSourceFrom(ctx.modelRegistry),
+        }),
+      ),
+    wait: (runId, taskId) => call((manager) => manager.wait(runId, taskId)),
+    view: (runId) => call((manager) => manager.view(runId)),
+    reply: (runId, taskId, message) => call((manager) => manager.reply(runId, taskId, message)),
+    cancel: (runId) => call((manager) => manager.cancel(runId)),
+  });
 
   /**
    * What the panel reads between keystrokes. A render runs several times a
