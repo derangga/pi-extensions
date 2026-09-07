@@ -77,7 +77,7 @@ export function buildSettingItems(
     {
       id: ROW_MODEL,
       label: "Model",
-      description: modelDescription(settings, resolved, parent),
+      description: modelDescription(settings, parent),
       currentValue: settings.model,
     },
     {
@@ -166,11 +166,7 @@ export function cycleValue(values: readonly string[], current: string, step: num
   return values[next] ?? current;
 }
 
-function modelDescription(
-  settings: SubagentSettings,
-  resolved: PiModel | undefined,
-  parent: PiModel | undefined,
-): string {
+function modelDescription(settings: SubagentSettings, parent: PiModel | undefined): string {
   if (settings.model !== INHERIT) return "Every child runs on this, whatever a task asks for.";
   return parent
     ? `Follows the parent, currently ${parent.id}.`
