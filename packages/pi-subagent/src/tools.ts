@@ -1,14 +1,17 @@
 import type {
   ExtensionAPI,
   ExtensionContext,
+  Theme,
   ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
+import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 
 import { MAX_TASKS } from "./graph.js";
 import type { ParentTraffic } from "./intercom.js";
 import type { ReplyOutcome } from "./intercom.js";
 import type { RunView, TaskRequest, TaskView, WaitOutcome } from "./run.js";
+import { callLines, resultLines } from "./render.js";
 import { MAX_TURNS, MIN_TURNS } from "./settings.js";
 import { THINKING_LEVELS } from "./thinking.js";
 
@@ -215,8 +218,41 @@ function reportWait(outcome: WaitOutcome, options: ReportOptions): string {
     : formatTrafficReport(outcome.run, outcome.messages);
 }
 
-function text(body: string) {
-  return { content: [{ type: "text" as const, text: body }], details: {} };
+/**
+ * The result carries the run as structure, not just prose: `renderResult` draws
+ * from it, so the summary and the expanded rows never have to re-parse text.
+ */
+interface SubagentDetails {
+  readonly run?: RunView;
+}
+
+function text(body: string, run?: RunView) {
+  return {
+    content: [{ type: "text" as const, text: body }],
+    details: (run ? { run } : {}) satisfies SubagentDetails,
+  };
+}
+
+function lines(rendered: readonly string[]) {
+  return new Text(rendered.join("\n"), 0, 0);
+}
+
+/** Falls back to the result text, which is what a run-less result carries. */
+function renderRunResult(
+  result: { content: { type: string; text?: string }[]; details: unknown },
+  expanded: boolean,
+  theme: Theme,
+) {
+  const run = (result.details as SubagentDetails | undefined)?.run;
+  if (!run) {
+    const first = result.content[0];
+    return new Text(first?.type === "text" ? (first.text ?? "") : "", 0, 0);
+  }
+  return lines(resultLines(run, theme, expanded));
+}
+
+function waitResult(outcome: WaitOutcome, options: ReportOptions) {
+  return text(reportWait(outcome, options), outcome.run);
 }
 
 export function createSubagentTools(host: SubagentToolHost): ToolDefinition[] {
@@ -241,9 +277,11 @@ export function createSubagentTools(host: SubagentToolHost): ToolDefinition[] {
           autoAwait?: boolean;
         };
         const run = await host.start(tasks, ctx);
-        if (autoAwait !== true) return text(formatStart(run));
-        return text(reportWait(await host.wait(run.id, undefined), {}));
+        if (autoAwait !== true) return text(formatStart(run), run);
+        return waitResult(await host.wait(run.id, undefined), {});
       },
+      renderCall: (args, theme) => lines(callLines(args, theme)),
+      renderResult: (result, { expanded }, theme) => renderRunResult(result, expanded, theme),
     },
     {
       name: "subagent_result",
@@ -260,9 +298,13 @@ export function createSubagentTools(host: SubagentToolHost): ToolDefinition[] {
           verbose?: boolean;
         };
         const options: ReportOptions = { taskId, verbose };
-        if (wait !== true) return text(formatRun(await host.view(runId), options));
-        return text(reportWait(await host.wait(runId, taskId), options));
+        if (wait !== true) {
+          const run = await host.view(runId);
+          return text(formatRun(run, options), run);
+        }
+        return waitResult(await host.wait(runId, taskId), options);
       },
+      renderResult: (result, { expanded }, theme) => renderRunResult(result, expanded, theme),
     },
     {
       name: "reply_subagent",

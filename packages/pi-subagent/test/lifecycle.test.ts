@@ -4,10 +4,13 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ChildSessionOptions, CreatedChildSession } from "../src/child.js";
 import {
+  ACTIVITY_MAX,
+  describeToolCall,
   GRACE_TURNS,
   runChildLifecycle,
   truncateResult,
   type ChildRunOptions,
+  type TaskProgress,
 } from "../src/lifecycle.js";
 
 type Message = AgentSession["messages"][number];
@@ -19,6 +22,22 @@ function assistant(text: string, stopReason = "stop", errorMessage?: string): Me
     stopReason,
     ...(errorMessage ? { errorMessage } : {}),
   } as unknown as Message;
+}
+
+function toolStart(toolName: string, args: unknown): AgentSessionEvent {
+  return {
+    type: "tool_execution_start",
+    toolCallId: "call-1",
+    toolName,
+    args,
+  } as AgentSessionEvent;
+}
+
+function messageEnd(usage: Record<string, number>): AgentSessionEvent {
+  return {
+    type: "message_end",
+    message: { role: "assistant", content: [], usage },
+  } as unknown as AgentSessionEvent;
 }
 
 function turnEnd(message: Message = assistant("")): AgentSessionEvent {
@@ -241,5 +260,80 @@ describe("result truncation", () => {
     expect(Buffer.byteLength(result, "utf8")).toBeLessThanOrEqual(100);
     expect(result).toContain("Full transcript: /tmp/full.jsonl");
     expect(result).not.toContain("�");
+  });
+});
+
+describe("describeToolCall", () => {
+  it("names the tool when there is nothing better to show", () => {
+    expect(describeToolCall("read", undefined)).toBe("Read");
+    expect(describeToolCall("read", { lines: 12 })).toBe("Read");
+  });
+
+  it("prefers the argument a reader cares about over the first one present", () => {
+    expect(describeToolCall("grep", { caseSensitive: true, pattern: "useEffect" })).toBe(
+      "Grep useEffect",
+    );
+    expect(describeToolCall("find", { path: "src/index.ts" })).toBe("Find src/index.ts");
+  });
+
+  it("falls back to any string when no known key is present", () => {
+    expect(describeToolCall("custom", { whatever: "a value" })).toBe("Custom a value");
+  });
+
+  it("flattens and truncates so the widget keeps one line per task", () => {
+    const described = describeToolCall("grep", { pattern: `line\n  ${"x".repeat(ACTIVITY_MAX)}` });
+    expect(described).not.toContain("\n");
+    expect(described.endsWith("…")).toBe(true);
+  });
+});
+
+describe("progress reporting", () => {
+  it("counts tool calls and names the last one", async () => {
+    const seen: TaskProgress[] = [];
+    const fake = fakeChild(({ emit, messages }) => {
+      emit(toolStart("grep", { pattern: "useEffect" }));
+      emit(toolStart("read", { file_path: "src/index.ts" }));
+      messages.push(assistant("done"));
+    });
+
+    await Effect.runPromise(
+      runChildLifecycle(options(fake.created, { onProgress: (p) => seen.push(p) })),
+    );
+
+    expect(seen.at(-1)).toMatchObject({ toolCalls: 2, activity: "Read src/index.ts" });
+  });
+
+  it("sums work done across turns and leaves cacheRead out of it", async () => {
+    const seen: TaskProgress[] = [];
+    const fake = fakeChild(({ emit, messages }) => {
+      emit(messageEnd({ input: 100, output: 20, cacheWrite: 5, cacheRead: 9_000 }));
+      emit(messageEnd({ input: 10, output: 2, cacheWrite: 0, cacheRead: 9_000 }));
+      messages.push(assistant("done"));
+    });
+
+    await Effect.runPromise(
+      runChildLifecycle(options(fake.created, { onProgress: (p) => seen.push(p) })),
+    );
+
+    expect(seen.at(-1)?.tokens).toBe(137);
+  });
+
+  it("does not let a throwing listener strand the child", async () => {
+    const fake = fakeChild(({ emit, messages }) => {
+      emit(toolStart("grep", { pattern: "x" }));
+      messages.push(assistant("done anyway"));
+    });
+
+    const result = await Effect.runPromise(
+      runChildLifecycle(
+        options(fake.created, {
+          onProgress: () => {
+            throw new Error("the widget blew up");
+          },
+        }),
+      ),
+    );
+
+    expect(result).toMatchObject({ outcome: "completed", output: "done anyway" });
   });
 });

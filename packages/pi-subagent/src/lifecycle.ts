@@ -1,5 +1,5 @@
 import type { AgentSession, AgentSessionEvent } from "@earendil-works/pi-coding-agent";
-import { Effect, Schema } from "effect";
+import { Effect, Predicate, Schema } from "effect";
 
 import {
   createChildSession,
@@ -9,11 +9,46 @@ import {
 } from "./child.js";
 
 export const GRACE_TURNS = 5;
+/** Long enough to say what the child is doing, short enough for one widget line. */
+export const ACTIVITY_MAX = 60;
 export const WALL_CLOCK_LIMIT_MS = 30 * 60 * 1000;
 export const RESULT_CAP_BYTES = 24 * 1024;
 
 const WRAP_UP =
   "You have reached your turn limit. Wrap up immediately and provide your final answer now.";
+
+/** What a task looks like while it is still running. */
+export interface TaskProgress {
+  readonly toolCalls: number;
+  /** Input plus output plus cache writes: the work done, not the bill. */
+  readonly tokens: number;
+  /** The last tool call, as a short phrase. */
+  readonly activity: string | undefined;
+}
+
+export const NO_PROGRESS: TaskProgress = { toolCalls: 0, tokens: 0, activity: undefined };
+
+/**
+ * The arguments most worth showing, in the order a reader wants them. Falls
+ * back to the first string in the object, because a tool this does not know
+ * still has something better to show than its own name.
+ */
+const ACTIVITY_KEYS = ["pattern", "query", "path", "file_path", "filePath", "command", "name"];
+
+export function describeToolCall(toolName: string, args: unknown): string {
+  const verb = toolName.charAt(0).toUpperCase() + toolName.slice(1);
+  if (!Predicate.isObject(args)) return verb;
+
+  const fields = args as Record<string, unknown>;
+  const candidates = [...ACTIVITY_KEYS.map((key) => fields[key]), ...Object.values(fields)];
+  const value = candidates.find(
+    (candidate) => Predicate.isString(candidate) && candidate.trim() !== "",
+  );
+  if (!Predicate.isString(value)) return verb;
+
+  const flat = value.replaceAll(/\s+/g, " ").trim();
+  return `${verb} ${flat.length > ACTIVITY_MAX ? `${flat.slice(0, ACTIVITY_MAX)}…` : flat}`;
+}
 
 export type ChildOutcome =
   | "completed"
@@ -61,6 +96,8 @@ export interface ChildRunOptions {
   readonly timeoutMs?: number;
   readonly signal?: AbortSignal;
   readonly create?: ChildFactory;
+  /** Called as the child works, for the widget. Never on the critical path. */
+  readonly onProgress?: (progress: TaskProgress) => void;
 }
 
 class PromptFailed extends Schema.TaggedError<PromptFailed>()("PromptFailed", {
@@ -160,11 +197,44 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
   let abortedAfterGrace = false;
   let stoppedByUser = options.signal?.aborted === true;
   let streamed = "";
+  let progress = NO_PROGRESS;
+
+  const report = (next: TaskProgress) => {
+    progress = next;
+    try {
+      options.onProgress?.(next);
+    } catch {
+      // A widget that throws must not strand the child that was feeding it.
+    }
+  };
 
   const unsubscribe = session.subscribe((event: AgentSessionEvent) => {
     if (event.type === "message_start" && event.message.role === "assistant") streamed = "";
     if (event.type === "message_update" && event.assistantMessageEvent.type === "text_delta") {
       streamed += event.assistantMessageEvent.delta;
+    }
+    if (event.type === "tool_execution_start") {
+      report({
+        ...progress,
+        toolCalls: progress.toolCalls + 1,
+        activity: describeToolCall(event.toolName, event.args),
+      });
+      return;
+    }
+    if (event.type === "message_end") {
+      // Accumulated here rather than from getSessionStats, which derives from
+      // the message array compaction replaces and so resets when a child
+      // compacts. cacheRead is left out: it is the cached prefix re-read on
+      // this one call, so summing it overstates the work done.
+      const usage = event.message.role === "assistant" ? event.message.usage : undefined;
+      if (usage) {
+        report({
+          ...progress,
+          tokens:
+            progress.tokens + (usage.input ?? 0) + (usage.output ?? 0) + (usage.cacheWrite ?? 0),
+        });
+      }
+      return;
     }
     if (event.type !== "turn_end") return;
 

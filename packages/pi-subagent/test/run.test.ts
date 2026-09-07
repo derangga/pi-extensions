@@ -50,8 +50,12 @@ interface Sent {
  * file, a delivery channel that collects rather than sends, and a child factory
  * that answers from a table instead of starting a session.
  */
-function layers(sent: Sent[], overrides: Partial<SubagentSettings> = {}) {
-  return Manager.layer.pipe(
+function layers(
+  sent: Sent[],
+  overrides: Partial<SubagentSettings> = {},
+  onChange?: (runs: readonly RunView[]) => void,
+) {
+  return Manager.layer(onChange ? { onChange } : {}).pipe(
     Layer.provideMerge(
       Layer.mergeAll(
         settingsLayer(overrides),
@@ -71,11 +75,31 @@ type Answer = (prompt: string, options: ChildSessionOptions) => Promise<string> 
 function childFactory(answer: Answer): ChildFactory {
   return async (options: ChildSessionOptions) => {
     const messages: AgentSession["messages"][number][] = [];
+    const listeners = new Set<(event: AgentSessionEvent) => void>();
     const session = {
       messages,
       sessionFile: `/sessions/${options.name}.jsonl`,
-      subscribe: (_listener: (event: AgentSessionEvent) => void) => () => true,
+      subscribe: (listener: (event: AgentSessionEvent) => void) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
       prompt: async (task: string) => {
+        for (const listener of listeners) {
+          listener({
+            type: "tool_execution_start",
+            toolCallId: "call-1",
+            toolName: "grep",
+            args: { pattern: "useEffect" },
+          } as AgentSessionEvent);
+          listener({
+            type: "message_end",
+            message: {
+              role: "assistant",
+              content: [],
+              usage: { input: 90, output: 10, cacheWrite: 0, cacheRead: 5_000 },
+            },
+          } as unknown as AgentSessionEvent);
+        }
         const text = await answer(task, options);
         messages.push({
           role: "assistant",
@@ -122,12 +146,13 @@ function withManager<A, E>(
   sent: Sent[],
   program: (manager: Manager["Service"]) => Effect.Effect<A, E>,
   overrides: Partial<SubagentSettings> = {},
+  onChange?: (runs: readonly RunView[]) => void,
 ): Promise<A> {
   return Effect.runPromise(
     Effect.gen(function* () {
       const manager = yield* Manager;
       return yield* program(manager);
-    }).pipe(Effect.provide(layers(sent, overrides))),
+    }).pipe(Effect.provide(layers(sent, overrides, onChange))),
   );
 }
 
@@ -414,5 +439,78 @@ describe("addressing", () => {
 
     expect(message).toContain('has no task "nope"');
     expect(message).toContain("a");
+  });
+});
+
+describe("live progress", () => {
+  it("carries each child's tool count, tokens and last activity onto the view", async () => {
+    const run = await withManager([], (manager) =>
+      Effect.gen(function* () {
+        const started = yield* manager.start(
+          request(
+            [task({ id: "a" })],
+            childFactory(() => "done"),
+          ),
+        );
+        yield* manager.wait(started.id, undefined);
+        return yield* manager.view(started.id);
+      }),
+    );
+
+    const view = run.tasks[0]!;
+    expect(view.toolCalls).toBe(1);
+    // cacheRead is deliberately absent: 90 + 10 + 0, not 5100.
+    expect(view.tokens).toBe(100);
+    expect(view.activity).toBe("Grep useEffect");
+    expect(view.startedAt).toBeDefined();
+    expect(view.endedAt).toBeDefined();
+  });
+
+  it("pushes a snapshot on every change, and the last one is the settled run", async () => {
+    const seen: RunView[][] = [];
+    await withManager(
+      [],
+      (manager) =>
+        Effect.gen(function* () {
+          const started = yield* manager.start(
+            request(
+              [task({ id: "a" })],
+              childFactory(() => "done"),
+            ),
+          );
+          yield* manager.wait(started.id, undefined);
+        }),
+      {},
+      (runs) => seen.push(runs.map((run) => run)),
+    );
+
+    // Start, running, two progress ticks, settle, finish: the widget cannot be
+    // driven by polling, so every one of these has to arrive.
+    expect(seen.length).toBeGreaterThanOrEqual(5);
+    expect(seen[0]?.[0]?.tasks[0]?.status).toBe("pending");
+    expect(seen.at(-1)?.[0]?.finished).toBe(true);
+  });
+
+  it("keeps running when a surface throws", async () => {
+    const run = await withManager(
+      [],
+      (manager) =>
+        Effect.gen(function* () {
+          const started = yield* manager.start(
+            request(
+              [task({ id: "a" })],
+              childFactory(() => "done"),
+            ),
+          );
+          yield* manager.wait(started.id, undefined);
+          return yield* manager.view(started.id);
+        }),
+      {},
+      () => {
+        throw new Error("the widget blew up");
+      },
+    );
+
+    expect(outputs(run).a).toBe("done");
   });
 });

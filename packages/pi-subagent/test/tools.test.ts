@@ -1,4 +1,4 @@
-import type { ExtensionContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
+import type { ExtensionContext, Theme, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it } from "vitest";
 
 import type { ParentTraffic } from "../src/intercom.js";
@@ -27,6 +27,11 @@ function taskView(fields: Partial<TaskView> = {}): TaskView {
     output: "the answer",
     sessionFile: "/sessions/a.jsonl",
     turns: 3,
+    toolCalls: 4,
+    tokens: 1200,
+    activity: "Grep useEffect",
+    startedAt: 1000,
+    endedAt: 4000,
     missing: [],
     notes: [],
     ...fields,
@@ -65,6 +70,22 @@ function tool(name: string, overrides: Partial<SubagentToolHost> = {}): ToolDefi
   const found = createSubagentTools(host(overrides)).find((entry) => entry.name === name);
   if (!found) throw new Error(`no tool named ${name}`);
   return found;
+}
+
+/** Identity colours, so an assertion reads the text and not an escape code. */
+const theme = {
+  fg: (_color: string, text: string) => text,
+  bold: (text: string) => text,
+} as unknown as Theme;
+
+async function callRaw(definition: ToolDefinition, params: unknown) {
+  return definition.execute(
+    "call-1",
+    params as never,
+    undefined,
+    undefined,
+    {} as ExtensionContext,
+  );
 }
 
 async function call(definition: ToolDefinition, params: unknown): Promise<string> {
@@ -319,5 +340,70 @@ describe("subagent_cancel", () => {
 
     expect(text).toContain("Cancelled run_1");
     expect(text).toContain("1 task stopped");
+  });
+});
+
+describe("rendering", () => {
+  it("draws the plan while the arguments are still streaming", () => {
+    const definition = tool("subagent");
+    const component = definition.renderCall!(
+      {
+        tasks: [
+          { id: "up", agent: "reader" },
+          { agent: "writer", needs: ["up"] },
+        ],
+      } as never,
+      theme,
+      {} as never,
+    );
+    const rendered = component.render(200).join("\n");
+    expect(rendered).toContain("graph 2");
+    expect(rendered).toContain("up reader");
+  });
+
+  it("carries the run as structure so the result renders without re-parsing prose", async () => {
+    const run = runView([taskView()]);
+    const result = await callRaw(tool("subagent_result", { view: async () => run }), {});
+    expect(result.details).toEqual({ run });
+  });
+
+  it("collapses to a summary and expands to per-task rows", async () => {
+    const definition = tool("subagent_result", { view: async () => runView([taskView()]) });
+    const result = await callRaw(definition, {});
+
+    const collapsed = definition.renderResult!(
+      result,
+      { expanded: false } as never,
+      theme,
+      {} as never,
+    )
+      .render(200)
+      .join("\n");
+    expect(collapsed).toContain("1/1 done");
+    expect(collapsed).not.toContain("the answer");
+
+    const expanded = definition.renderResult!(
+      result,
+      { expanded: true } as never,
+      theme,
+      {} as never,
+    )
+      .render(200)
+      .join("\n");
+    expect(expanded).toContain("the answer");
+    expect(expanded).toContain("/sessions/a.jsonl");
+  });
+
+  it("falls back to the result text when there is no run to draw", () => {
+    const definition = tool("subagent_result");
+    const rendered = definition.renderResult!(
+      { content: [{ type: "text", text: "No run has been started." }], details: {} } as never,
+      { expanded: true } as never,
+      theme,
+      {} as never,
+    )
+      .render(200)
+      .join("\n");
+    expect(rendered).toContain("No run has been started.");
   });
 });

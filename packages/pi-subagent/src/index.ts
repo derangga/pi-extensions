@@ -8,8 +8,9 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 import { inChildSessionContext } from "./child-context.js";
 import { registerSubagentCommand } from "./command.js";
 import { Intercom } from "./intercom.js";
+import { createWidgetHost } from "./render.js";
 import { modelSourceFrom } from "./resolve.js";
-import { formatManagerError, Manager, type ManagerError } from "./run.js";
+import { formatManagerError, Manager, type ManagerError, type RunView } from "./run.js";
 import { DEFAULT_SETTINGS, getSettingsPath, Settings, type SubagentSettings } from "./settings.js";
 import { registerSubagentTools } from "./tools.js";
 
@@ -24,8 +25,23 @@ import { registerSubagentTools } from "./tools.js";
 export default function subagentExtension(pi: ExtensionAPI): void {
   if (inChildSessionContext()) return;
 
+  /**
+   * What the widget reads between repaints. A render is synchronous and cannot
+   * await, so the manager pushes snapshots here and the TUI side never touches
+   * Effect. The context only exists once a tool runs, which is also the first
+   * moment there is anything to show.
+   */
+  let runs: readonly RunView[] = [];
+  let uiContext: ExtensionContext | undefined;
+  const widget = createWidgetHost(() => runs);
+
   const runtime = ManagedRuntime.make(
-    Manager.layer.pipe(
+    Manager.layer({
+      onChange: (next) => {
+        runs = next;
+        widget.update(uiContext);
+      },
+    }).pipe(
       Layer.provideMerge(
         Layer.mergeAll(
           Settings.layer,
@@ -62,8 +78,9 @@ export default function subagentExtension(pi: ExtensionAPI): void {
   };
 
   registerSubagentTools(pi, {
-    start: (tasks, ctx: ExtensionContext) =>
-      call((manager) =>
+    start: (tasks, ctx: ExtensionContext) => {
+      uiContext = ctx;
+      return call((manager) =>
         manager.start({
           tasks,
           cwd: ctx.cwd,
@@ -71,7 +88,8 @@ export default function subagentExtension(pi: ExtensionAPI): void {
           parentSession: ctx.sessionManager.getSessionFile(),
           source: modelSourceFrom(ctx.modelRegistry),
         }),
-      ),
+      );
+    },
     wait: (runId, taskId) => call((manager) => manager.wait(runId, taskId)),
     view: (runId) => call((manager) => manager.view(runId)),
     reply: (runId, taskId, message) => call((manager) => manager.reply(runId, taskId, message)),
@@ -127,5 +145,8 @@ export default function subagentExtension(pi: ExtensionAPI): void {
     },
   });
 
-  pi.on("session_shutdown", () => runtime.dispose());
+  pi.on("session_shutdown", () => {
+    widget.clear(uiContext);
+    return runtime.dispose();
+  });
 }
