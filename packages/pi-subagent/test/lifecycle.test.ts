@@ -113,6 +113,7 @@ describe("child lifecycle", () => {
       outcome: "completed",
       output: "current answer",
       partial: false,
+      producedOutput: true,
     });
     expect(result.output).not.toContain("old answer");
     expect(fake.order).toEqual(["shutdown", "dispose"]);
@@ -224,7 +225,12 @@ describe("child lifecycle", () => {
       }),
     );
 
-    expect(result).toMatchObject({ outcome: "failed", error: "could not start", turns: 0 });
+    expect(result).toMatchObject({
+      outcome: "failed",
+      error: "could not start",
+      producedOutput: false,
+      turns: 0,
+    });
   });
 });
 

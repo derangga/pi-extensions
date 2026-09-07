@@ -1,8 +1,9 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import { Effect, ManagedRuntime } from "effect";
+import { Effect, Layer, ManagedRuntime } from "effect";
 
 import { inChildSessionContext } from "./child-context.js";
 import { registerSubagentCommand } from "./command.js";
+import { Intercom } from "./intercom.js";
 import { DEFAULT_SETTINGS, getSettingsPath, Settings, type SubagentSettings } from "./settings.js";
 
 /**
@@ -16,7 +17,14 @@ import { DEFAULT_SETTINGS, getSettingsPath, Settings, type SubagentSettings } fr
 export default function subagentExtension(pi: ExtensionAPI): void {
   if (inChildSessionContext()) return;
 
-  const runtime = ManagedRuntime.make(Settings.layer);
+  const runtime = ManagedRuntime.make(
+    Layer.mergeAll(
+      Settings.layer,
+      Intercom.layer({
+        send: (message, mode) => pi.sendUserMessage(message, { deliverAs: mode }),
+      }),
+    ),
+  );
 
   /**
    * What the panel reads between keystrokes. A render runs several times a
@@ -67,7 +75,5 @@ export default function subagentExtension(pi: ExtensionAPI): void {
     },
   });
 
-  pi.on("session_shutdown", () => {
-    void runtime.dispose();
-  });
+  pi.on("session_shutdown", () => runtime.dispose());
 }

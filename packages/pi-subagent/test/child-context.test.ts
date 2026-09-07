@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { inChildSessionContext, runInChildSessionContext } from "../src/child-context.js";
 import subagentExtension from "../src/index.js";
@@ -29,5 +29,22 @@ describe("child session context", () => {
         subagentExtension(unusablePi as never);
       }),
     ).resolves.toBeUndefined();
+  });
+
+  it("returns runtime disposal from parent session shutdown", async () => {
+    let shutdown: (() => void | Promise<void>) | undefined;
+    const pi = {
+      registerCommand: vi.fn<() => void>(),
+      sendUserMessage: vi.fn<() => void>(),
+      on: vi.fn<(event: string, handler: () => void | Promise<void>) => void>((event, handler) => {
+        if (event === "session_shutdown") shutdown = handler;
+      }),
+    };
+
+    subagentExtension(pi as never);
+    const disposal = shutdown?.();
+
+    expect(disposal).toBeInstanceOf(Promise);
+    await disposal;
   });
 });

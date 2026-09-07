@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { type AgentSession, ModelRuntime } from "@earendil-works/pi-coding-agent";
+import { Effect } from "effect";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -14,6 +15,7 @@ import {
   shutdownChildSession,
   SUBAGENT_INSTRUCTIONS,
 } from "../src/child.js";
+import { createIntercomTools, type TaskChannel } from "../src/intercom.js";
 import type { PiModel } from "../src/thinking.js";
 
 vi.setConfig({ testTimeout: 30_000 });
@@ -58,6 +60,10 @@ describe("child session", () => {
     const model = modelRuntime.getModels()[0] as PiModel | undefined;
     expect(model).toBeDefined();
 
+    const intercom: TaskChannel = {
+      ask: () => Effect.succeed("answer"),
+      notify: () => Effect.void,
+    };
     const created = await createChildSession({
       cwd,
       sessionDir,
@@ -68,6 +74,7 @@ describe("child session", () => {
       thinking: "off",
       modelRuntime,
       fffEntry: fixture,
+      customTools: createIntercomTools(intercom),
     });
 
     const emit = vi.spyOn(created.session.extensionRunner, "emit");
@@ -81,6 +88,8 @@ describe("child session", () => {
 
       const active = created.session.getActiveToolNames();
       expect(active).toContain("ffgrep");
+      expect(active).toContain("ask_parent");
+      expect(active).toContain("notify_parent");
       for (const tool of ["read", "grep", "find", "ls"]) expect(active).toContain(tool);
       for (const tool of ["bash", "edit", "write"]) expect(active).not.toContain(tool);
       expect(CHILD_TOOL_NAMES).toContain("fff-multi-grep");

@@ -26,6 +26,8 @@ export type ChildOutcome =
 export interface ChildRunResult {
   readonly outcome: ChildOutcome;
   readonly output: string;
+  /** Whether the child itself produced text, excluding lifecycle status notes. */
+  readonly producedOutput: boolean;
   readonly error?: string;
   readonly partial: boolean;
   readonly turns: number;
@@ -138,6 +140,7 @@ function startFailure(error: string): ChildRunResult {
     output: status.trimStart(),
     error,
     partial: true,
+    producedOutput: false,
     turns: 0,
     sessionFile: undefined,
     notes: [],
@@ -246,6 +249,7 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
     output: truncateResult(labeled, child.sessionFile, RESULT_CAP_BYTES, statusFor(outcome, error)),
     ...(error ? { error } : {}),
     partial,
+    producedOutput: raw.length > 0,
     turns,
     sessionFile: child.sessionFile,
     notes: child.notes,

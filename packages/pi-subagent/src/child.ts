@@ -25,9 +25,11 @@ export const CHILD_TOOL_NAMES = [
   "fffind",
   "fff-multi-grep",
   "multi_grep",
+  "ask_parent",
+  "notify_parent",
 ] as const;
 
-export const SUBAGENT_INSTRUCTIONS = `You are running as a subagent. Your bash tool already executes in the project working directory, so never prefix commands with \`cd\`. You are read-only: inspect the project and report findings, but do not modify it. Return a concise final answer with file and line evidence where useful. Use ask_parent only when truly blocked on information only the parent has, and use notify_parent for a non-blocking update. A task in a later dependency wave is not running yet, so never wait for it.`;
+export const SUBAGENT_INSTRUCTIONS = `You are running as a subagent. Your bash tool already executes in the project working directory, so never prefix commands with \`cd\`. You are read-only: inspect the project and report findings, but do not modify it. Return a concise final answer with file and line evidence where useful. Use ask_parent only when truly blocked on information only the parent has, and use notify_parent for a non-blocking update. An unanswered ask times out after ten minutes; then proceed with your best judgment and state your assumption. A task in a later dependency wave is not running yet, so never wait for it.`;
 
 export interface ChildSessionOptions {
   readonly cwd: string;
