@@ -1,27 +1,26 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
+import type { Markdown, MarkdownTheme } from "@earendil-works/pi-tui";
 import { CURSOR_MARKER, visibleWidth } from "@earendil-works/pi-tui";
 import { lineAt, makeTheme } from "./fixtures.js";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 let markdownConstructed = 0;
 let lastMarkdownText = "";
-vi.mock("@earendil-works/pi-tui", async (orig) => {
-  const actual = (await orig()) as Record<string, unknown>;
-  class FakeMarkdown {
-    constructor(public text: string) {
-      markdownConstructed++;
-      lastMarkdownText = text;
-    }
-    render(width: number): string[] {
-      return [`MD[${width}]:${this.text.slice(0, Math.max(0, width - 4))}`];
-    }
-    invalidate(): void {}
-    setText(t: string): void {
-      this.text = t;
-    }
+class FakeMarkdown {
+  constructor(public text: string) {
+    markdownConstructed++;
+    lastMarkdownText = text;
   }
-  return { ...actual, Markdown: FakeMarkdown };
-});
+  render(width: number): string[] {
+    return [`MD[${width}]:${this.text.slice(0, Math.max(0, width - 4))}`];
+  }
+  invalidate(): void {}
+  setText(t: string): void {
+    this.text = t;
+  }
+}
+const markdownFactory = (text: string, _mt: MarkdownTheme) =>
+  new FakeMarkdown(text) as unknown as Markdown;
 
 import type { QuestionData } from "../src/tool/types.js";
 import { OptionListView } from "../src/view/components/option-list-view.js";
@@ -75,7 +74,7 @@ function makePane(question: QuestionData, getWidth: () => number = () => 120) {
     description: o.description,
   }));
   const optionListView = new OptionListView({ items, theme: selectTheme });
-  const previewBlock = new PreviewBlockRenderer({ question, theme, markdownTheme });
+  const previewBlock = new PreviewBlockRenderer({ question, theme, markdownTheme, markdownFactory });
   const pane = new PreviewPane({
     question,
     getTerminalWidth: getWidth,
@@ -785,6 +784,7 @@ describe("PreviewPane composes OptionListView state into render output", () => {
       question: otherQuestion,
       theme,
       markdownTheme,
+      markdownFactory,
     });
     const pane = new PreviewPane({
       question: otherQuestion,
@@ -869,7 +869,7 @@ describe("PreviewPane — adaptive left column width", () => {
       description: o.description,
     }));
     const optionListView = new OptionListView({ items, theme: selectTheme });
-    const previewBlock = new PreviewBlockRenderer({ question, theme, markdownTheme });
+    const previewBlock = new PreviewBlockRenderer({ question, theme, markdownTheme, markdownFactory });
     const pane = new PreviewPane({
       question,
       getTerminalWidth: () => 120,
@@ -928,6 +928,7 @@ describe("PreviewPane — inputMode (custom-answer full-width while typing)", ()
       question: previewQuestion,
       theme,
       markdownTheme,
+      markdownFactory,
     });
     const pane = new PreviewPane({
       question: previewQuestion,

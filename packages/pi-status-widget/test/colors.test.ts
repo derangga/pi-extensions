@@ -90,6 +90,7 @@ describe("resolveColorLevel", () => {
   it("falls back to ansi on a Pi older than the accessor", () => {
     // The peer floor is 0.80 and getColorMode is younger. This call sits inside
     // session_start, where a throw costs the whole footer.
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     expect(resolveColorLevel({}, {} as unknown as Theme)).toBe("ansi");
   });
 });

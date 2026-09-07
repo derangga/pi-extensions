@@ -18,6 +18,7 @@ import {
 import type { RunView, TaskView } from "../src/run.js";
 
 /** Identity colours, so an assertion reads the text and not an escape code. */
+// SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
 const theme = {
   fg: (_color: string, text: string) => text,
   bold: (text: string) => text,
@@ -180,12 +181,14 @@ describe("createWidgetHost", () => {
     const tui = { requestRender: vi.fn<() => void>() };
     const setWidget = vi.fn<(key: string, content: unknown) => void>((_key, content) => {
       if (typeof content === "function") {
+        // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
         (content as (tui: unknown, theme: Theme) => unknown)(tui, theme);
       }
     });
     return {
       tui,
       setWidget,
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       ctx: { hasUI: true, ui: { setWidget } } as unknown as ExtensionContext,
     };
   }
@@ -215,6 +218,7 @@ describe("createWidgetHost", () => {
     const setWidget = vi.fn<() => void>();
     const host = createWidgetHost(() => []);
     host.update(undefined);
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     host.update({ hasUI: false, ui: { setWidget } } as unknown as ExtensionContext);
     expect(setWidget).not.toHaveBeenCalled();
   });
@@ -226,6 +230,7 @@ describe("createWidgetHost", () => {
     host.clear(ctx);
     expect(setWidget).toHaveBeenLastCalledWith(WIDGET_KEY, undefined);
 
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     const throwing = {
       hasUI: true,
       ui: {

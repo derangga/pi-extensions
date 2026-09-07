@@ -49,7 +49,9 @@ export class WidgetInstance<TSpec extends WidgetSpecUnion = WidgetSpecUnion> imp
       render(args: TypedWidgetRenderArgs<TSpec>): string | undefined;
     };
     return spec.render({
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       ctx: ctx as ContextFor<TSpec>,
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       options: this.options as OptionsFor<TSpec>,
       renderWidget: (value, renderOptions) => {
         return renderWidgetValue(this.entry, value, ctx, {

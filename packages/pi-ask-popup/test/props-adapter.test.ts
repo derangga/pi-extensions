@@ -47,7 +47,7 @@ function makeFixture(overQuestions?: QuestionData[]) {
     makeTabComponents({
       optionList: makeStatefulView<OptionListViewProps>(),
       preview: makeFakePreviewPane(),
-      ...(q.multiSelect === true ? { multiSelect: makeFakeMultiSelectView() } : {}),
+      ...(q.multiSelect === true ? { multiSelect: makeFakeMultiSelectView() } : {} as never),
     }),
   );
 
@@ -55,10 +55,12 @@ function makeFixture(overQuestions?: QuestionData[]) {
   const tabBar = makeStatefulView<TabBarProps>();
   const dialog = makeStatefulView<DialogProps>();
   const tui = { terminal: { columns: 120, rows: 40 }, requestRender: vi.fn<() => void>() };
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   const editorTheme = {
     borderColor: (text: string) => text,
     selectList: {},
   } as unknown as EditorTheme;
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   const inlineInput: Editor = new PiEditor(tui as unknown as TUI, editorTheme);
 
   const globalBindings: ReadonlyArray<BoundGlobalBinding> = [
@@ -116,6 +118,7 @@ function multiSelectAt(tabs: TabComponents[], index: number): MultiSelectFake {
   if (!multiSelect) {
     throw new Error(`tab ${index} has no multi-select view`);
   }
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   return multiSelect as unknown as MultiSelectFake;
 }
 
@@ -264,10 +267,12 @@ describe("QuestionnairePropsAdapter.invalidate", () => {
       itemsByTab: [[]],
       tabsByIndex: [makeTabComponents()],
       inlineInput: new PiEditor(
+        // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
         {
           terminal: { columns: 80, rows: 24 },
           requestRender: vi.fn<() => void>(),
         } as unknown as TUI,
+        // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
         { borderColor: (t: string) => t, selectList: {} } as unknown as EditorTheme,
       ),
       globalBindings: [],

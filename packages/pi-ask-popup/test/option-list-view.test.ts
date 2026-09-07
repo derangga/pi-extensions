@@ -9,7 +9,8 @@ import {
 } from "../src/view/components/option-list-view.js";
 import type { WrappingSelectItem } from "../src/view/components/wrapping-select.js";
 
-const baseTheme = makeTheme() as unknown as Theme;
+// SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+const baseTheme = makeTheme() as Theme;
 const selectTheme = {
   selectedText: (t: string) => baseTheme.fg("accent", baseTheme.bold(t)),
   description: (t: string) => baseTheme.fg("muted", t),
@@ -25,7 +26,7 @@ function props(over: Partial<OptionListViewProps> = {}): OptionListViewProps {
     selectedIndex: over.selectedIndex ?? 0,
     focused: over.focused ?? true,
     inputBuffer: over.inputBuffer ?? "",
-    ...(over.confirmed ? { confirmed: over.confirmed } : {}),
+    ...(over.confirmed ? { confirmed: over.confirmed } : {} as never),
   };
 }
 

@@ -27,6 +27,7 @@ const LEVEL_COLORS: Record<ThinkingLevel, LevelColor> = {
 };
 
 /** The seven levels at runtime, taken from the map so the two cannot drift. */
+// SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
 export const THINKING_LEVELS = Object.keys(LEVEL_COLORS) as readonly ThinkingLevel[];
 
 export const THINKING_LEVEL_COLORS_PROPERTY = {
@@ -62,12 +63,14 @@ export function thinkingLevelForeground(
   if (level === undefined) {
     return configured;
   }
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   const levelColor = LEVEL_COLORS[level as ThinkingLevel];
   if (!levelColor) {
     return configured;
   }
 
   if (scheme) {
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     return scheme.thinking[level as ThinkingLevel];
   }
   return hasThemeColor(theme, levelColor.theme) ? `pi:${levelColor.theme}` : levelColor.fallback;

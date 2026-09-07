@@ -16,6 +16,7 @@ import { ContextLengthWidget } from "./tokens/context-length.js";
 import { ContextWidget } from "./tokens/context.js";
 import { CostWidget } from "./tokens/cost.js";
 import type { Widget } from "./types.js";
+type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue };
 
 const WIDGETS = [
   ModelWidget,
@@ -42,14 +43,15 @@ interface WidgetRegistry {
 
   spec(type: WidgetType): WidgetSpecUnion;
   maybeSpec(type: string): WidgetSpecUnion | undefined;
-  createEntry(type: WidgetType, options?: Record<string, unknown>): WidgetEntry;
-  normalizeOptions(type: WidgetType, input: Record<string, unknown>): WidgetOptions;
+  createEntry(type: WidgetType, options?: Record<string, JsonValue>): WidgetEntry;
+  normalizeOptions(type: WidgetType, input: Record<string, JsonValue>): WidgetOptions;
   hydrateWidget(entry: WidgetEntry): Widget;
 }
 
 function createWidgetRegistry(widgets: readonly WidgetSpecUnion[]): WidgetRegistry {
   const specs = [...widgets];
   const specsByType = new Map<WidgetType, WidgetSpecUnion>(
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     specs.map((spec) => [spec.type as WidgetType, spec]),
   );
 
@@ -63,7 +65,7 @@ function createWidgetRegistry(widgets: readonly WidgetSpecUnion[]): WidgetRegist
 
   const buildEntry = (
     type: WidgetType,
-    options: Record<string, unknown> = {},
+    options: Record<string, JsonValue> = {},
     enabled = true,
   ): WidgetEntry => ({
     id: `${type}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
@@ -78,6 +80,7 @@ function createWidgetRegistry(widgets: readonly WidgetSpecUnion[]): WidgetRegist
       return specFor(type);
     },
     maybeSpec(type) {
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       return specsByType.get(type as WidgetType);
     },
     createEntry(type, options = {}) {

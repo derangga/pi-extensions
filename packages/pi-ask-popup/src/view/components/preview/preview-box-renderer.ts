@@ -76,7 +76,7 @@ export function renderBorderedBox(
 export function computeBoxDimensions(
   contentLines: readonly string[],
   maxInnerWidth: number,
-): { innerWidth: number; boxWidth: number } {
+) {
   let widest = Math.min(BOX_MIN_CONTENT_WIDTH, maxInnerWidth);
   for (const line of contentLines) {
     const w = visibleWidth(line.replace(/\s+$/, ""));

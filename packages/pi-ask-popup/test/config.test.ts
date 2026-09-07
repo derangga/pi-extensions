@@ -22,7 +22,7 @@ import {
  */
 const roots: string[] = [];
 
-function makeRoot(): { agentDir: string; projectDir: string } {
+function makeRoot() {
   const root = mkdtempSync(join(tmpdir(), "pi-ask-popup-config-"));
   roots.push(root);
   const agentDir = join(root, "agent");
@@ -286,6 +286,7 @@ describe("the accepted grammar against pi-tui's real matcher", () => {
   ).filter((c) => c !== " " && c !== "+" && c === c.toLowerCase());
 
   it("accepts every bare printable key pi-tui can actually match", () => {
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     const live = PRINTABLE.filter((c) => matchesKey(c, c as Parameters<typeof matchesKey>[1]));
     const rejected = live.filter((c) => resolveCollapseKey({ collapseKey: c }) !== c);
     expect(rejected).toEqual([]);
@@ -295,6 +296,7 @@ describe("the accepted grammar against pi-tui's real matcher", () => {
   it("rejects every printable key pi-tui would never match", () => {
     // Upstream accepted `"` here. It parses, binds, and then matches nothing:
     // a shortcut that silently does not exist, with no fallback to the default.
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     const dead = PRINTABLE.filter((c) => !matchesKey(c, c as Parameters<typeof matchesKey>[1]));
     expect(dead).toContain('"');
     for (const c of dead) {

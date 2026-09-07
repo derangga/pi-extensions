@@ -3,6 +3,7 @@ import type { Preset } from "./presets.js";
 import type { ColorSchemeName } from "./schemes.js";
 import type { SeparatorStyle } from "./separators.js";
 import type { WidgetType } from "./widgets/registry.js";
+type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue };
 
 export interface WidgetEntry {
   id: string;
@@ -55,7 +56,7 @@ export interface StatusbarConfig extends StatusbarSettings {
   lines: WidgetEntry[][];
 }
 
-export function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: JsonValue | undefined): value is Record<string, JsonValue> {
   return typeof value === "object" && value !== null;
 }
 

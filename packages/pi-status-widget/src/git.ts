@@ -70,6 +70,7 @@ export function gitCommandsFor(
         continue;
       }
       anyGitWidget = true;
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       const command = COMMAND_FOR_WIDGET[widget.type as GitWidgetType];
       if (command) {
         commands.add(command);

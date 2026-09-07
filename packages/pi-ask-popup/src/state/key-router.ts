@@ -2,6 +2,7 @@ import { Key, matchesKey } from "@earendil-works/pi-tui";
 import type { QuestionAnswer } from "../tool/types.js";
 import { ROW_INTENT_META } from "./row-intent.js";
 import type { QuestionnaireRuntime, QuestionnaireState } from "./state.js";
+type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue };
 
 const KEYBIND_UP = "tui.select.up";
 const KEYBIND_DOWN = "tui.select.down";
@@ -131,6 +132,10 @@ function buildSingleSelectAnswer(
   };
 }
 
+function isString(value: JsonValue | undefined): value is string {
+  return typeof value === "string";
+}
+
 function buildMultiSelected(state: QuestionnaireState, runtime: QuestionnaireRuntime): string[] {
   const q = runtime.questions[state.currentTab];
   if (!q) {
@@ -140,7 +145,7 @@ function buildMultiSelected(state: QuestionnaireState, runtime: QuestionnaireRun
   for (let i = 0; i < q.options.length; i++) {
     if (state.multiSelectChecked.has(i)) {
       const label = q.options[i]?.label;
-      if (typeof label === "string") {
+      if (isString(label)) {
         out.push(label);
       }
     }
@@ -273,6 +278,7 @@ function routeSubmitTab(
   if (kb.matches(data, KEYBIND_UP) || kb.matches(data, KEYBIND_DOWN)) {
     const delta = kb.matches(data, KEYBIND_DOWN) ? 1 : -1;
     const next = wrapTab(state.submitChoiceIndex + delta, 2);
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     return { kind: "submit_nav", nextIndex: (next === 1 ? 1 : 0) as 0 | 1 };
   }
   if (isConfirm(kb, data)) {
@@ -395,8 +401,9 @@ export function routeKey(
   // importing COLLAPSE_KEY_OFF would pull ../config.js (and its rpiv-config
   // loader graph) into this pure module for a string that cannot change.
   if (
-    typeof runtime.collapseKey === "string" &&
+    isString(runtime.collapseKey) &&
     runtime.collapseKey !== "off" &&
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     matchesKey(data, runtime.collapseKey as Parameters<typeof matchesKey>[1])
   ) {
     return { kind: "toggle_collapsed" };

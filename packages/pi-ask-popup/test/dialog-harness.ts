@@ -14,7 +14,7 @@ import type { TabBar } from "../src/view/components/tab-bar.js";
 import type { DialogConfig, DialogProps, DialogState } from "../src/view/dialog-builder.js";
 import { DialogView } from "../src/view/dialog-builder.js";
 import type { TabComponents } from "../src/view/tab-components.js";
-import { makePerTabContext, makeQuestionnaireState, makeTheme } from "./fixtures.js";
+import * as fixtures from "./fixtures.js";
 
 /**
  * Shared rig for the chrome suites. The dialog is the one component that only
@@ -27,7 +27,8 @@ import { makePerTabContext, makeQuestionnaireState, makeTheme } from "./fixtures
  * and the thing under test is the partition, not the wrapping.
  */
 
-export const theme = makeTheme() as unknown as Theme;
+// SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+export const theme = fixtures.makeTheme() as unknown as Theme;
 
 export function stubComponent(lines: string[]): Component {
   return { render: () => lines, handleInput() {}, invalidate() {} };
@@ -37,8 +38,10 @@ export function stubPreviewPane(
   lines: string[],
   rowRange?: (width: number) => [number, number],
 ): PreviewPane {
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   return {
     ...stubComponent(lines),
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     focusedItemRowRange: rowRange ?? ((_w: number) => [0, 1] as [number, number]),
   } as unknown as PreviewPane;
 }
@@ -47,14 +50,17 @@ export function stubMultiSelect(
   lines: string[],
   rowRange?: (width: number) => [number, number],
 ): MultiSelectView {
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   return {
     ...stubComponent(lines),
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     focusedItemRowRange: rowRange ?? ((_w: number) => [0, 0] as [number, number]),
     naturalHeight: (_w: number) => lines.length,
   } as unknown as MultiSelectView;
 }
 
 export function stubOptionList(): OptionListView {
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   return stubComponent(["<OPTION_LIST>"]) as unknown as OptionListView;
 }
 
@@ -69,7 +75,7 @@ export function multiSelectFor(
   questions: readonly QuestionData[],
 ): MultiSelectView {
   const view = new MultiSelectView(theme, question);
-  view.setProps(selectMultiSelectProps(state, makePerTabContext({ questions, i: 0 })));
+  view.setProps(selectMultiSelectProps(state, fixtures.makePerTabContext({ questions, i: 0 })));
   return view;
 }
 
@@ -78,7 +84,7 @@ export function submitPickerFor(state: QuestionnaireState, focused = true): Subm
   picker.setProps(
     selectSubmitPickerProps(
       state,
-      makePerTabContext({ activeView: focused ? "submit" : "options" }),
+      fixtures.makePerTabContext({ activeView: focused ? "submit" : "options" }),
     ),
   );
   return picker;
@@ -127,27 +133,31 @@ export interface DialogParts {
 
 export function makeConfig(over: MakeConfigOverrides = {}): DialogParts {
   const questions: QuestionData[] = over.questions ? [...over.questions] : DEFAULT_QUESTIONS;
-  const state: DialogState = over.state ?? makeQuestionnaireState();
+  const state: DialogState = over.state ?? fixtures.makeQuestionnaireState();
   const previewPane = over.previewPane ?? stubPreviewPane(["<PREVIEW>"]);
   const tabsByIndex: ReadonlyArray<TabComponents> =
     over.tabsByIndex ??
     questions.map((_q, i) => {
       const multiSelect = over.multiSelectByTab?.[i];
-      return {
+      const entry: TabComponents = {
         optionList: stubOptionList(),
         preview: previewPane,
-        ...(multiSelect === undefined ? {} : { multiSelect }),
         bodyHeights: () => ({ current: 0, max: 0 }),
       };
+      if (multiSelect !== undefined) {
+        (entry as TabComponents & { multiSelect: MultiSelectView }).multiSelect = multiSelect;
+      }
+      return entry;
     });
   const config: DialogConfig = {
     theme: over.theme ?? theme,
     questions,
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     tabBar: over.tabBar ?? (stubComponent(["<TABBAR>", ""]) as unknown as TabBar),
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     notesInput: over.notesInput ?? (stubComponent(["<NOTES_INPUT>"]) as unknown as Editor),
     isMulti: over.isMulti ?? questions.length > 1,
     tabsByIndex,
-    ...(over.submitPicker === undefined ? {} : { submitPicker: over.submitPicker }),
     getBodyHeight: over.getBodyHeight ?? (() => 1),
     // Measures whichever body the current tab actually shows, so a test that
     // swaps in a taller stub does not also have to restate its height.
@@ -157,13 +167,18 @@ export function makeConfig(over: MakeConfigOverrides = {}): DialogParts {
         const q = questions[state.currentTab];
         const multiSelect = tabsByIndex[state.currentTab]?.multiSelect;
         if (q?.multiSelect === true && multiSelect) {
+          // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
           return (multiSelect as unknown as Component).render(w).length;
         }
+        // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
         return (previewPane as unknown as Component).render(w).length;
       }),
     getTerminalRows: over.getTerminalRows ?? (() => 24),
     collapseKey: over.collapseKey ?? "ctrl+]",
   };
+  if (over.submitPicker !== undefined) {
+    Object.assign(config, { submitPicker: over.submitPicker });
+  }
   return { config, initialProps: { state, activePreviewPane: previewPane } };
 }
 

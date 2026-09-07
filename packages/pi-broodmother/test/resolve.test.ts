@@ -15,6 +15,7 @@ import { DEFAULT_SETTINGS, Settings, type SubagentSettings } from "../src/settin
 import type { PiModel, ThinkingLevel } from "../src/thinking.js";
 
 function model(fields: Partial<PiModel> & Pick<PiModel, "id" | "provider">): PiModel {
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   return { name: fields.id, reasoning: true, ...fields } as unknown as PiModel;
 }
 

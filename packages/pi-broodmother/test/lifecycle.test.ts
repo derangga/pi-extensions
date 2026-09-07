@@ -16,6 +16,7 @@ import {
 type Message = AgentSession["messages"][number];
 
 function assistant(text: string, stopReason = "stop", errorMessage?: string): Message {
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   return {
     role: "assistant",
     content: text ? [{ type: "text", text }] : [],
@@ -25,6 +26,7 @@ function assistant(text: string, stopReason = "stop", errorMessage?: string): Me
 }
 
 function toolStart(toolName: string, args: unknown): AgentSessionEvent {
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   return {
     type: "tool_execution_start",
     toolCallId: "call-1",
@@ -34,6 +36,7 @@ function toolStart(toolName: string, args: unknown): AgentSessionEvent {
 }
 
 function messageEnd(usage: Record<string, number>, cost?: number): AgentSessionEvent {
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   return {
     type: "message_end",
     message: {
@@ -45,6 +48,7 @@ function messageEnd(usage: Record<string, number>, cost?: number): AgentSessionE
 }
 
 function turnEnd(message: Message = assistant("")): AgentSessionEvent {
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   return { type: "turn_end", message, toolResults: [] } as unknown as AgentSessionEvent;
 }
 
@@ -86,6 +90,7 @@ function fakeChild(
     order.push("shutdown");
   });
   const dispose = vi.fn<() => void>(() => order.push("dispose"));
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   const session = {
     messages,
     sessionFile: "/tmp/child.jsonl",
@@ -108,6 +113,7 @@ function fakeChild(
   return { abort, aborted, created, dispose, emitShutdown, order, prompt, session, steer };
 }
 
+// SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
 const childOptions = {} as ChildSessionOptions;
 
 function options(

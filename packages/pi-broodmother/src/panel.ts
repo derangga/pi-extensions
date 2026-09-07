@@ -162,6 +162,7 @@ export function settingsWithRowChange(
     }
     case ROW_THINKING:
       return thinkingValues(resolveModel(settings, available, parent)).includes(value)
+        // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
         ? { ...settings, thinking: value as ThinkingChoice }
         : settings;
     case ROW_CONCURRENCY:

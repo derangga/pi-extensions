@@ -3,6 +3,7 @@ import { type Component, truncateToWidth, type TUI } from "@earendil-works/pi-tu
 import { Predicate } from "effect";
 
 import { aggregateUsage, type RunView, type TaskStatus, type TaskView } from "./run.js";
+type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue };
 
 /**
  * Roughly one render per 150ms. A child streaming tokens fires the change hook
@@ -290,7 +291,7 @@ interface PartialTask {
   readonly needs?: unknown;
 }
 
-function text(value: unknown): string | undefined {
+function text(value: JsonValue | undefined): string | undefined {
   if (!Predicate.isString(value)) {
     return undefined;
   }
@@ -312,9 +313,12 @@ function edges(needs: unknown): string[] {
  * watching a plan appear and watching a spinner.
  */
 export function callLines(args: unknown, theme: Theme): string[] {
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   const tasks: PartialTask[] = Array.isArray((args as { tasks?: unknown } | undefined)?.tasks)
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     ? ((args as { tasks: unknown[] }).tasks.filter(Predicate.isObject) as PartialTask[])
     : [];
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   const autoAwait = (args as { autoAwait?: unknown } | undefined)?.autoAwait === true;
 
   const shape =

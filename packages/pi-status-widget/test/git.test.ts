@@ -140,6 +140,7 @@ interface Stub {
 
 function stubPi(output: Record<string, string> = OUTPUT, failing: readonly string[] = []): Stub {
   const calls: string[] = [];
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   const pi = {
     exec: async (_command: string, args: string[]) => {
       const key = args.join(" ");

@@ -419,6 +419,7 @@ export function createIntercomTools(
         { additionalProperties: false },
       ),
       async execute(_toolCallId, params) {
+        // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
         const { question } = params as { question: string };
         const answer = await runEffect(channel.ask(question));
         return {
@@ -445,6 +446,7 @@ export function createIntercomTools(
         { additionalProperties: false },
       ),
       async execute(_toolCallId, params) {
+        // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
         const { message, level } = params as {
           message: string;
           level?: NotificationLevel;

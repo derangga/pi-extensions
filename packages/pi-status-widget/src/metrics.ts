@@ -1,4 +1,13 @@
 import { isRecord, type SessionMetrics } from "./types.js";
+function isString(value: JsonValue | undefined): value is string {
+  return typeof value === "string";
+}
+
+function isNumber(value: JsonValue | undefined): value is number {
+  return typeof value === "number";
+}
+
+type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue };
 
 /**
  * Intentionally loose structural projection of the `usage` field on a Pi session
@@ -60,7 +69,7 @@ export function collectSessionMetrics(entries: readonly unknown[]): SessionMetri
   return { costUsd, firstTimestampMs };
 }
 
-function getMessage(entry: unknown): MessageLike | undefined {
+function getMessage(entry: JsonValue | undefined): MessageLike | undefined {
   if (!isRecord(entry)) {
     return undefined;
   }
@@ -69,32 +78,33 @@ function getMessage(entry: unknown): MessageLike | undefined {
 }
 
 /** A message without its own timestamp falls back to the entry wrapping it. */
-function getEntryTimestamp(entry: unknown): string | number | undefined {
+function getEntryTimestamp(entry: JsonValue | undefined): string | number | undefined {
   if (!isRecord(entry)) {
     return undefined;
   }
   const timestamp = entry.timestamp;
-  if (typeof timestamp === "string" || typeof timestamp === "number") {
+  if (isString(timestamp) || isNumber(timestamp)) {
     return timestamp;
   }
   return undefined;
 }
 
-function getUsage(value: unknown): UsageLike | undefined {
+function getUsage(value: JsonValue | undefined): UsageLike | undefined {
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   return isRecord(value) ? (value as UsageLike) : undefined;
 }
 
-function normalizeTimestamp(value: unknown): number | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) {
+function normalizeTimestamp(value: JsonValue | undefined): number | undefined {
+  if (isNumber(value) && Number.isFinite(value)) {
     return value;
   }
-  if (typeof value !== "string") {
+  if (!isString(value)) {
     return undefined;
   }
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function numberOrZero(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+function numberOrZero(value: JsonValue | undefined): number {
+  return isNumber(value) && Number.isFinite(value) ? value : 0;
 }

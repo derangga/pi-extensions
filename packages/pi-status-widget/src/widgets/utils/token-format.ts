@@ -45,6 +45,7 @@ export function tokenFormatStyleProperty() {
     id: "tokenFormatStyle",
     kind: "choice",
     default: "default",
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     choices: Object.keys(TOKEN_FORMATTERS) as readonly TokenFormatStyle[],
   } as const;
 }

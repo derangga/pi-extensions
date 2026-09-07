@@ -7,6 +7,7 @@ import {
   type SubmitPickerProps,
 } from "../src/view/components/submit-picker.js";
 
+// SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
 const theme = {
   bold: (t: string) => `<b>${t}</b>`,
   fg: (color: string, t: string) => `<${color}>${t}</${color}>`,

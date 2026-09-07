@@ -9,7 +9,8 @@ import {
   type MultiSelectViewProps,
 } from "../src/view/components/multi-select-view.js";
 
-const theme = makeTheme() as unknown as Theme;
+// SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+const theme = makeTheme() as Theme;
 
 function makeView(q: QuestionData, props: MultiSelectViewProps): MultiSelectView {
   const view = new MultiSelectView(theme, q);

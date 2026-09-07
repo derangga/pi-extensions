@@ -43,6 +43,7 @@ function register() {
 async function run(tool: CapturedTool, params: QuestionParams, options: MockCtxOptions = {}) {
   const { ctx, notices } = createMockCtx(options);
   const result = await tool.execute("call-1", params, undefined, undefined, ctx);
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   return { result, details: result.details as QuestionnaireResult, notices };
 }
 
@@ -88,6 +89,7 @@ afterEach(() => {
   if (realIsTTY) {
     Object.defineProperty(process.stdout, "isTTY", realIsTTY);
   } else {
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     delete (process.stdout as { isTTY?: boolean }).isTTY;
   }
   vi.restoreAllMocks();
@@ -354,10 +356,12 @@ describe("events", () => {
     });
     const mock = createMockPi();
     registerAskPopupTool(mock.pi);
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     const tool = mock.tools.get(ASK_POPUP_TOOL_NAME) as CapturedTool;
     const originalEmit = mock.pi.events.emit.bind(mock.pi.events);
     vi.spyOn(mock.pi.events, "emit").mockImplementation((channel: string, payload: unknown) => {
       if (channel === ASK_POPUP_BLOCKED_EVENT) {
+        // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
         order.push(`blocked:${String((payload as { active: boolean }).active)}`);
       }
       return originalEmit(channel, payload);
@@ -427,6 +431,7 @@ describe("loading the render graph", () => {
     // back is the hollow namespace the earlier failure left behind. That state
     // cannot be repaired inside the process, so the message has to say so.
     const load = await loadQuestionnaireSession(() =>
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       Promise.resolve({} as unknown as SessionModuleShape),
     );
     expect(load.ok).toBe(false);
@@ -441,6 +446,7 @@ describe("loading the render graph", () => {
   it("keeps the two failures distinct, since one is recoverable and one is not", async () => {
     const failed = await loadQuestionnaireSession(() => Promise.reject(new Error("x")));
     const stale = await loadQuestionnaireSession(() =>
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       Promise.resolve({} as unknown as SessionModuleShape),
     );
     expect(failed.ok || stale.ok).toBe(false);

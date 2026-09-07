@@ -206,7 +206,7 @@ export function crossTabLeftWidthWithDonation(
 export function columnWidths(
   paneWidth: number,
   adaptiveLeft: number,
-): { leftWidth: number; rightWidth: number; gap: number } {
+) {
   const gap = PREVIEW_COLUMN_GAP;
   const leftWidth = Math.min(adaptiveLeft, Math.max(1, paneWidth - gap - 1));
   const rightWidth = Math.max(1, paneWidth - leftWidth - gap);
@@ -222,7 +222,7 @@ export function bodyWidths(
   paneWidth: number,
   mode: PreviewLayoutMode,
   adaptiveLeft: number,
-): { optionsWidth: number; previewWidth: number } {
+) {
   if (mode === "stacked") {
     return { optionsWidth: paneWidth, previewWidth: paneWidth };
   }

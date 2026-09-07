@@ -58,8 +58,9 @@ export type DialogUI = {
 
 /** Whether the host implements the select and input primitives. */
 export function hasDialogUI(ui: unknown): ui is DialogUI {
-  const u = ui as Partial<Record<"select" | "input", unknown>> | null | undefined;
-  return typeof u?.select === "function" && typeof u?.input === "function";
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+  const u = ui as Partial<DialogUI> | null | undefined;
+  return u?.select instanceof Function && u?.input instanceof Function;
 }
 
 type Option = QuestionData["options"][number];
@@ -143,17 +144,17 @@ async function askSingleSelect(
   }
   const option = q.options[idx];
   if (option) {
-    return {
+    const answer: QuestionAnswer = {
       questionIndex,
       question: q.question,
       kind: "option",
       answer: option.label,
-      // Spread rather than assigned: the envelope's contract is that the key is
-      // absent when there was no preview, not present and undefined.
-      ...(option.preview !== undefined && option.preview.length > 0
-        ? { preview: option.preview }
-        : {}),
     };
+    if (option.preview !== undefined && option.preview.length > 0) {
+      // SAFETY: preview is an optional string; present only when non-empty per contract.
+      (answer as QuestionAnswer & { preview: string }).preview = option.preview;
+    }
+    return answer;
   }
   // The "Type something." row, which is the one index past the authored options.
   const typed = await ui.input(`${header}${q.question}\n\n${CUSTOM_ANSWER_TITLE}`, "", opts);

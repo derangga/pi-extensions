@@ -5,13 +5,14 @@ import { registry } from "../src/widgets/registry.js";
 import { thinkingLevelForeground } from "../src/widgets/utils/thinking.js";
 import { baseCtx, statusbarData } from "./helpers/data.js";
 import { partialTheme, taggedTheme } from "./helpers/theme.js";
+type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue };
 
 const EVERY_LEVEL = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
 
 /** Renders the thinking segment the way the footer does, under a given theme. */
 function renderThinking(
   level: string | undefined,
-  options: Record<string, unknown> = {},
+  options: Record<string, JsonValue> = {},
   theme?: ReturnType<typeof partialTheme>,
 ): string | undefined {
   const widget = registry.hydrateWidget(registry.createEntry("thinking-level", options));

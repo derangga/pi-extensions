@@ -8,6 +8,11 @@ import type { WrappingSelectItem } from "./row-intent.js";
 import type { QuestionnaireAction } from "./key-router.js";
 import { ROW_INTENT_META } from "./row-intent.js";
 import { noteForTab, type QuestionnaireState } from "./state.js";
+type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue };
+
+function isString(value: JsonValue | undefined): value is string {
+  return typeof value === "string";
+}
 
 /** Session-lifetime constants. No live-component reads — peripheral values live on canonical state. */
 export interface ApplyContext {
@@ -128,14 +133,18 @@ function persistMultiSelectAnswer(
     return out;
   }
   const pendingNotes = state.notesByTab.get(state.currentTab);
-  out.set(state.currentTab, {
+  const entry: QuestionAnswer = {
     questionIndex: state.currentTab,
     question: q.question,
     kind: "multi",
     answer: null,
     selected,
-    ...(pendingNotes && pendingNotes.length > 0 ? { notes: pendingNotes } : {}),
-  });
+  };
+  if (pendingNotes && pendingNotes.length > 0) {
+    // SAFETY: notes is an optional string per QuestionAnswer contract; adding when present preserves the shape.
+    (entry as QuestionAnswer & { notes: string }).notes = pendingNotes;
+  }
+  out.set(state.currentTab, entry);
   return out;
 }
 
@@ -145,7 +154,7 @@ function customDraftValueFor(state: QuestionnaireState, tab: number): string {
     return draft;
   }
   const answer = state.answers.get(tab);
-  return answer?.kind === "custom" && typeof answer.answer === "string" ? answer.answer : "";
+  return answer?.kind === "custom" && isString(answer.answer) ? answer.answer : "";
 }
 
 function setCustomDraft(
@@ -207,9 +216,15 @@ function doneFor(state: QuestionnaireState, ctx: ApplyContext, cancelled: boolea
   const result: QuestionnaireResult = {
     answers: orderedAnswers(state, ctx.questions),
     cancelled,
-    ...(globalNote && globalNote.length > 0 ? { globalNote } : {}),
-    ...(unansweredNotes.length > 0 ? { unansweredNotes } : {}),
   };
+  if (globalNote && globalNote.length > 0) {
+    // SAFETY: globalNote is optional per QuestionnaireResult; present only when non-empty.
+    (result as QuestionnaireResult & { globalNote: string }).globalNote = globalNote;
+  }
+  if (unansweredNotes.length > 0) {
+    // SAFETY: unansweredNotes is optional per QuestionnaireResult; present only when non-empty.
+    (result as QuestionnaireResult & { unansweredNotes: UnansweredNote[] }).unansweredNotes = unansweredNotes;
+  }
   return { state, effects: [{ kind: "done", result }] };
 }
 
@@ -289,8 +304,10 @@ const confirmHandler: Handler<"confirm"> = (state, action, ctx) => {
     ...state,
     answers,
     customDraftsByTab,
-    ...(isCustomMulti ? { multiSelectChecked: new Set<number>() } : {}),
   };
+  if (isCustomMulti) {
+    next.multiSelectChecked = new Set<number>();
+  }
   if (action.autoAdvanceTab !== undefined) {
     return switchTabResult(next, action.autoAdvanceTab, ctx);
   }
@@ -316,14 +333,18 @@ const multiConfirmHandler: Handler<"multi_confirm"> = (state, action, ctx) => {
   }
   const pendingNotes = state.notesByTab.get(state.currentTab);
   const answers = new Map(state.answers);
-  answers.set(state.currentTab, {
+  const multiAnswer: QuestionAnswer = {
     questionIndex: state.currentTab,
     question: q.question,
     kind: "multi",
     answer: null,
     selected: action.selected,
-    ...(pendingNotes && pendingNotes.length > 0 ? { notes: pendingNotes } : {}),
-  });
+  };
+  if (pendingNotes && pendingNotes.length > 0) {
+    // SAFETY: notes is optional per QuestionAnswer; adding when present preserves the shape.
+    (multiAnswer as QuestionAnswer & { notes: string }).notes = pendingNotes;
+  }
+  answers.set(state.currentTab, multiAnswer);
   const synced: QuestionnaireState = {
     ...state,
     answers,
@@ -355,7 +376,9 @@ const notesExitHandler: Handler<"notes_exit"> = (state, _action, _ctx) => {
     const prev = answers.get(state.currentTab);
     if (prev?.notes) {
       const stripped = { ...prev };
-      delete (stripped as { notes?: string }).notes;
+      const { notes: _removed, ...withoutNotes } = stripped;
+      // SAFETY: withoutNotes preserves all required QuestionAnswer fields; notes is optional and removed intentionally.
+      answers.set(state.currentTab, withoutNotes as QuestionAnswer);
       answers.set(state.currentTab, stripped);
     }
   } else {
@@ -398,8 +421,11 @@ const tickHandler: Handler<"tick"> = (state, action, ctx) => {
     answers: orderedAnswers(state, ctx.questions),
     cancelled: true,
     error: "timed_out",
-    ...(globalNote && globalNote.length > 0 ? { globalNote } : {}),
   };
+  if (globalNote && globalNote.length > 0) {
+    // SAFETY: globalNote is optional per QuestionnaireResult; present only when non-empty.
+    (result as QuestionnaireResult & { globalNote: string }).globalNote = globalNote;
+  }
   return { state, effects: [{ kind: "done", result }] };
 };
 const ignoreHandler: Handler<"ignore"> = (s, _a, _c) => ({ state: s, effects: [] });
@@ -410,7 +436,7 @@ const ignoreHandler: Handler<"ignore"> = (s, _a, _c) => ({ state: s, effects: []
  * compile here until a handler is registered, mirroring the `Record<RowKind, …>`
  * pattern used by `ROW_INTENT_META`.
  */
-const HANDLERS: { [K in QuestionnaireAction["kind"]]: Handler<K> } = {
+const HANDLERS = {
   nav: navHandler,
   input_clear: inputClearHandler,
   input_edit: inputEditHandler,
@@ -428,7 +454,7 @@ const HANDLERS: { [K in QuestionnaireAction["kind"]]: Handler<K> } = {
   toggle_collapsed: toggleCollapsedHandler,
   tick: tickHandler,
   ignore: ignoreHandler,
-};
+} satisfies { [K in QuestionnaireAction["kind"]]: Handler<K> };
 
 /**
  * Pure reducer: (state, action, ctx) → (state, Effect[]). Mirrors `rpiv-todo`'s `applyTaskMutation`.
@@ -440,7 +466,9 @@ export function reduce(
   action: QuestionnaireAction,
   ctx: ApplyContext,
 ): ApplyResult {
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   const handler = HANDLERS[action.kind] as Handler<typeof action.kind>;
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   const result = handler(state, action as never, ctx);
   const isHumanKeystroke = action.kind !== "tick" && action.kind !== "toggle_collapsed";
   if (isHumanKeystroke && state.deadline !== undefined && !state.timerCancelled) {

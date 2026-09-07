@@ -40,6 +40,7 @@
 
 import type { BasicColor, HexColor } from "./colors.js";
 import type { ThinkingLevel } from "./widgets/utils/thinking.js";
+type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue };
 
 export interface ColorScheme {
   /** True when the scheme expects a light terminal background. */
@@ -442,6 +443,7 @@ export type SchemeName = keyof typeof SCHEMES;
 export const COLOR_SCHEMES: Record<SchemeName, ColorScheme> = SCHEMES;
 
 /** Sorted, so a picker walking them lists them the same way every time. */
+// SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
 export const SCHEME_NAMES = Object.keys(SCHEMES).sort() as readonly SchemeName[];
 
 /**
@@ -458,13 +460,14 @@ export type ColorSchemeName = SchemeName | typeof DEFAULT_SCHEME;
  * "default" rather than a failed load, the same way an unknown preset and an
  * unknown separator already do.
  */
-export function normalizeColorSchemeName(value: unknown): ColorSchemeName | undefined {
+export function normalizeColorSchemeName(value: JsonValue | undefined): ColorSchemeName | undefined {
   if (typeof value !== "string") {
     return undefined;
   }
   if (value === DEFAULT_SCHEME) {
     return DEFAULT_SCHEME;
   }
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   return Object.hasOwn(SCHEMES, value) ? (value as SchemeName) : undefined;
 }
 

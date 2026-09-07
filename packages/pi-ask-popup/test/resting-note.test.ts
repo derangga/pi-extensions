@@ -77,6 +77,7 @@ describe("resting note row", () => {
         notesByTab: new Map([[0, "only until the 0.85 upgrade"]]),
         notesVisible: true,
       }),
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       notesInput: stubComponent(["<NOTES_INPUT>"]) as never,
     });
     expect(out).toContain("<NOTES_INPUT>");
@@ -185,6 +186,7 @@ describe("notes hint", () => {
 
 describe("tab bar note marker", () => {
   function barFor(state: ReturnType<typeof makeQuestionnaireState>): string {
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     const bar = new TabBar(makeTheme() as unknown as Theme);
     bar.setProps(selectTabBarProps(state, makePerTabContext({ questions: TWO_QUESTIONS, i: 0 })));
     return bar.render(80)[0]!;
@@ -216,6 +218,7 @@ describe("tab bar note marker", () => {
     const wide = [0, 1, 2, 3].map((i) =>
       makeQuestion({ header: "H".repeat(16), question: `Q${i}` }),
     );
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     const bar = new TabBar(makeTheme() as unknown as Theme);
     const render = (noted: boolean) => {
       bar.setProps(

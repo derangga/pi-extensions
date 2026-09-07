@@ -69,4 +69,5 @@ export const PRESET_DEFINITIONS = {
 
 export type Preset = keyof typeof PRESET_DEFINITIONS;
 
+// SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
 export const PRESET_VALUES = Object.keys(PRESET_DEFINITIONS) as readonly Preset[];

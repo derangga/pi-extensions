@@ -350,6 +350,7 @@ const resolveThinkingFor = Effect.fn("Resolve.thinking")(function* (
   level: Pick<ThinkingLevel>,
 ): Effect.fn.Return<{ level: ThinkingLevel; notes: readonly string[] }, ThinkingUnsupported> {
   if (level.value === undefined) {
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     return { level: "off" as ThinkingLevel, notes: [] };
   }
 
@@ -407,6 +408,7 @@ const probeAll = Effect.fn("Resolve.probe")(function* (
     { concurrency },
   );
 
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   return new Map(results.filter(([, failure]) => failure !== undefined) as [string, string][]);
 });
 

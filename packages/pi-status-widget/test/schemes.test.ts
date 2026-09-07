@@ -7,6 +7,7 @@ import { THINKING_LEVELS } from "../src/widgets/utils/thinking.js";
 /** Lowercase six-digit hex. A typo has to be a test failure, not a black segment. */
 const HEX = /^#[0-9a-f]{6}$/;
 
+// SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
 const entries = Object.entries(COLOR_SCHEMES) as ReadonlyArray<
   readonly [SchemeName, (typeof COLOR_SCHEMES)[SchemeName]]
 >;

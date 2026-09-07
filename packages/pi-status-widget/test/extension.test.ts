@@ -269,6 +269,7 @@ describe("statusbarExtension /statusbar command", () => {
 
     await api.run(COMMAND_NAME, "preset compact", context.ctx);
 
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     const saved = JSON.parse(await readFile(configPath, "utf8")) as { preset: string };
     expect(saved.preset).toBe("compact");
     expect(context.footers.length).toBe(footersBefore + 1);

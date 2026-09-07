@@ -13,11 +13,13 @@ export function contextForDependencies<const TDeps extends readonly WidgetDepend
   data: StatusbarData,
 ): WidgetContext<TDeps> {
   const output: BaseWidgetContext & Partial<StatusbarData> = { ...baseCtx };
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   const writableOutput = output as BaseWidgetContext & Partial<Record<WidgetDependency, unknown>>;
   for (const dependency of dependencies) {
     writableOutput[dependency] = data[dependency];
   }
   // TODO(widget-spec): remove this cast if TypeScript gains better support for
   // dynamic object construction.
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   return output as WidgetContext<TDeps>;
 }

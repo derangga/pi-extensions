@@ -46,6 +46,7 @@ export function instanceFor(
   spec: WidgetSpec<string, never, never, never> | typeof ProbeWidget | typeof OverrideWidget,
   entry: Partial<WidgetEntry> = {},
 ): WidgetInstance {
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   return new WidgetInstance(spec as unknown as WidgetSpecUnion, {
     id: "probe-1",
     type: "flex-separator",

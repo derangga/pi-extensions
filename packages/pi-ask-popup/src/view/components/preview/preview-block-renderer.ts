@@ -5,6 +5,7 @@ import {
   MAX_PREVIEW_HEIGHT_SIDE_BY_SIDE,
   MAX_PREVIEW_HEIGHT_STACKED,
   MarkdownContentCache,
+  type MarkdownFactory,
   NOTES_AFFORDANCE_OVERHEAD,
 } from "./markdown-content-cache.js";
 import {
@@ -38,6 +39,7 @@ export interface PreviewBlockRendererConfig {
   question: QuestionData;
   theme: Theme;
   markdownTheme: MarkdownTheme;
+  markdownFactory?: MarkdownFactory;
 }
 
 /**
@@ -56,7 +58,12 @@ export class PreviewBlockRenderer {
 
   constructor(config: PreviewBlockRendererConfig) {
     this.theme = config.theme;
-    this.cache = new MarkdownContentCache(config.question, config.theme, config.markdownTheme);
+    this.cache = new MarkdownContentCache(
+      config.question,
+      config.theme,
+      config.markdownTheme,
+      config.markdownFactory,
+    );
   }
 
   hasAnyPreview(): boolean {

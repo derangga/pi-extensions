@@ -56,6 +56,7 @@ describe("footerRowCount matches the rows actually emitted", () => {
       questions: DEFAULT_QUESTIONS,
       getPreviewPane: () => stubPreviewPane(["<PREVIEW>"]),
       tabsByIndex: DEFAULT_QUESTIONS.map(() => makeTabComponents()),
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       notesInput: stubComponent(["<NOTES_INPUT>"]) as never,
       isMulti: true,
       getCurrentBodyHeight: () => 1,
@@ -67,6 +68,7 @@ describe("footerRowCount matches the rows actually emitted", () => {
       theme,
       questions: DEFAULT_QUESTIONS,
       submitPicker: withPicker ? stubComponent(["<ROW1>", "<ROW2>"]) : undefined,
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       notesInput: stubComponent(["<NOTES_INPUT>"]) as never,
     });
 
@@ -124,6 +126,7 @@ describe("footerRowCount matches the rows actually emitted", () => {
       theme,
       questions,
       submitPicker: stubComponent(["<ROW1>", "<ROW2>"]),
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       notesInput: stubComponent(["<NOTES_INPUT>"]) as never,
     });
     const state = makeQuestionnaireState({ currentTab: questions.length });
@@ -134,6 +137,7 @@ describe("footerRowCount matches the rows actually emitted", () => {
 });
 
 describe("buildHintText", () => {
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   const question = DEFAULT_QUESTIONS[0] as (typeof DEFAULT_QUESTIONS)[number];
 
   it("names the collapse key it was given", () => {
@@ -223,6 +227,7 @@ describe("the review body only lists what has been answered", () => {
     theme,
     questions,
     submitPicker: stubComponent(["<ROW1>", "<ROW2>"]),
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     notesInput: stubComponent(["<NOTES_INPUT>"]) as never,
   });
 

@@ -69,6 +69,7 @@ describe("dialog chrome — a question tab", () => {
 
   it("advertises Space to toggle only on a multi-select question", () => {
     const state = makeQuestionnaireState();
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     const questions = [MULTI_QUESTION, DEFAULT_QUESTIONS[1] as QuestionData];
     const joined = renderJoined(
       {
@@ -136,6 +137,7 @@ describe("dialog chrome — a question tab", () => {
 
   it("puts checkboxes where the preview would be on a multi-select question", () => {
     const state = makeQuestionnaireState({ optionIndex: 1, multiSelectChecked: new Set([0]) });
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     const questions = [MULTI_QUESTION, DEFAULT_QUESTIONS[1] as QuestionData];
     const joined = renderJoined({
       questions,
@@ -283,21 +285,23 @@ describe("dialog chrome — the submit tab", () => {
     // The whole point of footerRowCount and the residual spacer: reaching review
     // must not make the dialog jump.
     const state = submitState();
-    const submit = makeDialog(
-      makeConfig({
-        ...(questions ? { questions } : {}),
-        state,
-        submitPicker: submitPickerFor(state),
-        getBodyHeight: () => 6,
-      }),
-    ).render(120);
-    const question = makeDialog(
-      makeConfig({
-        ...(questions ? { questions } : {}),
-        state: submitState({ currentTab: 0 }),
-        getBodyHeight: () => 6,
-      }),
-    ).render(120);
+    const submitConfig: Parameters<typeof makeConfig>[0] = {
+      state,
+      submitPicker: submitPickerFor(state),
+      getBodyHeight: () => 6,
+    };
+    if (questions) {
+      submitConfig.questions = questions;
+    }
+    const submit = makeDialog(makeConfig(submitConfig)).render(120);
+    const questionConfig: Parameters<typeof makeConfig>[0] = {
+      state: submitState({ currentTab: 0 }),
+      getBodyHeight: () => 6,
+    };
+    if (questions) {
+      questionConfig.questions = questions;
+    }
+    const question = makeDialog(makeConfig(questionConfig)).render(120);
     expect(submit).toHaveLength(question.length);
   });
 });
@@ -391,8 +395,11 @@ describe("dialog chrome — residual padding", () => {
     const stateTab0 = makeQuestionnaireState();
     const multiSelect = multiSelectFor(multiQuestion, stateTab0, questions);
     const multiSelectByTab = [undefined, multiSelect];
-    const getBodyHeight = (w: number) =>
-      Math.max(1, (multiSelect as unknown as { render(w: number): string[] }).render(w).length);
+    const getBodyHeight = (w: number) => {
+      // SAFETY: multiSelect is a MultiSelectView with a render method; call is safe for height measurement.
+      const view = multiSelect as unknown as { render(w: number): string[] };
+      return Math.max(1, view.render(w).length);
+    };
 
     // The terminal has to be tall enough for both tabs to render without
     // overflow: overflow disables the residual spacer, which is the mechanism

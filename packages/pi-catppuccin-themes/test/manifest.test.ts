@@ -23,6 +23,7 @@ interface Manifest {
 }
 
 function readManifest(): Manifest {
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   return JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8")) as Manifest;
 }
 

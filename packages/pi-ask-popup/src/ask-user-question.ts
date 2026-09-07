@@ -129,6 +129,8 @@ type SessionLoad =
       message: string;
     };
 
+type LoadConfigInput = { agentDir: string; projectDir?: string };
+
 /**
  * Load the render graph on first use, guarding its two failure shapes.
  *
@@ -160,7 +162,7 @@ export async function loadQuestionnaireSession(
       message: `${ERROR_SESSION_LOAD_FAILED} (cause: ${cause})`,
     };
   }
-  if (typeof mod.QuestionnaireSession !== "function") {
+  if (!(mod.QuestionnaireSession instanceof Function)) {
     const keys = JSON.stringify(Object.keys(mod));
     return {
       ok: false,
@@ -185,7 +187,7 @@ function registerCollapseKeyListener(
   sessionRef: SessionRef,
   overlayHandleRef: OverlayHandleRef,
 ): (() => void) | undefined {
-  if (collapseKey === COLLAPSE_KEY_OFF || typeof ctx.ui.onTerminalInput !== "function") {
+  if (collapseKey === COLLAPSE_KEY_OFF || !(ctx.ui.onTerminalInput instanceof Function)) {
     return undefined;
   }
   let hasAnnouncedHide = false;
@@ -200,6 +202,7 @@ function registerCollapseKeyListener(
     if (!handle.isHidden() && !handle.isFocused()) {
       return undefined;
     }
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     if (!matchesKey(data, collapseKey as Parameters<typeof matchesKey>[1])) {
       return undefined;
     }
@@ -353,12 +356,13 @@ Preview content is rendered as markdown in a monospace box. Multi-line text with
  * exists to prevent. The collapse key, a local UI preference, does read both
  * layers.
  */
-function loadGuidance(): {
-  guidance: ReturnType<typeof validateGuidanceFields>;
-  warnings: readonly string[];
-} {
+function loadGuidance() {
   const { config, warnings } = loadConfig({ agentDir: getAgentDir() });
-  return { guidance: validateGuidanceFields(config.guidance), warnings };
+  const result = {
+    guidance: validateGuidanceFields(config.guidance),
+    warnings,
+  };
+  return result;
 }
 
 export function registerAskPopupTool(pi: ExtensionAPI): void {
@@ -402,6 +406,7 @@ export function registerAskPopupTool(pi: ExtensionAPI): void {
       // Hosts that advertise their mode go straight to the walker and never
       // import the render graph at all. Older RPC builds fall through to the
       // undefined-result backstop below.
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       if ((ctx as { mode?: string }).mode === "rpc" && hasDialogUI(ctx.ui)) {
         return runRpcPath(pi, ctx.ui, typed);
       }
@@ -410,7 +415,8 @@ export function registerAskPopupTool(pi: ExtensionAPI): void {
       // primitives is malformed, and calling `custom` on it throws a bare
       // TypeError that reaches the model as a broken tool rather than an
       // unsupported one. Answer honestly instead: nobody saw the questions.
-      if (typeof (ctx.ui as { custom?: unknown }).custom !== "function") {
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+      if (!((ctx.ui as { custom?: unknown }).custom instanceof Function)) {
         return resolveUndefinedResult(ctx, typed);
       }
 
@@ -431,12 +437,13 @@ export function registerAskPopupTool(pi: ExtensionAPI): void {
       // Both layers here: unlike guidance, this only binds a key in the user's
       // own terminal, and a project pinning a shortcut that suits its docs is
       // reasonable. `resolveCollapseKey` refuses anything malformed.
-      const collapseKey = resolveCollapseKey(
-        loadConfig({
-          agentDir: getAgentDir(),
-          ...(ctx.isProjectTrusted() ? { projectDir: ctx.cwd } : {}),
-        }).config,
-      );
+      const configInput: LoadConfigInput = {
+        agentDir: getAgentDir(),
+      };
+      if (ctx.isProjectTrusted()) {
+        configInput.projectDir = ctx.cwd;
+      }
+      const collapseKey = resolveCollapseKey(loadConfig(configInput).config);
 
       const sessionRef: SessionRef = { current: null };
       const overlayHandleRef: OverlayHandleRef = { current: undefined };

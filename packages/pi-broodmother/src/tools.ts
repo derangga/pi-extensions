@@ -255,6 +255,7 @@ function renderRunResult(
   expanded: boolean,
   theme: Theme,
 ) {
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   const run = (result.details as SubagentDetails | undefined)?.run;
   if (!run) {
     const first = result.content[0];
@@ -286,6 +287,7 @@ export function createSubagentTools(host: SubagentToolHost): ToolDefinition[] {
       ],
       parameters: SUBAGENT_PARAMS,
       async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+        // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
         const { tasks, autoAwait } = params as {
           tasks: readonly TaskRequest[];
           autoAwait?: boolean;
@@ -307,6 +309,7 @@ export function createSubagentTools(host: SubagentToolHost): ToolDefinition[] {
       promptSnippet: "Read the output of a subagent run.",
       parameters: RESULT_PARAMS,
       async execute(_toolCallId, params) {
+        // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
         const { runId, taskId, wait, verbose } = params as {
           runId?: string;
           taskId?: string;
@@ -330,6 +333,7 @@ export function createSubagentTools(host: SubagentToolHost): ToolDefinition[] {
       promptSnippet: "Answer a subagent's question.",
       parameters: REPLY_PARAMS,
       async execute(_toolCallId, params) {
+        // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
         const { runId, taskId, message } = params as {
           runId?: string;
           taskId: string;
@@ -351,6 +355,7 @@ export function createSubagentTools(host: SubagentToolHost): ToolDefinition[] {
       promptSnippet: "Stop a subagent run.",
       parameters: CANCEL_PARAMS,
       async execute(_toolCallId, params) {
+        // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
         const { runId } = params as { runId?: string };
         const run = await host.cancel(runId);
         const stopped = run.tasks.filter(

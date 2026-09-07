@@ -295,6 +295,7 @@ describe("intercom child tools", () => {
   }>;
 
   function execute(tool: ToolDefinition): Execute {
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     const executable = tool as unknown as { execute: Execute };
     return (id, params) => executable.execute(id, params);
   }
