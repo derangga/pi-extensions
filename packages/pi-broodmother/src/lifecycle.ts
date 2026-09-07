@@ -1,5 +1,5 @@
 import type { AgentSession, AgentSessionEvent } from "@earendil-works/pi-coding-agent";
-import { Effect, Predicate, Schema } from "effect";
+import { Effect, Predicate, Ref, Schema } from "effect";
 
 import {
   createChildSession,
@@ -222,15 +222,19 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
   const start = session.messages.length;
   const maxTurns = Math.max(1, Math.trunc(options.maxTurns));
   const graceTurns = Math.max(1, Math.trunc(options.graceTurns ?? GRACE_TURNS));
-  let turns = 0;
-  let wrapRequested = false;
-  let abortedAfterGrace = false;
-  let stoppedByUser = options.signal?.aborted === true;
-  let streamed = "";
-  let progress = NO_PROGRESS;
+  const turnsRef = yield* Ref.make(0);
+  const wrapRequestedRef = yield* Ref.make(false);
+  const abortedAfterGraceRef = yield* Ref.make(false);
+  const stoppedByUserRef = yield* Ref.make(options.signal?.aborted === true);
+  const streamedRef = yield* Ref.make("");
+  const progressRef = yield* Ref.make(NO_PROGRESS);
 
-  const report = (next: TaskProgress) => {
-    progress = next;
+  const report = (next: TaskProgress): void => {
+    // The subscribe callback is synchronous and outside the Effect fiber, so
+    // we update the Ref synchronously via runSync rather than closing over a
+    // mutable let. The observer still sees the same values, but the data flow
+    // is through Ref instead of variable reassignment.
+    Effect.runSync(Ref.set(progressRef, next));
     try {
       options.onProgress?.(next);
     } catch {
@@ -238,19 +242,21 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
     }
   };
 
-  report({ ...progress, sessionFile: child.sessionFile });
+  report({ ...NO_PROGRESS, sessionFile: child.sessionFile });
 
   const unsubscribe = session.subscribe((event: AgentSessionEvent) => {
     if (event.type === "message_start" && event.message.role === "assistant") {
-      streamed = "";
+      Effect.runSync(Ref.set(streamedRef, ""));
     }
     if (event.type === "message_update" && event.assistantMessageEvent.type === "text_delta") {
-      streamed += event.assistantMessageEvent.delta;
+      const delta = event.assistantMessageEvent.delta;
+      Effect.runSync(Ref.update(streamedRef, (current) => current + delta));
     }
     if (event.type === "tool_execution_start") {
+      const current = Effect.runSync(Ref.get(progressRef));
       report({
-        ...progress,
-        toolCalls: progress.toolCalls + 1,
+        ...current,
+        toolCalls: current.toolCalls + 1,
         activity: describeToolCall(event.toolName, event.args),
       });
       return;
@@ -267,12 +273,13 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
       // afterwards, so both are kept as they arrive.
       const usage = event.message.role === "assistant" ? event.message.usage : undefined;
       if (usage) {
+        const current = Effect.runSync(Ref.get(progressRef));
         const work = (usage.input ?? 0) + (usage.output ?? 0) + (usage.cacheWrite ?? 0);
         report({
-          ...progress,
-          tokens: progress.tokens + work,
-          billedTokens: progress.billedTokens + work + (usage.cacheRead ?? 0),
-          cost: progress.cost + (usage.cost?.total ?? 0),
+          ...current,
+          tokens: current.tokens + work,
+          billedTokens: current.billedTokens + work + (usage.cacheRead ?? 0),
+          cost: current.cost + (usage.cost?.total ?? 0),
         });
       }
       return;
@@ -281,14 +288,17 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
       return;
     }
 
-    turns++;
+    Effect.runSync(Ref.update(turnsRef, (n) => n + 1));
+    const turns = Effect.runSync(Ref.get(turnsRef));
+    const wrapRequested = Effect.runSync(Ref.get(wrapRequestedRef));
+    const abortedAfterGrace = Effect.runSync(Ref.get(abortedAfterGraceRef));
     if (!wrapRequested && turns >= maxTurns) {
-      wrapRequested = true;
+      Effect.runSync(Ref.set(wrapRequestedRef, true));
       void session.steer(WRAP_UP).catch(() => undefined);
       return;
     }
     if (wrapRequested && !abortedAfterGrace && turns >= maxTurns + graceTurns) {
-      abortedAfterGrace = true;
+      Effect.runSync(Ref.set(abortedAfterGraceRef, true));
       void session.abort().catch(() => undefined);
     }
   });
@@ -297,7 +307,7 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
   const waitForStop: Effect.Effect<"stopped"> = options.signal
     ? Effect.callback<"stopped">((resume) => {
         const stop = () => {
-          stoppedByUser = true;
+          Effect.runSync(Ref.set(stoppedByUserRef, true));
           void session.abort().catch(() => undefined);
           resume(Effect.succeed("stopped"));
         };
@@ -333,30 +343,44 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
 
   const final = lastAssistant(session.messages, start);
   const finalText = final ? assistantText(final) : "";
+  const streamed = yield* Ref.get(streamedRef);
   const raw = finalText || streamed.trim();
 
-  let outcome: ChildOutcome;
-  let error: string | undefined;
-  if (terminal.kind === "timed_out") {
-    outcome = "timed_out";
-  } else if (stoppedByUser || terminal.kind === "stopped") {
-    outcome = "stopped";
-  } else if (abortedAfterGrace) {
-    outcome = "aborted";
-  } else if (terminal.kind === "failed") {
-    outcome = "failed";
-    error = terminal.error;
-  } else if (final?.stopReason === "error") {
-    outcome = "failed";
-    error = final.errorMessage?.trim() || "provider error with no output";
-  } else if (final?.stopReason === "length" && !finalText) {
-    outcome = "failed";
-    error = "run hit the output token limit before producing any text";
-  } else if (wrapRequested) {
-    outcome = "wrapped_up";
-  } else {
-    outcome = "completed";
-  }
+  const turns = yield* Ref.get(turnsRef);
+  const wrapRequested = yield* Ref.get(wrapRequestedRef);
+  const abortedAfterGrace = yield* Ref.get(abortedAfterGraceRef);
+  const stoppedByUser = yield* Ref.get(stoppedByUserRef);
+
+  const { outcome, error }: { outcome: ChildOutcome; error: string | undefined } = (() => {
+    if (terminal.kind === "timed_out") {
+      return { outcome: "timed_out" as const, error: undefined };
+    }
+    if (stoppedByUser || terminal.kind === "stopped") {
+      return { outcome: "stopped" as const, error: undefined };
+    }
+    if (abortedAfterGrace) {
+      return { outcome: "aborted" as const, error: undefined };
+    }
+    if (terminal.kind === "failed") {
+      return { outcome: "failed" as const, error: terminal.error };
+    }
+    if (final?.stopReason === "error") {
+      return {
+        outcome: "failed" as const,
+        error: final.errorMessage?.trim() || "provider error with no output",
+      };
+    }
+    if (final?.stopReason === "length" && !finalText) {
+      return {
+        outcome: "failed" as const,
+        error: "run hit the output token limit before producing any text",
+      };
+    }
+    if (wrapRequested) {
+      return { outcome: "wrapped_up" as const, error: undefined };
+    }
+    return { outcome: "completed" as const, error: undefined };
+  })();
 
   const partial = outcome !== "completed" && outcome !== "wrapped_up";
   const labeled = partial && raw ? `Partial output before termination:\n${raw}` : raw;
