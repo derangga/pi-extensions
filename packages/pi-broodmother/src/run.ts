@@ -14,6 +14,7 @@ import {
 import {
   createIntercomTools,
   Intercom,
+  type AskWaiting,
   type ParentTraffic,
   type ReplyOutcome,
   type TaskAddress,
@@ -75,6 +76,12 @@ export interface TaskView {
    * skipped task has none. Read `task` for the template the orchestrator wrote.
    */
   readonly prompt: string | undefined;
+  /**
+   * Set while the child is blocked on `ask_parent`, cleared when it is answered
+   * or the task ends. Reading it consumes nothing: the question still reaches
+   * the parent through the parked queue exactly as before.
+   */
+  readonly waiting: AskWaiting | undefined;
   readonly outcome: ChildOutcome | undefined;
   readonly output: string | undefined;
   readonly sessionFile: string | undefined;
@@ -241,6 +248,8 @@ interface TaskState {
   status: TaskStatus;
   /** The composed prompt, set at dispatch. See `TaskView.prompt`. */
   prompt: string | undefined;
+  /** The ask this child is blocked on. See `TaskView.waiting`. */
+  waiting: AskWaiting | undefined;
   result: ChildRunResult | undefined;
   progress: TaskProgress;
   startedAt: number | undefined;
@@ -276,6 +285,7 @@ function viewTask(state: TaskState): TaskView {
     thinking: state.thinking,
     status: state.status,
     prompt: state.prompt,
+    waiting: state.waiting,
     outcome: state.result?.outcome,
     output: state.result?.output,
     sessionFile: state.result?.sessionFile ?? state.progress.sessionFile,
@@ -497,7 +507,12 @@ export class Manager extends Context.Service<
 
             const result = yield* Effect.scoped(
               Effect.gen(function* () {
-                const channel = yield* intercom.openTask(address);
+                const channel = yield* intercom.openTask(address, {
+                  onWaitingChange: (ask) => {
+                    state.waiting = ask;
+                    changed();
+                  },
+                });
                 return yield* runChildLifecycle({
                   child: {
                     cwd: request.cwd,
@@ -616,6 +631,7 @@ export class Manager extends Context.Service<
               settled: yield* Deferred.make<void>(),
               status: "pending",
               prompt: undefined,
+              waiting: undefined,
               result: undefined,
               progress: NO_PROGRESS,
               startedAt: undefined,

@@ -34,6 +34,11 @@ const PROMPT_MAX_LINES = 20;
  * Effect reaches here.
  */
 export function statusIcon(task: TaskView): string {
+  // A child blocked on a question is running, but saying so hides the one row
+  // the reader can act on.
+  if (task.waiting && task.status === "running") {
+    return "⏸";
+  }
   switch (task.status) {
     case "pending":
       return "○";
@@ -47,6 +52,9 @@ export function statusIcon(task: TaskView): string {
 }
 
 function statusColor(task: TaskView): ThemeColor {
+  if (task.waiting && task.status === "running") {
+    return "warning";
+  }
   switch (task.status) {
     case "pending":
       return "muted";
@@ -80,12 +88,16 @@ export function formatCost(cost: number): string | undefined {
   return cost >= 0.0001 ? `$${cost.toFixed(4)}` : "<$0.0001";
 }
 
+export function formatDuration(ms: number): string {
+  const seconds = Math.max(0, Math.round(ms / 1000));
+  return seconds >= 60 ? `${Math.floor(seconds / 60)}m${seconds % 60}s` : `${seconds}s`;
+}
+
 export function formatElapsed(task: TaskView, now: number): string {
   if (task.startedAt === undefined) {
     return "–";
   }
-  const seconds = Math.max(0, Math.round(((task.endedAt ?? now) - task.startedAt) / 1000));
-  return seconds >= 60 ? `${Math.floor(seconds / 60)}m${seconds % 60}s` : `${seconds}s`;
+  return formatDuration((task.endedAt ?? now) - task.startedAt);
 }
 
 const TERMINAL: readonly TaskStatus[] = ["settled", "skipped"];
@@ -107,13 +119,21 @@ export function widgetLine(task: TaskView, theme: Theme, now: number): string {
     "dim",
     `${task.toolCalls} tools · ${formatTokens(task.tokens)} tok · ${cost ? `${cost} · ` : ""}${formatElapsed(task, now)}`,
   );
+  // The ask takes the activity slot rather than sitting beside it. A blocked
+  // child's last tool call was the ask itself, so printing both says it twice.
+  const blocked = !isDone(task) && task.waiting ? task.waiting : undefined;
+  const asks = blocked
+    ? `${theme.fg("warning", `asks · ${formatDuration(now - blocked.since)}`)} · `
+    : "";
   const activity =
-    !isDone(task) && task.activity ? `${theme.fg("muted", `→ ${task.activity}`)} · ` : "";
-  const waiting =
+    !isDone(task) && !blocked && task.activity
+      ? `${theme.fg("muted", `→ ${task.activity}`)} · `
+      : "";
+  const waitsFor =
     task.status === "pending" && task.needs.length > 0
       ? `${theme.fg("muted", `↳ waits ${task.needs.join(", ")}`)} · `
       : "";
-  return `${icon} ${name} · ${waiting}${activity}${stats}`;
+  return `${icon} ${name} · ${waitsFor}${asks}${activity}${stats}`;
 }
 
 export function widgetLines(runs: readonly RunView[], theme: Theme, now: number): string[] {

@@ -39,6 +39,7 @@ function taskView(fields: Partial<TaskView> = {}): TaskView {
     thinking: "off",
     status: "running",
     prompt: undefined,
+    waiting: undefined,
     outcome: undefined,
     output: undefined,
     sessionFile: undefined,
@@ -125,6 +126,32 @@ describe("widgetLines", () => {
 
     const [, done] = widgetLines([runView([settled()])], theme, NOW);
     expect(done).not.toContain("→ Grep useEffect");
+  });
+
+  it("shows that a child is blocked on a question, and for how long", () => {
+    const [, blocked] = widgetLines(
+      [runView([taskView({ waiting: { question: "which schema?", since: NOW - 521_000 } })])],
+      theme,
+      NOW,
+    );
+    expect(blocked).toContain("⏸");
+    expect(blocked).toContain("asks · 8m41s");
+    // The ask takes the activity slot: a blocked child has no current call.
+    expect(blocked).not.toContain("→ Grep useEffect");
+    // The question itself belongs to the expanded result row, not this line.
+    expect(blocked).not.toContain("which schema?");
+    expect(blocked).toContain("3 tools · 1.5k tok");
+  });
+
+  it("stops showing an ask once the task is done", () => {
+    const [, done] = widgetLines(
+      [runView([settled({ waiting: { question: "which schema?", since: NOW - 5_000 } })])],
+      theme,
+      NOW,
+    );
+    expect(done).not.toContain("⏸");
+    expect(done).not.toContain("asks");
+    expect(done).toContain("✓");
   });
 
   it("says what a pending task is waiting for", () => {

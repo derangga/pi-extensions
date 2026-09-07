@@ -349,6 +349,50 @@ describe("Manager.wait", () => {
     expect(outcome.messages[0]).toMatchObject({ kind: "ask", text: "which branch?" });
   });
 
+  it("reports which child is blocked and on what, then clears it", async () => {
+    const blocked: { id: string; question: string }[] = [];
+    const run = await withManager(
+      [],
+      (manager) =>
+        Effect.gen(function* () {
+          const started = yield* manager.start(
+            request(
+              [task({ id: "a" })],
+              childFactory(async (_prompt, options) => {
+                const ask = options.customTools?.find((tool) => tool.name === "ask_parent");
+                await ask!.execute(
+                  "call-1",
+                  { question: "which branch?" },
+                  undefined,
+                  undefined,
+                  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+                  undefined as never,
+                );
+                return "done";
+              }),
+            ),
+          );
+          yield* manager.wait(started.id, undefined);
+          yield* manager.reply(started.id, "a", "main");
+          yield* manager.wait(started.id, undefined);
+          return yield* manager.view(started.id);
+        }),
+      {},
+      (runs) => {
+        for (const task_ of runs.flatMap((entry) => entry.tasks)) {
+          if (task_.waiting) {
+            blocked.push({ id: task_.id, question: task_.waiting.question });
+          }
+        }
+      },
+    );
+
+    expect(blocked.map((entry) => entry.question)).toContain("which branch?");
+    expect(blocked.every((entry) => entry.id === "a")).toBe(true);
+    // The channel scope closes before the task settles, so nothing is stale.
+    expect(run.tasks[0]?.waiting).toBeUndefined();
+  });
+
   it("resumes a waiting child with the parent's reply", async () => {
     const run = await withManager([], (manager) =>
       Effect.gen(function* () {

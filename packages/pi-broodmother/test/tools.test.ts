@@ -24,6 +24,7 @@ function taskView(fields: Partial<TaskView> = {}): TaskView {
     thinking: "off",
     status: "settled",
     prompt: "read the code in src/",
+    waiting: undefined,
     outcome: "completed",
     output: "the answer",
     sessionFile: "/sessions/a.jsonl",

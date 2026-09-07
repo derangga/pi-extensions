@@ -44,8 +44,18 @@ export type ParentTraffic =
 
 export type ReplyOutcome = "delivered" | "not_waiting";
 
+/**
+ * The question a child is stuck on, for a surface to show. Read-only: whoever
+ * renders this never consumes the ask, which stays the parked waiter's to drain.
+ */
+export interface AskWaiting {
+  readonly question: string;
+  /** When the child started waiting, against PARENT_REPLY_TIMEOUT_MS. */
+  readonly since: number;
+}
+
 export interface TaskChannelOptions {
-  readonly onWaitingChange?: (waiting: boolean) => void;
+  readonly onWaitingChange?: (ask: AskWaiting | undefined) => void;
 }
 
 export interface TaskChannel {
@@ -68,7 +78,7 @@ interface PendingAsk {
 
 interface TaskChannelState {
   readonly address: TaskAddress;
-  readonly onWaitingChange: ((waiting: boolean) => void) | undefined;
+  readonly onWaitingChange: ((ask: AskWaiting | undefined) => void) | undefined;
   closed: boolean;
 }
 
@@ -92,9 +102,9 @@ function addressKey(address: Pick<TaskAddress, "runId" | "taskId">): string {
   return `${address.runId}:${address.taskId}`;
 }
 
-function safelyNotify(state: TaskChannelState, waiting: boolean): void {
+function safelyNotify(state: TaskChannelState, ask: AskWaiting | undefined): void {
   try {
-    state.onWaitingChange?.(waiting);
+    state.onWaitingChange?.(ask);
   } catch {
     // UI/status observers cannot be allowed to strand the child on its latch.
   }
@@ -188,7 +198,7 @@ export class Intercom extends Context.Service<
               channel.closed = true;
             }
             for (const pending of state.pending.values()) {
-              safelyNotify(pending.channel, false);
+              safelyNotify(pending.channel, undefined);
             }
             state.channels.clear();
             state.pending.clear();
@@ -241,7 +251,7 @@ export class Intercom extends Context.Service<
                       return undefined;
                     }
                     state.pending.delete(key);
-                    safelyNotify(opened, false);
+                    safelyNotify(opened, undefined);
                     return current.reply;
                   });
                   if (pending) {
@@ -264,7 +274,7 @@ export class Intercom extends Context.Service<
                       }
                       const pending: PendingAsk = { channel, reply };
                       state.pending.set(key, pending);
-                      safelyNotify(channel, true);
+                      safelyNotify(channel, { question, since: Date.now() });
                       return "registered" as const;
                     }),
                     (registered) =>
@@ -277,7 +287,7 @@ export class Intercom extends Context.Service<
                           state.pending.delete(key);
                         }
                         if (!channel.closed) {
-                          safelyNotify(channel, false);
+                          safelyNotify(channel, undefined);
                         }
                       }),
                   );
