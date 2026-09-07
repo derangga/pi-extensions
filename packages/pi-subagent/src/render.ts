@@ -143,6 +143,57 @@ export class SubagentWidget implements Component {
   }
 }
 
+/**
+ * Which runs the widget draws, as opposed to which ones exist. The manager
+ * keeps every run for the whole session so `subagent_result` can still reach
+ * one by id. The widget is a live status display, so it drops a run once the
+ * turn that read it is over. Without this the rows of every run ever started
+ * pile up, and a second batch reads as "2/2" beside a task that settled turns
+ * ago.
+ *
+ * The turn boundary is `agent_settled`, not `agent_start`. Pi fires
+ * `agent_start` again for a retry, an auto-compaction or a queued follow-up, so
+ * an `agent_start` with no `agent_settled` before it is the same turn resuming
+ * and must leave the rows alone.
+ */
+export interface WidgetRuns {
+  /** What the widget reads. Never awaits; safe inside a render. */
+  readonly current: () => readonly RunView[];
+  /** The manager pushed a fresh snapshot of every run it holds. */
+  replace(all: readonly RunView[]): void;
+  /** The turn ended. Nothing is dropped yet: the reader is still looking. */
+  endTurn(): void;
+  /** A new turn began. Finished runs stop being drawn. True if any went. */
+  beginTurn(): boolean;
+}
+
+export function createWidgetRuns(): WidgetRuns {
+  let runs: readonly RunView[] = [];
+  const dismissed = new Set<string>();
+  let ended = false;
+
+  return {
+    current: () => runs,
+    replace(all) {
+      runs = all.filter((run) => !dismissed.has(run.id));
+    },
+    endTurn() {
+      ended = true;
+    },
+    beginTurn() {
+      if (!ended) return false;
+      ended = false;
+      const gone = runs.filter((run) => run.finished);
+      // Remembered by id, because the manager keeps pushing every run it holds
+      // and a dropped one would otherwise come straight back on the next
+      // snapshot. A live run keeps its rows however long it takes.
+      for (const run of gone) dismissed.add(run.id);
+      runs = runs.filter((run) => !run.finished);
+      return gone.length > 0;
+    },
+  };
+}
+
 export interface WidgetHost {
   /** Called on every change. Mounts the widget once, then repaints on a timer. */
   update(ctx: ExtensionContext | undefined): void;

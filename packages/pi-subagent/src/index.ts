@@ -8,9 +8,9 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 import { inChildSessionContext } from "./child-context.js";
 import { registerSubagentCommand } from "./command.js";
 import { Intercom } from "./intercom.js";
-import { createWidgetHost } from "./render.js";
+import { createWidgetHost, createWidgetRuns } from "./render.js";
 import { modelSourceFrom } from "./resolve.js";
-import { formatManagerError, Manager, type ManagerError, type RunView } from "./run.js";
+import { formatManagerError, Manager, type ManagerError } from "./run.js";
 import { DEFAULT_SETTINGS, getSettingsPath, Settings, type SubagentSettings } from "./settings.js";
 import { registerSubagentTools } from "./tools.js";
 
@@ -31,14 +31,14 @@ export default function subagentExtension(pi: ExtensionAPI): void {
    * Effect. The context only exists once a tool runs, which is also the first
    * moment there is anything to show.
    */
-  let runs: readonly RunView[] = [];
+  const drawn = createWidgetRuns();
   let uiContext: ExtensionContext | undefined;
-  const widget = createWidgetHost(() => runs);
+  const widget = createWidgetHost(drawn.current);
 
   const runtime = ManagedRuntime.make(
     Manager.layer({
       onChange: (next) => {
-        runs = next;
+        drawn.replace(next);
         widget.update(uiContext);
       },
       // Three channels on Pi's own bus, so pi-statusbar or anything else can
@@ -147,6 +147,23 @@ export default function subagentExtension(pi: ExtensionAPI): void {
           ctx.ui.notify(`pi-subagent: could not save settings: ${String(cause)}`, "error");
         });
     },
+  });
+
+  /**
+   * A settled run stops being drawn at the next turn rather than the moment it
+   * settles: those rows are what the reader looks at while the answer lands.
+   * The manager keeps the run either way, so `subagent_result` with its id
+   * still returns everything it produced.
+   */
+  pi.on("agent_settled", () => {
+    drawn.endTurn();
+  });
+
+  pi.on("agent_start", (_event, ctx) => {
+    uiContext = ctx;
+    if (!drawn.beginTurn()) return;
+    if (drawn.current().length === 0) widget.clear(ctx);
+    else widget.update(ctx);
   });
 
   pi.on("session_shutdown", () => {

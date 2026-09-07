@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   callLines,
   createWidgetHost,
+  createWidgetRuns,
   formatCost,
   formatElapsed,
   formatTokens,
@@ -316,5 +317,79 @@ describe("resultLines", () => {
       NOW,
     );
     expect(lines.join("\n")).toContain("skipped: up produced nothing");
+  });
+});
+
+describe("createWidgetRuns", () => {
+  const done = (id: string) => runView([settled()], { id, finished: true });
+  const live = (id: string) => runView([taskView()], { id, finished: false });
+
+  it("draws what the manager pushes", () => {
+    const drawn = createWidgetRuns();
+    drawn.replace([done("run_1")]);
+    expect(drawn.current().map((run) => run.id)).toEqual(["run_1"]);
+  });
+
+  it("keeps a settled run on screen for the rest of its turn", () => {
+    const drawn = createWidgetRuns();
+    drawn.replace([done("run_1")]);
+    // No agent_settled yet, so this agent_start is the same turn resuming
+    // after a retry or an auto-compaction.
+    expect(drawn.beginTurn()).toBe(false);
+    expect(drawn.current().map((run) => run.id)).toEqual(["run_1"]);
+  });
+
+  it("stops drawing a settled run once the next turn begins", () => {
+    const drawn = createWidgetRuns();
+    drawn.replace([done("run_1")]);
+    drawn.endTurn();
+
+    expect(drawn.beginTurn()).toBe(true);
+    expect(drawn.current()).toEqual([]);
+  });
+
+  it("does not let a dropped run come back on the next snapshot", () => {
+    // The manager holds every run for the session and pushes all of them, so
+    // dropping one has to be remembered or it returns on the next repaint.
+    const drawn = createWidgetRuns();
+    drawn.replace([done("run_1")]);
+    drawn.endTurn();
+    drawn.beginTurn();
+
+    drawn.replace([done("run_1"), live("run_2")]);
+    expect(drawn.current().map((run) => run.id)).toEqual(["run_2"]);
+  });
+
+  it("keeps a run that is still working, however many turns it takes", () => {
+    const drawn = createWidgetRuns();
+    drawn.replace([live("run_1")]);
+    drawn.endTurn();
+
+    expect(drawn.beginTurn()).toBe(false);
+    expect(drawn.current().map((run) => run.id)).toEqual(["run_1"]);
+  });
+
+  it("drops the settled run and keeps the live one", () => {
+    const drawn = createWidgetRuns();
+    drawn.replace([live("run_1"), done("run_2")]);
+    drawn.endTurn();
+
+    expect(drawn.beginTurn()).toBe(true);
+    expect(drawn.current().map((run) => run.id)).toEqual(["run_1"]);
+  });
+
+  it("needs a turn to end before each clear, not just the first", () => {
+    const drawn = createWidgetRuns();
+    drawn.replace([done("run_1")]);
+    drawn.endTurn();
+    drawn.beginTurn();
+
+    drawn.replace([done("run_1"), done("run_2")]);
+    expect(drawn.beginTurn()).toBe(false);
+    expect(drawn.current().map((run) => run.id)).toEqual(["run_2"]);
+
+    drawn.endTurn();
+    expect(drawn.beginTurn()).toBe(true);
+    expect(drawn.current()).toEqual([]);
   });
 });
