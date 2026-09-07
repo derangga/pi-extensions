@@ -231,6 +231,26 @@ export function createWidgetHost(
   let tui: TUI | undefined;
   let mounted = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let heartbeat: ReturnType<typeof setInterval> | undefined;
+
+  const hasUnsettled = (): boolean => runs().some((run) => !run.finished);
+
+  const startHeartbeat = (): void => {
+    if (heartbeat) {
+      return;
+    }
+    heartbeat = setInterval(() => {
+      tui?.requestRender();
+    }, 1000);
+    heartbeat.unref?.();
+  };
+
+  const stopHeartbeat = (): void => {
+    if (heartbeat) {
+      clearInterval(heartbeat);
+      heartbeat = undefined;
+    }
+  };
 
   const mount = (ctx: ExtensionContext): void => {
     if (mounted || !ctx.hasUI) {
@@ -257,22 +277,27 @@ export function createWidgetHost(
         return;
       }
       mount(ctx);
-      if (timer) {
-        return;
+      if (!timer) {
+        timer = setTimeout(() => {
+          timer = undefined;
+          tui?.requestRender();
+        }, throttleMs);
+        // Keeping the process alive for a repaint would hold a CLI session open
+        // after its work is done.
+        timer.unref?.();
       }
-      timer = setTimeout(() => {
-        timer = undefined;
-        tui?.requestRender();
-      }, throttleMs);
-      // Keeping the process alive for a repaint would hold a CLI session open
-      // after its work is done.
-      timer.unref?.();
+      if (hasUnsettled()) {
+        startHeartbeat();
+      } else {
+        stopHeartbeat();
+      }
     },
     clear(ctx) {
       if (timer) {
         clearTimeout(timer);
       }
       timer = undefined;
+      stopHeartbeat();
       tui = undefined;
       if (!mounted) {
         return;
