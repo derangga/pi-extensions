@@ -1,7 +1,13 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { SettingsList } from "@earendil-works/pi-tui";
 import { describe, expect, it } from "vitest";
 
 import {
   buildSettingItems,
+  CANCEL_HINT,
   clampThinking,
   cycleValue,
   describeSettings,
@@ -13,6 +19,7 @@ import {
   ROW_THINKING,
   settingsWithRowChange,
   thinkingValues,
+  withDismissHint,
 } from "../src/panel.js";
 import { DEFAULT_SETTINGS, INHERIT, type SubagentSettings } from "../src/settings.js";
 import type { PiModel } from "../src/thinking.js";
@@ -171,5 +178,94 @@ describe("describeSettings", () => {
     expect(text).toContain("concurrency 4");
     expect(text).toContain("max tasks 6");
     expect(text).toContain("/tmp/pi-subagent.json");
+  });
+});
+
+describe("withDismissHint", () => {
+  // Pi's SettingsList hardcodes its footer and routes it through theme.hint,
+  // so these are the exact strings it sends. If upstream stops sending the
+  // first one, the panel keeps working and shows Pi's own wording.
+  const FOOTER = "  Enter/Space to change · Esc to cancel";
+  const SEARCH_FOOTER = "  Type to search · Enter/Space to change · Esc to cancel";
+  const base = { hint: (text: string) => `[${text}]` } as Parameters<typeof withDismissHint>[0];
+  const noop = () => {};
+  const plain = {
+    label: (text: string) => text,
+    value: (text: string) => text,
+    description: (text: string) => text,
+    cursor: ">",
+    hint: (text: string) => text,
+  };
+
+  it("corrects the footer", () => {
+    expect(withDismissHint(base).hint(FOOTER)).toBe("[  Enter/Space to change · Esc to dismiss]");
+  });
+
+  it("corrects the searchable footer too", () => {
+    expect(withDismissHint(base).hint(SEARCH_FOOTER)).toContain("Esc to dismiss");
+  });
+
+  it("leaves the phrase out of every other hint Pi sends", () => {
+    for (const other of ["  No settings available", "  No matching settings", "  ↓ 3 more"]) {
+      expect(withDismissHint(base).hint(other)).toBe(`[${other}]`);
+    }
+  });
+
+  it("still styles through the theme it wraps", () => {
+    // The wrapper rewrites the text and hands it on. Dropping the delegation
+    // would lose the colour and read as plain output.
+    expect(withDismissHint(base).hint(FOOTER).startsWith("[")).toBe(true);
+  });
+
+  it("passes an upstream rewording straight through", () => {
+    const reworded = "  Enter/Space to change · Esc to close";
+    expect(withDismissHint(base).hint(reworded)).toBe(`[${reworded}]`);
+  });
+
+  it("keeps the rest of the theme intact", () => {
+    const full = {
+      label: (text: string) => text,
+      value: (text: string) => text,
+      description: (text: string) => text,
+      cursor: ">",
+      hint: (text: string) => text,
+    };
+    const wrapped = withDismissHint(full);
+    expect(wrapped.cursor).toBe(">");
+    expect(wrapped.label("Model", true)).toBe("Model");
+  });
+
+  it('puts "dismiss" in the footer Pi actually renders', () => {
+    // The strongest form of this check: build Pi's own SettingsList with the
+    // wrapped theme and read the line it draws. No hand-copied literal, so an
+    // upstream rewording or a change to how the footer is themed shows up here
+    // as a failure rather than as "cancel" still sitting on screen.
+    const items = buildSettingItems(settings(), AVAILABLE, OPUS);
+    const list = new SettingsList(items, items.length, withDismissHint(plain), noop, noop);
+    const footer = list.render(80).find((line) => line.includes("Enter/Space"));
+
+    expect(footer).toBeDefined();
+    expect(footer).toContain("Esc to dismiss");
+    expect(footer).not.toContain("Esc to cancel");
+  });
+
+  it("is the only thing standing between the panel and Pi's wording", () => {
+    // The same list without the wrapper still says cancel, which is what makes
+    // the test above meaningful rather than a tautology.
+    const items = buildSettingItems(settings(), AVAILABLE, OPUS);
+    const list = new SettingsList(items, items.length, plain, noop, noop);
+    const footer = list.render(80).find((line) => line.includes("Enter/Space"));
+
+    expect(footer).toContain("Esc to cancel");
+  });
+
+  it("matches the phrase Pi actually ships", () => {
+    // The whole rewrite hangs on this phrase being in Pi's own footer.
+    // Comparing two of our own literals would pass forever, so read the file
+    // Pi ships: a version bump that rewords the footer fails here instead of
+    // silently leaving "cancel" on screen.
+    const entry = fileURLToPath(import.meta.resolve("@earendil-works/pi-tui"));
+    const source = readFileSync(join(dirname(entry), "components", "settings-list.js"), "utf8");
+    expect(source).toContain(CANCEL_HINT);
   });
 });

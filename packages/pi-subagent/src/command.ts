@@ -11,6 +11,7 @@ import {
   settingsWithRowChange,
   thinkingValues,
   resolveModel,
+  withDismissHint,
 } from "./panel.js";
 import { INHERIT, type SubagentSettings } from "./settings.js";
 import type { PiModel } from "./thinking.js";
@@ -64,7 +65,7 @@ async function openPanel(host: SubagentCommandHost, ctx: ExtensionCommandContext
     const container = new Container();
     container.addChild(new Text(theme.fg("accent", PANEL_TITLE), 1, 1));
 
-    const settingsTheme = getSettingsListTheme();
+    const settingsTheme = withDismissHint(getSettingsListTheme());
     const list = new SettingsList(
       items,
       items.length,

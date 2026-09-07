@@ -1,4 +1,4 @@
-import type { SettingItem } from "@earendil-works/pi-tui";
+import type { SettingItem, SettingsListTheme } from "@earendil-works/pi-tui";
 
 import {
   INHERIT,
@@ -12,6 +12,26 @@ import {
   type ThinkingChoice,
 } from "./settings.js";
 import { supportedThinkingLevels, type PiModel } from "./thinking.js";
+
+/** What Pi's SettingsList puts in its footer, and what this panel puts there. */
+export const CANCEL_HINT = "Esc to cancel";
+export const DISMISS_HINT = "Esc to dismiss";
+
+/**
+ * Corrects the footer. Every row here commits as it changes, so Esc closes the
+ * panel and keeps what you picked; "cancel" promises it reverts, which it does
+ * not. Pi's SettingsList hardcodes that line, and the theme's `hint` is the one
+ * place the text passes through on its way to the screen, so it is rewritten
+ * there. The three other strings Pi sends through `hint` do not carry the
+ * phrase, and an upstream rewording falls through untouched rather than
+ * breaking the panel.
+ */
+export function withDismissHint(theme: SettingsListTheme): SettingsListTheme {
+  return {
+    ...theme,
+    hint: (text: string) => theme.hint(text.replaceAll(CANCEL_HINT, DISMISS_HINT)),
+  };
+}
 
 export const ROW_MODEL = "model";
 export const ROW_THINKING = "thinking";
