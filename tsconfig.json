@@ -5,15 +5,14 @@
     "noUncheckedIndexedAccess": false,
     "exactOptionalPropertyTypes": false
   },
-  "include": ["packages/**/*", "tools/oxlint/anti-slop/**/*"],
+  "include": [
+    "packages/**/*",
+    "tools/oxlint/anti-slop/**/*"
+  ],
   "exclude": [
     "node_modules",
     ".agents",
     ".claude",
-    "plugins",
-    "pi-extensions",
-    "pi-footer",
-    "rpiv-mono",
-    "skills-lock.json"
+    "plugins"
   ]
 }
