@@ -1,0 +1,396 @@
+# Manual BDD script for subagent runs.
+#
+# No runner drives this. The automated suite already covers the graph planner,
+# the settings decoder, the intercom, every renderer and a real child session
+# built against a stub runtime. What no unit test can prove is that a live model
+# reaches for these tools sensibly, that a real child session comes back with
+# something worth reading, and that the widget draws while it happens. That is
+# what this file is for.
+#
+# Load the extension straight from the working tree, so the code you edit is the
+# code that runs. Nothing is installed and no settings file is written:
+#
+#   pi -e ./packages/pi-subagent/src/index.ts
+#
+# Add `-p "<prompt>"` for a non-interactive run. Scenarios tagged @interactive
+# need the TUI and will not work under -p. Each Given block that quotes a prompt
+# is meant to be pasted verbatim.
+
+Feature: Delegating research to child agents
+
+  Background:
+    Given pi is running in /Users/sociolla/Documents/playground/pi-extension
+    And the extension is loaded with `-e ./packages/pi-subagent/src/index.ts`
+    And the project is trusted
+
+    # @ff-labs/pi-fff is not in this repo's node_modules, so every child reports
+    # "note: @ff-labs/pi-fff is not installed; using Pi's read-only tools only"
+    # and falls back to Pi's read, grep, find and ls. That is the degraded path
+    # working, not a failure. `npm i -D @ff-labs/pi-fff` at the root exercises
+    # the other one.
+    And I expect the fff note on every child until fff is installed
+
+  # ---------------------------------------------------------------- discovery
+
+  Scenario: The four parent tools are offered
+    Given I paste "List every tool name available to you that contains 'subagent'. Names only, one per line. Do not call them."
+    Then the list contains "subagent", "subagent_result", "reply_subagent" and "subagent_cancel"
+
+  Scenario: A child is a real session, linked to its parent
+    Given I paste:
+      """
+      Call subagent ONCE with autoAwait true and one task: agent 'a manifest
+      reader', task 'read package version', prompt 'Read
+      packages/pi-subagent/package.json and report only the value of the
+      version field.'. Then call subagent_result with verbose true and show me
+      its full raw output verbatim.
+      """
+    Then the output reports "0.1.0"
+    And the verbose block names a model, a thinking level, a turn count and both token totals
+    And it prints a transcript path
+    When I read the first line of that transcript
+    Then its parentSession field names the parent session file
+    And its session name is "subagent: read package version"
+
+  # ------------------------------------------------------- no nesting
+
+  # The property has three layers behind it: the child loads with
+  # noExtensions, this extension's entry returns early inside a child async
+  # context, and the child session takes an explicit tool allowlist. Test it
+  # from the child's own mouth rather than from the parent's, which would only
+  # prove the parent behaved.
+
+  Scenario: A child has no tool it could delegate with
+    Given I paste:
+      """
+      Call subagent ONCE with autoAwait true and one task: agent 'a tool
+      inventory', task 'list own tools', prompt 'List every tool name you have,
+      one per line. Then try to delegate this same job to a subagent of your
+      own, and report exactly what happened when you tried.'. Show me its full
+      output verbatim.
+      """
+    Then the listed names are a subset of read, grep, find, ls, ask_parent and notify_parent
+    And no listed name contains "subagent"
+    And the child reports that it could not delegate
+
+  Scenario: A child cannot write, edit or run commands
+    Given I paste:
+      """
+      Call subagent ONCE with autoAwait true and one task: agent 'a scribe',
+      task 'attempt a write', prompt 'Create the file
+      /tmp/pi-subagent-should-not-exist containing the word hello. Report
+      exactly what happened.'. Show its output verbatim.
+      """
+    Then the child reports it has no write, edit or bash tool
+    When I run `test -e /tmp/pi-subagent-should-not-exist`
+    Then the file does not exist
+
+  # ---------------------------------------------------------------- max tasks
+
+  Scenario: The cap refuses an oversized batch before any child starts
+    Given /tmp/pi-subagent-test.json contains {"maxTasks": 2}
+    And PI_SUBAGENT_CONFIG points at it
+    When I paste:
+      """
+      Call subagent ONCE with autoAwait true and three tasks, each agent 'a
+      counter', tasks 'one', 'two' and 'three', each prompt 'Reply with your
+      task name.'. Report the exact error text if it fails.
+      """
+    Then the tool returns "Too many tasks (3). The limit is 2."
+    And the message says a user can raise max tasks in /subagent
+    And no child session is written
+    # Planning runs before any session is created, so an oversized batch costs
+    # the parent turn and nothing else.
+
+  Scenario: A batch at the cap runs
+    Given max tasks is 2
+    When I ask for exactly two tasks
+    Then both settle and both outputs come back
+
+  @interactive
+  Scenario: A value out of range costs that field and nothing else
+    Given /tmp/pi-subagent-test.json contains {"maxTasks": 99, "concurrency": 3}
+    And PI_SUBAGENT_CONFIG points at it
+    When I open /subagent
+    Then max tasks reads 16
+    And concurrency still reads 3
+    And a warning names maxTasks
+
+  @interactive
+  Scenario: Concurrency and max tasks are different limits
+    Given max tasks is 8 and concurrency is 2
+    When I start a run of six tasks with no edges
+    Then all six run, two at a time
+    # Concurrency moves wall time. Max tasks is the one that bounds what a batch
+    # can cost.
+
+  # ----------------------------------------------------------- graph shape
+
+  Scenario: A later wave receives the earlier one's output
+    Given I paste:
+      """
+      Call subagent ONCE with autoAwait true and two tasks. First: id 'a',
+      agent 'a version reader', task 'read version', prompt 'Read
+      packages/pi-subagent/package.json and reply with only the version field
+      value.'. Second: id 'b', needs ['a'], agent 'an echo', task 'echo
+      upstream', prompt 'The upstream output is above. Reply with the exact
+      version string you were given, and nothing else.'. Show both outputs.
+      """
+    Then the started message shows "wave 1" for a and "wave 2" for b
+    And b answers "0.1.0"
+    When I read b's transcript
+    Then b never called read
+    # The edge delivered it. Nothing in b's prompt restated a's result, which is
+    # the whole point: the orchestrator cannot forget to pass what it never
+    # passes.
+
+  Scenario: Siblings share a wave
+    Given three tasks, none with needs
+    When the run starts
+    Then the started message omits the wave column entirely
+    # Flat work renders flat. The wave line only appears once something has an
+    # edge.
+
+  @interactive
+  Scenario: A dependent skips when its upstream produces nothing
+    Given a run where task b needs task a
+    When a is cancelled before it produces output
+    Then b is reported "skipped (a produced nothing)"
+    And b never started a session
+
+  # ------------------------------------------------------------- the intercom
+
+  @interactive
+  Scenario: A child asks and the parent answers
+    Given I paste:
+      """
+      Call subagent with one task and NO autoAwait: agent 'an indecisive
+      reader', task 'ask then read', prompt 'Before doing anything you MUST
+      call ask_parent to ask which file to read:
+      packages/pi-subagent/package.json or packages/pi-subagent/README.md. Wait
+      for the answer, read only that file, and report its first line.'
+      """
+    And I then call subagent_result with wait true
+    When the child asks
+    Then subagent_result returns early rather than blocking to the end
+    And the report names the asking task and quotes its question
+    And it tells me to answer with reply_subagent
+    When I call reply_subagent with that taskId and "the README"
+    Then it reports "Delivered"
+    And the child resumes and reports the README's first line
+
+  @interactive
+  Scenario: An unanswered ask times out rather than hanging
+    Given a child is waiting on ask_parent
+    When I never answer
+    Then after ten minutes the child proceeds on its own judgment
+    And it states the assumption it made
+    # Ten minutes is a long time to sit watching a terminal. Run this one only
+    # when you have it to spare.
+
+  Scenario: Replying to a task that is not waiting
+    Given a run has fully settled
+    When I call reply_subagent for one of its tasks
+    Then it reports that the task is not waiting for an answer
+    And nothing is delivered
+
+  @interactive
+  Scenario: A notify arrives without blocking the child
+    Given a task whose prompt orders it to call notify_parent partway through
+    When I call subagent_result with wait true
+    Then the update appears with its level
+    And the child kept working rather than waiting for a reply
+
+  @interactive
+  Scenario: A settled task is named, not quoted
+    Given two tasks are running and I am blocked on subagent_result
+    When the first settles
+    Then the traffic report names it and its outcome
+    And it does not reprint that task's output
+    # The output is coming back in the run result. Printing it twice in one
+    # conversation buys nothing.
+
+  # -------------------------------------------------------------- cancelling
+
+  @interactive
+  Scenario: Cancel stops what runs and skips what never started
+    Given a run of three tasks where the third needs the first
+    And the run was started without autoAwait
+    When I call subagent_cancel while the widget still shows work in flight
+    Then it reports how many tasks it stopped
+    When I call subagent_result
+    Then children that were in flight report what they had
+    And the third is reported skipped
+    And the heading reads "(cancelled)"
+
+  # ---------------------------------------------------------- settings panel
+
+  @interactive
+  Scenario: Five rows, in order
+    Given I open /subagent
+    Then the rows are Model, Thinking effort, Concurrency, Max turns and Max tasks
+    And the footer prints the settings file path
+    And the Model row opens a submenu while the other four cycle
+
+  @interactive
+  Scenario: The footer says what Esc actually does
+    Given I open /subagent
+    Then the footer reads "Enter/Space to change · Esc to dismiss"
+    And it does not say "cancel"
+    When I change a row and press Esc
+    Then the change is still in the settings file
+    # Pi's SettingsList hardcodes "Esc to cancel", which promises Esc reverts
+    # what you picked. Every row here commits as it changes, so it does not.
+    # The panel rewrites the phrase through the theme's hint function. The
+    # rewrite is unit-tested against Pi's real SettingsList; this scenario is
+    # what proves the panel is wired to it, since command.ts has no test.
+
+  @interactive
+  Scenario: Every row applies as it changes
+    Given /tmp/pi-subagent-test.json does not exist
+    And PI_SUBAGENT_CONFIG points at it
+    When I open /subagent and change Max tasks to 4
+    And I read the file from another shell WITHOUT closing the panel
+    Then it already holds 4
+    # Closing the panel saves nothing further. Each row is its own commit.
+
+  @interactive
+  Scenario: The thinking row follows the model row
+    Given the Thinking effort row is pinned to "high"
+    When I set the Model row to a model with no reasoning levels
+    Then the Thinking effort row drops back to "inherit"
+    And it offers only "inherit"
+    # Clamping happens on the model row rather than at spawn time, so the bad
+    # pairing is never saved and never surfaces inside a child that already
+    # started.
+
+  Scenario: A user setting outranks what the model asked for
+    Given the Model row is pinned to a concrete model
+    When a task asks for a different model
+    Then the child runs on the pinned one
+    And verbose output names the pinned model
+    And a note records the substitution
+
+  @interactive
+  Scenario: A missing settings file is the normal first run
+    Given PI_SUBAGENT_CONFIG points at a path that does not exist
+    When the extension loads
+    Then no warning appears
+    And /subagent shows the defaults
+
+  Scenario: An unreadable settings file does not take the extension down
+    Given /tmp/pi-subagent-test.json contains "{ not json"
+    And PI_SUBAGENT_CONFIG points at it
+    When the extension loads
+    Then the tools still register
+    And a warning says the file is not valid JSON
+
+  # ------------------------------------------------------- spawn restraint
+
+  # Not a pass or fail. A judgement about what the model chose to spawn. Read
+  # the task list in the started message before the answers come back.
+
+  Scenario: Trivial work is not delegated
+    Given I paste "What is the version field in packages/pi-subagent/package.json?"
+    Then the model answers directly
+    And it does not call subagent
+    # One read settles this. A subagent call here means the prompt guidelines
+    # are not landing.
+
+  Scenario: Real research is split by question, not by file
+    Given I paste "Compare how the three extensions under packages/ each handle their settings, and tell me which approach you would copy."
+    When the model delegates
+    Then it spawns roughly one task per package, not one per file
+    And every prompt stands alone, naming its own scope
+
+  Scenario: A batch arrives as one call
+    Given a question with four independent parts
+    When the model delegates
+    Then it issues one subagent call carrying four tasks
+    And not four calls carrying one each
+
+  # -------------------------------------------------------------- rejections
+
+  Scenario Outline: The tool refuses a graph it cannot run
+    Given I paste "Call subagent with <bad>. Report the exact error text."
+    Then the tool returns an error rather than starting a run
+    And the message names what to fix
+    And no child session is written
+
+    Examples:
+      | bad                                                      |
+      | an empty tasks array                                     |
+      | seventeen tasks                                          |
+      | one task whose id is "read the docs"                     |
+      | two tasks sharing the id "a"                             |
+      | two tasks, the second needing "nope"                     |
+      | one task with id "a" that needs "a"                      |
+      | two tasks that need each other                           |
+
+  # ------------------------------------------------------------- the widget
+
+  @interactive
+  Scenario: Rows appear with the first run and track it
+    Given no run has started yet
+    Then nothing is drawn
+    When the first run starts
+    Then a row appears per task
+    And rows update as tasks settle
+    When the run finishes
+    Then its rows stay readable rather than clearing at once
+
+  @interactive
+  Scenario: A settled run stops being drawn at the next turn
+    Given one run has settled and its row reads "1/1"
+    When I send another message
+    Then the row is gone before the new turn's work appears
+    When that turn starts a second run
+    Then the header reads "(1/1)" for the new run alone
+    And the first run's row is not beside it
+    # The manager still holds the first run. subagent_result with its id
+    # returns everything it produced, rows or no rows.
+
+  @interactive
+  Scenario: A settled run survives the turn that read it
+    Given a run settles partway through a turn
+    When the model keeps working in that same turn
+    Then the row stays on screen while the answer lands
+    # Clearing on settle would pull the numbers away mid-read. The boundary is
+    # agent_settled, so a retry or an auto-compaction inside the turn fires
+    # agent_start again and must not clear anything.
+
+  @interactive
+  Scenario: A run that is still working keeps its rows across turns
+    Given a run started without autoAwait is still in flight
+    When I send another message
+    Then its rows are still drawn
+    And they keep updating
+
+  @interactive
+  Scenario: A tool result expands into the run behind it
+    Given a settled subagent call is in the transcript
+    When I expand its result
+    Then the expanded rows come from the same run the summary text described
+    # The result carries the run as structure, not just prose, so the two can
+    # never disagree.
+
+  # ---------------------------------------------------------------- events
+
+  Scenario: Three channels on Pi's own bus
+    Given a listener subscribed to "pi-subagent:run-started"
+    And one subscribed to "pi-subagent:task-settled"
+    And one subscribed to "pi-subagent:run-settled"
+    When a run of two tasks starts and settles
+    Then run-started fires once, carrying the run id and its tasks
+    And task-settled fires twice, each carrying turns and usage
+    And run-settled fires once, carrying aggregate usage and whether it was cancelled
+    # This is the whole outside surface. Anything that wants to render run state
+    # reads these rather than importing the package.
+
+  # ---------------------------------------------------------------- clean up
+
+  Scenario: Leaving no mess behind
+    When I finish
+    Then I remove /tmp/pi-subagent-test.json and /tmp/pi-subagent-should-not-exist
+    And I remember child sessions are real transcripts in Pi's session directory
+    And they are named "subagent: <task>" and are worth reading when a scenario surprises me
