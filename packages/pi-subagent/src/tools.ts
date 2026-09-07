@@ -75,7 +75,8 @@ const SUBAGENT_PARAMS = Type.Object(
     tasks: Type.Array(TASK, {
       minItems: 1,
       maxItems: MAX_TASKS,
-      description: "Every sub-task of this piece of work, in one call.",
+      description:
+        "Every sub-task of this piece of work, in one call. One task per question you cannot answer yourself, not one per file.",
     }),
     autoAwait: Type.Optional(
       Type.Boolean({
@@ -269,6 +270,8 @@ export function createSubagentTools(host: SubagentToolHost): ToolDefinition[] {
         "Delegate research to read-only child agents. Children can read, grep, find and list; they cannot edit, write or run commands. Pass every sub-task of the work in one call: tasks with no needs run in parallel, and a task with needs starts once those settle, with their output prepended to its prompt.",
       promptSnippet: "Delegate read-only research to child agents in one batched call.",
       promptGuidelines: [
+        "Delegate only what you would otherwise have to read a lot of the project to answer. Anything a single read or grep settles, do yourself.",
+        "Spawn the fewest tasks the work splits into. Every child is a fresh session that re-reads the project, so two vague tasks cost more than one specific one and answer less.",
         "Batch every sub-task of a piece of work into one subagent call rather than issuing several calls.",
         "Declare ordering with needs rather than by splitting the work across calls.",
         "Never restate an upstream result in a dependent's prompt; the edge already delivers it.",
