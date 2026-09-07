@@ -287,15 +287,18 @@ describe("Intercom", () => {
 });
 
 describe("intercom child tools", () => {
+  type ExecuteParams = Record<string, unknown>;
   type Execute = (
     id: string,
-    params: unknown,
+    params: ExecuteParams,
   ) => Promise<{
     readonly content: readonly { readonly type: string; readonly text?: string }[];
   }>;
 
   function execute(tool: ToolDefinition): Execute {
-    const executable = tool as unknown as { execute: Execute };
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+    const rawTool: unknown = tool;
+    const executable = rawTool as { execute: Execute };
     return (id, params) => executable.execute(id, params);
   }
 

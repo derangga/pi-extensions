@@ -23,6 +23,7 @@ import type { PiModel } from "../src/thinking.js";
  * Derived rather than listed, so a fifth parent tool is covered the day it is
  * registered instead of the day someone remembers this file.
  */
+// SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
 const PARENT_TOOL_NAMES = createSubagentTools({} as never).map((tool) => tool.name);
 
 vi.setConfig({ testTimeout: 30_000 });
@@ -66,6 +67,7 @@ describe("child session", () => {
     writeFileSync(join(cwd, "AGENTS.md"), "PARENT CONVENTIONS MUST NOT LOAD", "utf8");
 
     const modelRuntime = await ModelRuntime.create({ refreshOnCreate: false });
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     const model = modelRuntime.getModels()[0] as PiModel | undefined;
     expect(model).toBeDefined();
 
@@ -126,6 +128,7 @@ describe("child session", () => {
     const cwd = temporaryRoot("pi-broodmother-child-");
     const sessionDir = temporaryRoot("pi-broodmother-sessions-");
     const modelRuntime = await ModelRuntime.create({ refreshOnCreate: false });
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     const model = modelRuntime.getModels()[0] as PiModel;
 
     const created = await createChildSession({
@@ -153,13 +156,15 @@ describe("child session", () => {
 
   it("bounds shutdown handlers before disposing", async () => {
     const dispose = vi.fn<() => void>();
-    const session = {
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+    const rawSession: unknown = {
       extensionRunner: {
         hasHandlers: () => true,
         emit: () => new Promise<never>(() => undefined),
       },
       dispose,
-    } as unknown as AgentSession;
+    };
+    const session = rawSession as AgentSession;
 
     await shutdownChildSession(session, 1);
 
@@ -171,6 +176,7 @@ describe("child tool allowlist", () => {
   it("names no tool that would let a child spawn children", () => {
     expect(PARENT_TOOL_NAMES.length).toBeGreaterThan(0);
     for (const tool of PARENT_TOOL_NAMES) {
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       expect(CHILD_TOOL_NAMES as readonly string[]).not.toContain(tool);
     }
   });

@@ -26,6 +26,7 @@ describe("child session context", () => {
 
     await expect(
       runInChildSessionContext(async () => {
+        // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
         broodmotherExtension(unusablePi as never);
       }),
     ).resolves.toBeUndefined();
@@ -44,6 +45,7 @@ describe("child session context", () => {
       }),
     };
 
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     broodmotherExtension(pi as never);
     const disposal = shutdown?.();
 

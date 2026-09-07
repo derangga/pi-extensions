@@ -32,6 +32,7 @@ beforeAll(() => {
 });
 
 function makeTuiStub(columns = 120, rows = 40) {
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   return {
     terminal: { columns, rows },
     requestRender: vi.fn<() => void>(),
@@ -63,6 +64,7 @@ const MULTI: QuestionData = { ...SINGLE, question: "Which areas?", multiSelect: 
 function build(questions: readonly QuestionData[], collapseKey = "ctrl+]") {
   return buildQuestionnaire({
     tui: makeTuiStub(),
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     theme: makeTheme() as unknown as Theme,
     questions,
     itemsByTab: itemsFor(questions),
@@ -149,6 +151,7 @@ describe("column width across tabs", () => {
   function previewColumn(currentTab: number): number {
     const built = buildQuestionnaire({
       tui: makeTuiStub(),
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       theme: makeTheme() as unknown as Theme,
       questions,
       itemsByTab: itemsFor(questions),

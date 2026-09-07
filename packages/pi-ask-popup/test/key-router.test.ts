@@ -35,7 +35,7 @@ function makeQuestion(over: Partial<QuestionData> = {}): QuestionData {
       { label: "B", description: "b" },
       { label: "C", description: "c" },
     ],
-    ...(over.multiSelect === undefined ? {} : { multiSelect: over.multiSelect }),
+    ...(over.multiSelect !== undefined && { multiSelect: over.multiSelect }),
   };
 }
 
@@ -63,8 +63,8 @@ function makeState(over: Partial<QuestionnaireState> = {}): QuestionnaireState {
     collapsed: false,
     timerCancelled: false,
     ...over,
-    ...(over.deadline === undefined ? {} : { deadline: over.deadline }),
-    ...(over.remainingMs === undefined ? {} : { remainingMs: over.remainingMs }),
+    ...(over.deadline !== undefined && { deadline: over.deadline }),
+    ...(over.remainingMs !== undefined && { remainingMs: over.remainingMs }),
   };
 }
 
@@ -1070,6 +1070,7 @@ describe("routeKey — collapse/expand (Ctrl+] toggle + collapsed-mode lockout)"
     // constructor call has no collapseKey field, so runtime receives undefined at
     // runtime despite the TypeScript contract. Never pass that value to matchesKey:
     // pi-tui's parseKeyId calls toLowerCase() and would terminate the whole process.
+    // SAFETY: collapseKey is optional per runtime contract; delete simulates missing field for test.
     const runtime = makeRuntime() as unknown as { collapseKey?: string };
     delete runtime.collapseKey;
 

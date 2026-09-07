@@ -73,10 +73,7 @@ export function renderBorderedBox(
  * `Markdown.render(width)` pads every line to `width`, which would otherwise force
  * the box to fill the whole column allocation.
  */
-export function computeBoxDimensions(
-  contentLines: readonly string[],
-  maxInnerWidth: number,
-): { innerWidth: number; boxWidth: number } {
+export function computeBoxDimensions(contentLines: readonly string[], maxInnerWidth: number) {
   let widest = Math.min(BOX_MIN_CONTENT_WIDTH, maxInnerWidth);
   for (const line of contentLines) {
     const w = visibleWidth(line.replace(/\s+$/, ""));

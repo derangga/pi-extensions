@@ -298,5 +298,6 @@ export const runGraph = Effect.fn("Graph.run")(function* (
     }
   }
 
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   return settlements.sort((left, right) => left.index - right.index) as readonly Settlement[];
 });

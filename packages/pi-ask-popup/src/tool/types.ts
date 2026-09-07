@@ -1,6 +1,14 @@
 import { type Static, Type } from "typebox";
 import { LABELS_BY_KIND, ROW_INTENT_META } from "../state/row-intent.js";
 
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { readonly [key: string]: JsonValue };
+
 export const MAX_QUESTIONS = 4;
 export const MIN_OPTIONS = 2;
 export const MAX_OPTIONS = 4;
@@ -190,6 +198,7 @@ export function isQuestionnaireResult(value: unknown): value is QuestionnaireRes
   if (!value || typeof value !== "object") {
     return false;
   }
-  const v = value as Record<string, unknown>;
+  // SAFETY: boundary check for QuestionnaireResult; value is validated as object with required fields before use.
+  const v = value as Record<string, JsonValue>;
   return Array.isArray(v.answers) && typeof v.cancelled === "boolean";
 }

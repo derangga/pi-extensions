@@ -50,6 +50,7 @@ interface WidgetRegistry {
 function createWidgetRegistry(widgets: readonly WidgetSpecUnion[]): WidgetRegistry {
   const specs = [...widgets];
   const specsByType = new Map<WidgetType, WidgetSpecUnion>(
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     specs.map((spec) => [spec.type as WidgetType, spec]),
   );
 
@@ -78,6 +79,7 @@ function createWidgetRegistry(widgets: readonly WidgetSpecUnion[]): WidgetRegist
       return specFor(type);
     },
     maybeSpec(type) {
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       return specsByType.get(type as WidgetType);
     },
     createEntry(type, options = {}) {

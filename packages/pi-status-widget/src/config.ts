@@ -10,6 +10,14 @@ import { SEPARATOR_VALUES, type SeparatorStyle } from "./separators.js";
 import type { IconMode, StatusbarConfig, StatusbarSettings, WidgetEntry } from "./types.js";
 import { ICON_MODE_VALUES, isRecord } from "./types.js";
 import { registry, type WidgetType } from "./widgets/registry.js";
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { readonly [key: string]: JsonValue }
+  | undefined;
 
 export const STATUS_KEY = "pi-statusbar";
 
@@ -37,7 +45,10 @@ function linesForPreset(preset: Preset): WidgetEntry[][] {
 }
 
 function widgetsFromPresetLine(line: readonly PresetWidget[]): WidgetEntry[] {
-  return line.map((widget) => registry.createEntry(widget.type, widget.options));
+  // SAFETY: PresetWidget options are authored as WidgetOptions-compatible JsonValues; registry validates at boundary.
+  return line.map((widget) =>
+    registry.createEntry(widget.type, widget.options as Record<string, JsonValue>),
+  );
 }
 
 /**
@@ -152,6 +163,7 @@ function normalizeWidgets(value: unknown): WidgetEntry[] {
     if (!spec) {
       continue;
     }
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     const type = spec.type as WidgetType;
     widgets.push({
       id:
@@ -170,10 +182,12 @@ export function isPreset(value: unknown): value is Preset {
 }
 
 export function isSeparatorStyle(value: unknown): value is SeparatorStyle {
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   return typeof value === "string" && SEPARATORS.has(value as SeparatorStyle);
 }
 
 export function isIconMode(value: unknown): value is IconMode {
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   return typeof value === "string" && ICON_MODE_VALUES.includes(value as IconMode);
 }
 

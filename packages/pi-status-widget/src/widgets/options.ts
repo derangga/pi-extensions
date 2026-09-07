@@ -2,6 +2,18 @@ import { normalizeColor } from "../colors.js";
 import type { WidgetOptions } from "../types.js";
 import type { WidgetProperty, WidgetPropertyDefault, WidgetSpec } from "./types.js";
 
+function isString(value: unknown): value is string {
+  return typeof value === "string";
+}
+
+function isBoolean(value: unknown): value is boolean {
+  return typeof value === "boolean";
+}
+
+function isNumber(value: unknown): value is number {
+  return typeof value === "number";
+}
+
 const SYSTEM_BASE_OPTION_DEFAULTS = {
   raw: false,
   hideWhenEmpty: false,
@@ -57,7 +69,7 @@ export function sanitizeOptionsFromSpec(
   input: Record<string, unknown>,
 ): WidgetOptions {
   const defaults = defaultOptionsFromSpec(spec);
-  const merged: Record<string, unknown> = { ...defaults, ...input };
+  const merged: Record<string, unknown> = { ...defaults, ...input } as Record<string, unknown>;
   const next: WidgetOptions = {};
 
   for (const option of spec.baseOptions) {
@@ -71,15 +83,16 @@ export function sanitizeOptionsFromSpec(
   // A color that fails to normalize falls back to the spec's default rather than
   // vanishing, so a typo in a hand-edited file behaves like every other bad
   // value here. A widget that declares no default keeps the key absent.
-  const fg = normalizeColor(merged.fg) ?? normalizeColor(defaults.fg);
+  // SAFETY: merged values are validated via normalizeColor at boundary; defaults are ColorName-typed
+  const fg = normalizeColor(merged.fg as unknown) ?? normalizeColor(defaults.fg);
   if (fg) {
     next.fg = fg;
   }
-  const bg = normalizeColor(merged.bg) ?? normalizeColor(defaults.bg);
+  const bg = normalizeColor(merged.bg as unknown) ?? normalizeColor(defaults.bg);
   if (bg) {
     next.bg = bg;
   }
-  next.bold = typeof merged.bold === "boolean" ? merged.bold : Boolean(defaults.bold);
+  next.bold = isBoolean(merged.bold) ? merged.bold : Boolean(defaults.bold);
 
   for (const property of spec.properties) {
     next[property.id] = sanitizeProperty(property, merged[property.id]);
@@ -91,17 +104,17 @@ export function sanitizeOptionsFromSpec(
 function sanitizeProperty(property: WidgetProperty, value: unknown): string | number | boolean {
   switch (property.kind) {
     case "boolean":
-      return typeof value === "boolean" ? value : property.default;
+      return isBoolean(value) ? value : property.default;
     case "number":
       return clampNumber(value, property.default, property.min, property.max);
     case "text":
       if (COLOR_VALUED_PROPERTIES.has(property.id)) {
         return normalizeColor(value) ?? property.default;
       }
-      return typeof value === "string" ? value : property.default;
+      return isString(value) ? value : property.default;
     case "choice": {
       const choices = property.choices ?? [];
-      return typeof value === "string" && choices.includes(value) ? value : property.default;
+      return isString(value) && choices.includes(value) ? value : property.default;
     }
   }
 }
@@ -110,14 +123,14 @@ function sanitizeBaseOption(
   value: unknown,
   defaultValue: WidgetOptions[keyof WidgetOptions],
 ): WidgetOptions[keyof WidgetOptions] {
-  if (typeof defaultValue === "boolean") {
-    return typeof value === "boolean" ? value : defaultValue;
+  if (isBoolean(defaultValue)) {
+    return isBoolean(value) ? value : defaultValue;
   }
-  if (typeof defaultValue === "number") {
-    return typeof value === "number" && Number.isInteger(value) ? value : defaultValue;
+  if (isNumber(defaultValue)) {
+    return isNumber(value) && Number.isInteger(value) ? value : defaultValue;
   }
-  if (typeof defaultValue === "string") {
-    return typeof value === "string" ? value : defaultValue;
+  if (isString(defaultValue)) {
+    return isString(value) ? value : defaultValue;
   }
   return defaultValue;
 }
@@ -128,7 +141,7 @@ function clampNumber(
   min = Number.NEGATIVE_INFINITY,
   max = Number.POSITIVE_INFINITY,
 ): number {
-  const numberValue = typeof value === "number" && Number.isInteger(value) ? value : defaultValue;
-  const safeNumber = typeof numberValue === "number" ? numberValue : 0;
+  const numberValue = isNumber(value) && Number.isInteger(value) ? value : defaultValue;
+  const safeNumber = isNumber(numberValue) ? numberValue : 0;
   return Math.min(max, Math.max(min, safeNumber));
 }

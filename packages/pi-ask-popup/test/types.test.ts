@@ -26,7 +26,7 @@ function makeQuestion(override: Partial<QuestionData> = {}): QuestionData {
     // Conditional spread, not `multiSelect: override.multiSelect`.
     // exactOptionalPropertyTypes rejects an explicit undefined on an optional
     // property, and the schema treats absent and false differently anyway.
-    ...(override.multiSelect === undefined ? {} : { multiSelect: override.multiSelect }),
+    ...(override.multiSelect !== undefined && { multiSelect: override.multiSelect }),
   };
 }
 
@@ -119,6 +119,7 @@ describe("QuestionSchema — option, preview, multiSelect, header shape", () => 
 
   it("rejects an option missing its description", () => {
     const broken = makeQuestion({
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       options: [{ label: "A" } as never, { label: "B", description: "ok" }],
     });
     expect(Value.Check(QuestionsSchema, [broken])).toBe(false);
@@ -156,6 +157,7 @@ describe("QuestionSchema — option, preview, multiSelect, header shape", () => 
   });
 
   it("rejects a question missing its question text", () => {
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     const broken = {
       options: [
         { label: "A", description: "a" },

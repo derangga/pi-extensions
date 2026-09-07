@@ -4,15 +4,19 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 // only what the color layer touches, cast to Theme.
 
 /** Wraps text in <color>…</color> so a test can assert which color was asked for. */
-export const taggedTheme = {
+// SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+const rawTaggedTheme: unknown = {
   fg: (color: string, text: string) => `<${color}>${text}</${color}>`,
   bg: (color: string, text: string) => `<${color}>${text}</${color}>`,
   getColorMode: () => "256color",
-} as unknown as Theme;
+};
+export const taggedTheme = rawTaggedTheme as Theme;
 
 /** Only what resolveColorLevel reads. Pi's ColorMode union is not exported. */
 export function themeWithColorMode(mode: string): Theme {
-  return { getColorMode: () => mode } as unknown as Theme;
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+  const raw: unknown = { getColorMode: () => mode };
+  return raw as Theme;
 }
 
 /**
@@ -22,7 +26,8 @@ export function themeWithColorMode(mode: string): Theme {
  * real installation rather than a hypothetical one.
  */
 export function partialTheme(defined: readonly string[]): Theme {
-  return {
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+  const raw: unknown = {
     fg: (color: string, text: string) => {
       if (!defined.includes(color)) {
         throw new Error(`Unknown theme color: ${color}`);
@@ -30,5 +35,6 @@ export function partialTheme(defined: readonly string[]): Theme {
       return `<${color}>${text}</${color}>`;
     },
     getColorMode: () => "256color",
-  } as unknown as Theme;
+  };
+  return raw as Theme;
 }

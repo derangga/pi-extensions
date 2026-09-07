@@ -76,10 +76,6 @@ const decodeMaxTasks = Schema.decodeUnknownOption(
   Schema.Int.check(Schema.isBetween({ minimum: MIN_TASKS, maximum: MAX_TASKS })),
 );
 
-type ParseOutcome =
-  | { readonly kind: "failed"; readonly warning: string }
-  | { readonly kind: "parsed"; readonly value: unknown };
-
 type ReadOutcome =
   | { readonly kind: "missing" }
   | { readonly kind: "failed"; readonly warning: string }
@@ -91,12 +87,34 @@ export interface LoadedSettings {
   readonly warnings: readonly string[];
 }
 
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { readonly [key: string]: JsonValue };
+
 /**
  * Decodes field by field rather than as one struct, so a single bad value costs
  * that field and nothing else. Decoding the whole object at once would throw
  * away three good settings because someone typed a concurrency of 99.
  */
-export function decodeSettings(raw: unknown): LoadedSettings {
+export function decodeSettings(input: unknown): LoadedSettings {
+  let raw: unknown;
+  if (typeof input === "string") {
+    try {
+      // SAFETY: JSON.parse is the boundary parser for the settings file; invalid JSON is handled as a warning, not propagated.
+      raw = JSON.parse(input) as unknown;
+    } catch (cause) {
+      return {
+        settings: DEFAULT_SETTINGS,
+        warnings: [`settings file is not valid JSON: ${messageFor(cause)}`],
+      };
+    }
+  } else {
+    raw = input;
+  }
   const record = decodeRecord(raw);
   if (Option.isNone(record)) {
     return { settings: DEFAULT_SETTINGS, warnings: ["settings file is not an object"] };
@@ -105,11 +123,12 @@ export function decodeSettings(raw: unknown): LoadedSettings {
 
   const warnings: string[] = [];
 
-  const take = <A>(key: string, decode: (input: unknown) => Option.Option<A>, fallback: A): A => {
+  const take = <A>(key: string, decode: (value: JsonValue) => Option.Option<A>, fallback: A): A => {
     if (!Object.hasOwn(fields, key)) {
       return fallback;
     }
-    const decoded = decode(fields[key]);
+    // SAFETY: fields[key] is a JSON value from the parsed file; decoding validates its shape before use.
+    const decoded = decode(fields[key] as JsonValue);
     if (Option.isNone(decoded)) {
       warnings.push(`${key} is out of range, using ${String(fallback)}`);
       return fallback;
@@ -159,23 +178,7 @@ export const loadSettings = Effect.fn("Settings.load")(function* (path: string) 
     return { settings: DEFAULT_SETTINGS, warnings: [read.warning] };
   }
 
-  const parsed = yield* Effect.try({
-    try: (): ParseOutcome => ({ kind: "parsed", value: JSON.parse(read.text) as unknown }),
-    catch: (cause) => cause,
-  }).pipe(
-    Effect.catch((cause) =>
-      Effect.succeed<ParseOutcome>({
-        kind: "failed",
-        warning: `${path} is not valid JSON, using defaults: ${messageFor(cause)}`,
-      }),
-    ),
-  );
-
-  if (parsed.kind === "failed") {
-    return { settings: DEFAULT_SETTINGS, warnings: [parsed.warning] };
-  }
-
-  return decodeSettings(parsed.value);
+  return decodeSettings(read.text);
 });
 
 export const saveSettings = Effect.fn("Settings.save")(function* (

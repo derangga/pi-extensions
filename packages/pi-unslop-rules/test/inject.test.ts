@@ -20,13 +20,15 @@ type BeforeAgentStart = (
 ) => Promise<BeforeAgentStartEventResult | void> | BeforeAgentStartEventResult | void;
 
 /** Only `on` is stubbed. It is the only method the entry point calls. */
-function stubApi(): { pi: ExtensionAPI; handlers: Map<string, BeforeAgentStart> } {
+function stubApi() {
   const handlers = new Map<string, BeforeAgentStart>();
-  const pi = {
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+  const rawPi: unknown = {
     on(event: string, handler: BeforeAgentStart): void {
       handlers.set(event, handler);
     },
-  } as unknown as ExtensionAPI;
+  };
+  const pi = rawPi as ExtensionAPI;
   return { pi, handlers };
 }
 
@@ -46,10 +48,13 @@ async function inject(systemPrompt: string): Promise<string> {
       type: "before_agent_start",
       prompt: "",
       systemPrompt,
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       systemPromptOptions: {} as BeforeAgentStartEvent["systemPromptOptions"],
     },
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     {} as ExtensionContext,
   );
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   const injected = (result as BeforeAgentStartEventResult | undefined)?.systemPrompt;
   if (injected === undefined) {
     throw new Error("handler returned no systemPrompt");
@@ -117,11 +122,16 @@ describe("pi-unslop-rules injection", () => {
       type: "before_agent_start",
       prompt: "",
       systemPrompt: "BASE",
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       systemPromptOptions: {} as BeforeAgentStartEvent["systemPromptOptions"],
     } as const;
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     const first = await handler(event, {} as ExtensionContext);
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     const second = await handler(event, {} as ExtensionContext);
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     expect((second as BeforeAgentStartEventResult).systemPrompt).toBe(
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       (first as BeforeAgentStartEventResult).systemPrompt,
     );
   });

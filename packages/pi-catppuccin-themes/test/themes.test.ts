@@ -55,6 +55,7 @@ interface ThemeFile {
 
 function readTheme(flavor: Flavor): ThemeFile {
   const raw = readFileSync(join(packageRoot, "themes", `catppuccin-${flavor}.json`), "utf8");
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   return JSON.parse(raw) as ThemeFile;
 }
 

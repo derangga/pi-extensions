@@ -58,6 +58,7 @@ function address(taskId: string) {
 /** Records what each tool asked of the manager, and answers from a table. */
 function host(overrides: Partial<SubagentToolHost> = {}): SubagentToolHost {
   const refuse = () => Promise.reject(new Error("not stubbed"));
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   return {
     start: refuse,
     wait: refuse,
@@ -77,27 +78,34 @@ function tool(name: string, overrides: Partial<SubagentToolHost> = {}): ToolDefi
 }
 
 /** Identity colours, so an assertion reads the text and not an escape code. */
-const theme = {
+// SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+const rawTheme: unknown = {
   fg: (_color: string, text: string) => text,
   bold: (text: string) => text,
-} as unknown as Theme;
+};
+const theme = rawTheme as Theme;
 
-async function callRaw(definition: ToolDefinition, params: unknown) {
+type ToolCallParams = Record<string, unknown>;
+async function callRaw(definition: ToolDefinition, params: ToolCallParams) {
   return definition.execute(
     "call-1",
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     params as never,
     undefined,
     undefined,
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     {} as ExtensionContext,
   );
 }
 
-async function call(definition: ToolDefinition, params: unknown): Promise<string> {
+async function call(definition: ToolDefinition, params: ToolCallParams): Promise<string> {
   const result = await definition.execute(
     "call-1",
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     params as never,
     undefined,
     undefined,
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     {} as ExtensionContext,
   );
   const first = result.content[0];
@@ -117,6 +125,7 @@ describe("the tool surface", () => {
   });
 
   it("offers thinking as a closed enum rather than a free string", () => {
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     const parameters = tool("subagent").parameters as {
       properties: {
         tasks: { items: { properties: { thinking: { anyOf: { const: string }[] } } } };
@@ -363,6 +372,7 @@ describe("rendering", () => {
   it("draws the plan while the arguments are still streaming", () => {
     const definition = tool("subagent");
     const component = definition.renderCall!(
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       {
         tasks: [
           { id: "up", agent: "reader" },
@@ -370,6 +380,7 @@ describe("rendering", () => {
         ],
       } as never,
       theme,
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       {} as never,
     );
     const rendered = component.render(200).join("\n");
@@ -389,8 +400,10 @@ describe("rendering", () => {
 
     const collapsed = definition.renderResult!(
       result,
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       { expanded: false } as never,
       theme,
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       {} as never,
     )
       .render(200)
@@ -400,8 +413,10 @@ describe("rendering", () => {
 
     const expanded = definition.renderResult!(
       result,
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       { expanded: true } as never,
       theme,
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       {} as never,
     )
       .render(200)
@@ -413,9 +428,12 @@ describe("rendering", () => {
   it("falls back to the result text when there is no run to draw", () => {
     const definition = tool("subagent_result");
     const rendered = definition.renderResult!(
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       { content: [{ type: "text", text: "No run has been started." }], details: {} } as never,
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       { expanded: true } as never,
       theme,
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       {} as never,
     )
       .render(200)

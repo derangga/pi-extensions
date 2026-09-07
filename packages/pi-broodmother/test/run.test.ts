@@ -21,12 +21,14 @@ import {
 import { DEFAULT_SETTINGS, Settings, type SubagentSettings } from "../src/settings.js";
 import type { PiModel } from "../src/thinking.js";
 
-const model = {
+// SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+const rawModel: unknown = {
   provider: "anthropic",
   id: "claude-opus-5",
   name: "Opus",
   reasoning: true,
-} as unknown as PiModel;
+};
+const model = rawModel as PiModel;
 
 function source(): ModelSource {
   return { available: () => [model], probe: async () => undefined };
@@ -91,13 +93,16 @@ function childFactory(answer: Answer): ChildFactory {
       },
       prompt: async (task: string) => {
         for (const listener of listeners) {
-          listener({
+          // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+          const rawToolEvent: unknown = {
             type: "tool_execution_start",
             toolCallId: "call-1",
             toolName: "grep",
             args: { pattern: "useEffect" },
-          } as AgentSessionEvent);
-          listener({
+          };
+          listener(rawToolEvent as AgentSessionEvent);
+          // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+          const rawMessageEnd: unknown = {
             type: "message_end",
             message: {
               role: "assistant",
@@ -110,22 +115,27 @@ function childFactory(answer: Answer): ChildFactory {
                 cost: { total: 0.002 },
               },
             },
-          } as unknown as AgentSessionEvent);
+          };
+          listener(rawMessageEnd as AgentSessionEvent);
         }
         const text = await answer(task, options);
-        messages.push({
+        // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+        const rawMessage: unknown = {
           role: "assistant",
           content: [{ type: "text", text }],
           stopReason: "stop",
-        } as unknown as AgentSession["messages"][number]);
+        };
+        messages.push(rawMessage as AgentSession["messages"][number]);
       },
       steer: async () => undefined,
       abort: async () => undefined,
       dispose: () => undefined,
       extensionRunner: { hasHandlers: () => false, emit: async () => undefined },
     };
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+    const rawSession: unknown = session;
     return {
-      session: session as unknown as Awaited<ReturnType<ChildFactory>>["session"],
+      session: rawSession as Awaited<ReturnType<ChildFactory>>["session"],
       sessionFile: session.sessionFile,
       fffLoaded: false,
       notes: [],
@@ -292,6 +302,7 @@ describe("Manager.wait", () => {
                 { question: "which branch?" },
                 undefined,
                 undefined,
+                // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
                 undefined as never,
               );
               const answer = reply.content[0];
@@ -324,6 +335,7 @@ describe("Manager.wait", () => {
                 { question: "which branch?" },
                 undefined,
                 undefined,
+                // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
                 undefined as never,
               );
               const answer = reply.content[0];

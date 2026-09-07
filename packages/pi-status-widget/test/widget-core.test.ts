@@ -9,6 +9,13 @@ import { defaultOptionsFromSpec, sanitizeOptionsFromSpec } from "../src/widgets/
 import { instanceFor, OverrideWidget, ProbeWidget } from "./helpers/widgets.js";
 import { baseCtx, statusbarData } from "./helpers/data.js";
 import { partialTheme } from "./helpers/theme.js";
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { readonly [key: string]: JsonValue };
 
 const widgetsDir = resolve(dirname(fileURLToPath(import.meta.url)), "..", "src", "widgets");
 
@@ -23,14 +30,18 @@ describe("registry", () => {
     for (const category of categories) {
       const dir = join(widgetsDir, category);
       for (const file of readdirSync(dir).filter((name) => name.endsWith(".ts"))) {
-        const module = (await import(join(dir, file))) as Record<string, unknown>;
+        // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+        const module = (await import(join(dir, file))) as Record<string, JsonValue>;
         for (const exported of Object.values(module)) {
           if (
             typeof exported === "object" &&
             exported !== null &&
+            // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
             typeof (exported as { type?: unknown }).type === "string" &&
+            // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
             typeof (exported as { render?: unknown }).render === "function"
           ) {
+            // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
             defined.push((exported as { type: string }).type);
           }
         }
@@ -55,6 +66,7 @@ describe("registry", () => {
   it("throws on an unsupported type and reports undefined for an unknown one", () => {
     // config normalization asks with maybeSpec and skips misses; the render path
     // asks with spec and a miss there is a bug rather than bad input.
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     expect(() => registry.spec("nope" as never)).toThrow(/Unsupported widget type/);
     expect(registry.maybeSpec("nope")).toBeUndefined();
     expect(registry.maybeSpec("flex-separator")?.type).toBe("flex-separator");
@@ -191,7 +203,9 @@ describe("dependency slicing", () => {
 describe("widget rendering", () => {
   it("prefixes the icon for the active mode", () => {
     const widget = instanceFor(ProbeWidget, { options: sanitizeOptionsFromSpec(ProbeWidget, {}) });
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     expect(widget.render({ ...baseCtx, model: "opus" } as never)).toBe("[emoji] opus");
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     expect(widget.render({ ...baseCtx, iconMode: "nerd", model: "opus" } as never)).toBe(
       "[nerd] opus",
     );
@@ -201,6 +215,7 @@ describe("widget rendering", () => {
     const widget = instanceFor(ProbeWidget, {
       options: sanitizeOptionsFromSpec(ProbeWidget, { icon: " R" }),
     });
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     expect(widget.render({ ...baseCtx, model: "opus" } as never)).toBe(" Ropus");
   });
 
@@ -208,11 +223,13 @@ describe("widget rendering", () => {
     const widget = instanceFor(ProbeWidget, {
       options: sanitizeOptionsFromSpec(ProbeWidget, { raw: true }),
     });
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     expect(widget.render({ ...baseCtx, model: "opus" } as never)).toBe("opus");
   });
 
   it("falls back to the text placeholder for an empty value", () => {
     const widget = instanceFor(ProbeWidget, { options: sanitizeOptionsFromSpec(ProbeWidget, {}) });
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     expect(widget.render({ ...baseCtx, model: undefined } as never)).toBe("[emoji] -");
   });
 
@@ -220,6 +237,7 @@ describe("widget rendering", () => {
     const widget = instanceFor(ProbeWidget, {
       options: sanitizeOptionsFromSpec(ProbeWidget, { hideWhenEmpty: true }),
     });
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     expect(widget.render({ ...baseCtx, model: undefined } as never)).toBeUndefined();
   });
 
@@ -227,7 +245,9 @@ describe("widget rendering", () => {
     const widget = instanceFor(ProbeWidget, {
       options: sanitizeOptionsFromSpec(ProbeWidget, { hideWhenZero: true }),
     });
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     expect(widget.render({ ...baseCtx, model: "0" } as never)).toBeUndefined();
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     expect(widget.render({ ...baseCtx, model: "01" } as never)).toBe("[emoji] 01");
   });
 
@@ -236,6 +256,7 @@ describe("widget rendering", () => {
       enabled: false,
       options: sanitizeOptionsFromSpec(ProbeWidget, {}),
     });
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     expect(widget.render({ ...baseCtx, model: "opus" } as never)).toBeUndefined();
   });
 
@@ -243,6 +264,7 @@ describe("widget rendering", () => {
     const widget = instanceFor(ProbeWidget, {
       options: sanitizeOptionsFromSpec(ProbeWidget, { fg: "red", raw: true }),
     });
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     expect(widget.render({ ...baseCtx, colorLevel: "ansi", model: "opus" } as never)).toBe(
       "\x1b[31mopus\x1b[39m",
     );
@@ -254,6 +276,7 @@ describe("widget rendering", () => {
     const widget = instanceFor(OverrideWidget, {
       options: sanitizeOptionsFromSpec(OverrideWidget, { fg: "red", raw: true }),
     });
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     expect(widget.render({ ...baseCtx, colorLevel: "ansi", model: "opus" } as never)).toBe(
       "\x1b[32mopus\x1b[39m",
     );

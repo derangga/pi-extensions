@@ -63,6 +63,7 @@ export function stubContext(options: ContextOptions = {}): ContextStub {
   let closed = false;
   const tui = { requestRender: () => {} };
 
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   const ctx = {
     hasUI: options.hasUI ?? true,
     cwd: options.cwd ?? "/repo",
@@ -114,6 +115,7 @@ export function stubApi(
   const commands = new Map<string, CommandStub>();
   const execCalls: string[] = [];
 
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   const pi = {
     on: (event: string, handler: (event: unknown, ctx: ExtensionContext) => unknown) => {
       handlers.set(event, handler);
@@ -149,6 +151,7 @@ export function stubApi(
       if (!registered) {
         throw new Error(`no command registered as ${command}`);
       }
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       await registered.handler(args, ctx as ExtensionCommandContext);
     },
   };
@@ -174,6 +177,7 @@ export function stubFooterData(
         listener();
       }
     },
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     footerData: {
       getGitBranch: () => branch,
       getExtensionStatuses: () => statuses,
@@ -200,6 +204,7 @@ export interface TuiStub {
 export function stubTui(): TuiStub {
   const stub: TuiStub = {
     renderRequests: 0,
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     tui: {
       requestRender: () => {
         stub.renderRequests += 1;

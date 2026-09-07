@@ -254,6 +254,7 @@ describe("reduce — global note lift (doneFor)", () => {
       twoQuestionCtx,
     );
     for (const r of [submit, cancel, confirm]) {
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       const done = r.effects[0] as Extract<Effect, { kind: "done" }>;
       expect(done.kind).toBe("done");
       expect("globalNote" in done.result).toBe(false);
@@ -270,6 +271,7 @@ describe("reduce — global note lift (doneFor)", () => {
       },
       makeCtx(),
     );
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     const done = r.effects[0] as Extract<Effect, { kind: "done" }>;
     expect(done.result.answers[0]?.notes).toBe("per-question note");
     expect("globalNote" in done.result).toBe(false);

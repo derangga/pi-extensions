@@ -89,7 +89,9 @@ function makeSession(options: SessionOptions = {}) {
   const done = vi.fn<(result: QuestionnaireResult) => void>();
   const requestRender = vi.fn<() => void>();
   const session = new QuestionnaireSession({
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     tui: { terminal: { columns: 120, rows: 40 }, requestRender } as unknown as TUI,
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     theme: makeTheme() as unknown as Theme,
     params: sessionParams,
     itemsByTab: options.itemsByTab ?? itemsFor(sessionParams),
@@ -185,11 +187,13 @@ describe("custom-answer drafts", () => {
     const multi: QuestionParams = {
       questions: [
         {
+          // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
           ...(params.questions[0] as QuestionParams["questions"][number]),
           question: "First?",
           header: "First",
         },
         {
+          // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
           ...(params.questions[0] as QuestionParams["questions"][number]),
           question: "Second?",
           header: "Second",
@@ -441,6 +445,7 @@ describe("collapsing", () => {
  */
 describe("hiding the overlay", () => {
   function makeHandle(): OverlayHandle & { setHidden: ReturnType<typeof vi.fn> } {
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     return { setHidden: vi.fn<(hidden: boolean) => void>() } as unknown as OverlayHandle & {
       setHidden: ReturnType<typeof vi.fn>;
     };

@@ -1,4 +1,11 @@
 import { isRecord, type SessionMetrics } from "./types.js";
+function isString(value: unknown): value is string {
+  return typeof value === "string";
+}
+
+function isNumber(value: unknown): value is number {
+  return typeof value === "number";
+}
 
 /**
  * Intentionally loose structural projection of the `usage` field on a Pi session
@@ -74,21 +81,22 @@ function getEntryTimestamp(entry: unknown): string | number | undefined {
     return undefined;
   }
   const timestamp = entry.timestamp;
-  if (typeof timestamp === "string" || typeof timestamp === "number") {
+  if (isString(timestamp) || isNumber(timestamp)) {
     return timestamp;
   }
   return undefined;
 }
 
 function getUsage(value: unknown): UsageLike | undefined {
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   return isRecord(value) ? (value as UsageLike) : undefined;
 }
 
 function normalizeTimestamp(value: unknown): number | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) {
+  if (isNumber(value) && Number.isFinite(value)) {
     return value;
   }
-  if (typeof value !== "string") {
+  if (!isString(value)) {
     return undefined;
   }
   const parsed = Date.parse(value);
@@ -96,5 +104,5 @@ function normalizeTimestamp(value: unknown): number | undefined {
 }
 
 function numberOrZero(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+  return isNumber(value) && Number.isFinite(value) ? value : 0;
 }

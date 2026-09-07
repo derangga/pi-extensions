@@ -45,11 +45,14 @@ export class WidgetInstance<TSpec extends WidgetSpecUnion = WidgetSpecUnion> imp
   // concrete spec types.
   render(ctx: WidgetContext): string | undefined {
     // SAFETY: WidgetInstance is constructed only via registry.createWidget with matching spec, so the spec's render signature matches TSpec at runtime
-    const spec = this.spec as unknown as TSpec & {
+    const rawSpec: unknown = this.spec;
+    const spec = rawSpec as TSpec & {
       render(args: TypedWidgetRenderArgs<TSpec>): string | undefined;
     };
     return spec.render({
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       ctx: ctx as ContextFor<TSpec>,
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       options: this.options as OptionsFor<TSpec>,
       renderWidget: (value, renderOptions) => {
         return renderWidgetValue(this.entry, value, ctx, {
@@ -105,14 +108,16 @@ function renderWidgetValue(
   const fallbackValue = rawValue.length === 0 ? (options.text ?? "-") : rawValue;
   const displayValue = renderOptions.stripIncomingStyles ? stripAnsi(fallbackValue) : fallbackValue;
   const label = renderOptions.icons?.[ctx.iconMode];
-  const unstyled =
-    options.raw === true
-      ? displayValue
-      : options.icon
-        ? `${options.icon}${displayValue}`
-        : label
-          ? `${label} ${displayValue}`
-          : displayValue;
+  let unstyled: string;
+  if (options.raw === true) {
+    unstyled = displayValue;
+  } else if (options.icon) {
+    unstyled = `${options.icon}${displayValue}`;
+  } else if (label) {
+    unstyled = `${label} ${displayValue}`;
+  } else {
+    unstyled = displayValue;
+  }
   const styled =
     renderOptions.preservedTrimStyles && !renderOptions.stripIncomingStyles
       ? `${renderOptions.preservedTrimStyles}${unstyled}`

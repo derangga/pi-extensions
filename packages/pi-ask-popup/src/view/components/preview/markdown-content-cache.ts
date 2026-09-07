@@ -3,6 +3,8 @@ import { Markdown, type MarkdownTheme, visibleWidth } from "@earendil-works/pi-t
 import type { QuestionData } from "../../../tool/types.js";
 import { stripFenceMarkers } from "./preview-box-renderer.js";
 
+export type MarkdownFactory = (text: string, markdownTheme: MarkdownTheme) => Markdown;
+
 /** CC parity in side-by-side layout. */
 export const MAX_PREVIEW_HEIGHT_SIDE_BY_SIDE = 20;
 /** Preserves narrow-terminal protection in stacked layout. */
@@ -22,14 +24,21 @@ export const NOTES_AFFORDANCE_OVERHEAD = 2;
  */
 export class MarkdownContentCache {
   private readonly previewTexts: Map<number, string>;
-  private readonly markdownCache: Map<number, Markdown>;
+  private readonly markdownCache: Map<number, ReturnType<MarkdownFactory>>;
   private cachedWidth: number | undefined;
   private readonly theme: Theme;
   private readonly markdownTheme: MarkdownTheme;
+  private readonly markdownFactory: MarkdownFactory;
 
-  constructor(question: QuestionData, theme: Theme, markdownTheme: MarkdownTheme) {
+  constructor(
+    question: QuestionData,
+    theme: Theme,
+    markdownTheme: MarkdownTheme,
+    markdownFactory: MarkdownFactory = (text, mt) => new Markdown(text, 0, 0, mt),
+  ) {
     this.theme = theme;
     this.markdownTheme = markdownTheme;
+    this.markdownFactory = markdownFactory;
     this.previewTexts = new Map();
     for (let i = 0; i < question.options.length; i++) {
       const raw = question.options[i]?.preview;
@@ -67,7 +76,7 @@ export class MarkdownContentCache {
     }
     let md = this.markdownCache.get(optionIndex);
     if (!md) {
-      md = new Markdown(text, 0, 0, this.markdownTheme);
+      md = this.markdownFactory(text, this.markdownTheme);
       this.markdownCache.set(optionIndex, md);
     }
     return stripFenceMarkers(md.render(innerWidth));

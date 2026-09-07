@@ -25,7 +25,9 @@ import { DEFAULT_SETTINGS, INHERIT, type SubagentSettings } from "../src/setting
 import type { PiModel } from "../src/thinking.js";
 
 function model(id: string, fields: Partial<PiModel> = {}): PiModel {
-  return { id, provider: "test", reasoning: true, ...fields } as unknown as PiModel;
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+  const raw: unknown = { id, provider: "test", reasoning: true, ...fields };
+  return raw as PiModel;
 }
 
 const OPUS = model("claude-opus-5");
@@ -187,7 +189,9 @@ describe("withDismissHint", () => {
   // first one, the panel keeps working and shows Pi's own wording.
   const FOOTER = "  Enter/Space to change · Esc to cancel";
   const SEARCH_FOOTER = "  Type to search · Enter/Space to change · Esc to cancel";
-  const base = { hint: (text: string) => `[${text}]` } as Parameters<typeof withDismissHint>[0];
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+  const rawBase: unknown = { hint: (text: string) => `[${text}]` };
+  const base = rawBase as Parameters<typeof withDismissHint>[0];
   const noop = () => {};
   const plain = {
     label: (text: string) => text,

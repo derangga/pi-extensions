@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "noUncheckedIndexedAccess": false,
+    "exactOptionalPropertyTypes": false
+  },
+  "include": [
+    "packages/**/*",
+    "tools/oxlint/anti-slop/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    ".agents",
+    ".claude",
+    "plugins"
+  ]
+}

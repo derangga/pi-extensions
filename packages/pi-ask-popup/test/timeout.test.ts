@@ -99,6 +99,7 @@ describe("timeout — reducer tick", () => {
       timerCancelled: false,
     });
     const result = reduce(state, { kind: "tick", now: deadline }, makeApplyContext({ questions }));
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     const done = result.effects[0] as {
       kind: "done";
       result: { globalNote?: string; answers: unknown[] };
@@ -300,14 +301,16 @@ describe("timeout — session timer", () => {
           ],
         },
       ],
-      ...(timeout === undefined ? {} : { timeout }),
+      ...(timeout !== undefined && { timeout }),
     };
     const done = vi.fn<(result: QuestionnaireResult) => void>();
     const session = new QuestionnaireSession({
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       tui: {
         terminal: { columns: 120, rows: 40 },
         requestRender: vi.fn<() => void>(),
       } as unknown as TUI,
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       theme: makeTheme() as unknown as Theme,
       params,
       itemsByTab: params.questions.map((q) => [

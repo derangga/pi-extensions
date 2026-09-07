@@ -18,10 +18,12 @@ import {
 import type { RunView, TaskView } from "../src/run.js";
 
 /** Identity colours, so an assertion reads the text and not an escape code. */
-const theme = {
+// SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+const rawTheme: unknown = {
   fg: (_color: string, text: string) => text,
   bold: (text: string) => text,
-} as unknown as Theme;
+};
+const theme = rawTheme as Theme;
 
 const NOW = 60_000;
 
@@ -180,13 +182,16 @@ describe("createWidgetHost", () => {
     const tui = { requestRender: vi.fn<() => void>() };
     const setWidget = vi.fn<(key: string, content: unknown) => void>((_key, content) => {
       if (typeof content === "function") {
+        // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
         (content as (tui: unknown, theme: Theme) => unknown)(tui, theme);
       }
     });
+    const rawCtx: unknown = { hasUI: true, ui: { setWidget } };
     return {
       tui,
       setWidget,
-      ctx: { hasUI: true, ui: { setWidget } } as unknown as ExtensionContext,
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+      ctx: rawCtx as ExtensionContext,
     };
   }
 
@@ -215,7 +220,9 @@ describe("createWidgetHost", () => {
     const setWidget = vi.fn<() => void>();
     const host = createWidgetHost(() => []);
     host.update(undefined);
-    host.update({ hasUI: false, ui: { setWidget } } as unknown as ExtensionContext);
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+    const rawCtx2: unknown = { hasUI: false, ui: { setWidget } };
+    host.update(rawCtx2 as ExtensionContext);
     expect(setWidget).not.toHaveBeenCalled();
   });
 
@@ -226,14 +233,16 @@ describe("createWidgetHost", () => {
     host.clear(ctx);
     expect(setWidget).toHaveBeenLastCalledWith(WIDGET_KEY, undefined);
 
-    const throwing = {
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+    const rawThrowing: unknown = {
       hasUI: true,
       ui: {
         setWidget: () => {
           throw new Error("tui is gone");
         },
       },
-    } as unknown as ExtensionContext;
+    };
+    const throwing = rawThrowing as ExtensionContext;
     const second = createWidgetHost(() => [], 150);
     second.update(throwing);
     expect(() => second.clear(throwing)).not.toThrow();

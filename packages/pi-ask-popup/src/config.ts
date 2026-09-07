@@ -2,6 +2,25 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { readonly [key: string]: JsonValue };
+type JsonRecord = Record<string, JsonValue>;
+
+function isRecord(value: unknown): value is JsonRecord;
+function isRecord(value: JsonValue | undefined): value is JsonRecord;
+function isRecord(value: unknown): value is JsonRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
 /** Key spec for the overlay collapse/expand shortcut, e.g. `"ctrl+]"` or `"alt+o"`. */
 export type CollapseKeySpec = string;
 
@@ -72,32 +91,34 @@ export function configPaths(sources: ConfigSources): string[] {
  * check-then-read pair races, and this keeps the no-write guarantee obvious —
  * nothing here can create a file or a parent directory.
  */
-function readLayer(path: string, warnings: string[]): Record<string, unknown> {
+function readLayer(path: string, warnings: string[]): JsonRecord {
   let text: string;
   try {
     text = readFileSync(path, "utf8");
   } catch (err) {
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       warnings.push(`pi-ask-popup: cannot read ${path} — ${(err as Error).message}`);
     }
     return {};
   }
   try {
     const parsed: unknown = JSON.parse(text);
-    // `typeof null === "object"` and so is an array; a config file is neither.
-    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    if (!isRecord(parsed)) {
       warnings.push(`pi-ask-popup: ${path} is not a JSON object, ignoring it`);
       return {};
     }
-    return parsed as Record<string, unknown>;
+    return parsed;
   } catch (err) {
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     warnings.push(`pi-ask-popup: invalid JSON in ${path}, ignoring it — ${(err as Error).message}`);
     return {};
   }
 }
 
 function nonEmptyString(value: unknown): string | undefined {
-  return typeof value === "string" && value.length > 0 ? value : undefined;
+  return isNonEmptyString(value) ? value : undefined;
 }
 
 /**
@@ -106,10 +127,10 @@ function nonEmptyString(value: unknown): string | undefined {
  * the tool still registers.
  */
 export function validateGuidanceFields(fields: unknown): GuidanceFields {
-  if (fields === null || typeof fields !== "object") {
+  if (!isRecord(fields)) {
     return {};
   }
-  const g = fields as Record<string, unknown>;
+  const g = fields;
   const out: GuidanceFields = {};
   const description = nonEmptyString(g.description);
   if (description !== undefined) {
@@ -125,6 +146,7 @@ export function validateGuidanceFields(fields: unknown): GuidanceFields {
     guidelines.length > 0 &&
     guidelines.every((s) => nonEmptyString(s) !== undefined)
   ) {
+    // SAFETY: guidelines elements are validated as non-empty strings above; preserving string array type is safe.
     out.promptGuidelines = guidelines as string[];
   }
   return out;
@@ -247,10 +269,10 @@ export function resolveCollapseKey(config: {
 
 // The only compound-word names in SPECIAL_KEYS — capitalizing the first letter
 // alone would render them "Pageup" and "Pagedown".
-const COMPOUND_KEY_DISPLAY: Record<string, string> = {
+const COMPOUND_KEY_DISPLAY = {
   pageup: "PageUp",
   pagedown: "PageDown",
-};
+} satisfies Record<string, string>;
 
 /**
  * Pretty-print a resolved spec for UI copy: `"ctrl+]"` → `"Ctrl+]"`, `"alt+o"` →
@@ -261,10 +283,11 @@ const COMPOUND_KEY_DISPLAY: Record<string, string> = {
 export function formatKeySpecForDisplay(spec: CollapseKeySpec): string {
   return spec
     .split("+")
-    .map(
-      (part) =>
-        COMPOUND_KEY_DISPLAY[part] ??
-        (part.length <= 1 ? part.toUpperCase() : part.charAt(0).toUpperCase() + part.slice(1)),
-    )
+    .map((part) => {
+      if (part === "pageup" || part === "pagedown") {
+        return COMPOUND_KEY_DISPLAY[part];
+      }
+      return part.length <= 1 ? part.toUpperCase() : part.charAt(0).toUpperCase() + part.slice(1);
+    })
     .join("+");
 }

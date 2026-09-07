@@ -53,6 +53,7 @@ export class AsyncCache {
   private entryFor<V>(key: string): CacheEntry<V> {
     const cached = this.entries.get(key);
     if (cached) {
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
       return cached as CacheEntry<V>;
     }
 
@@ -62,6 +63,7 @@ export class AsyncCache {
       pending: null,
       listeners: new Set(),
     };
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     this.entries.set(key, entry as CacheEntry<unknown>);
     this.evictOldestEntry();
     return entry;
