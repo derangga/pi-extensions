@@ -1,9 +1,11 @@
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Effect, Layer } from "effect";
 import { describe, expect, it } from "vitest";
 
 import {
   formatResolveError,
   modelKey,
+  modelSourceFrom,
   resolveModelRef,
   resolveTasks,
   type ModelSource,
@@ -274,5 +276,59 @@ describe("preflight probe", () => {
       source: { probe: async () => "401 invalid api key" },
     });
     expect(message).toContain("no model to fall back to");
+  });
+});
+
+describe("modelSourceFrom", () => {
+  /** Captures the options the probe hands to the registry. */
+  function fakeRegistry() {
+    const seen: Array<Record<string, string>> = [];
+    const registry = {
+      getAvailable: () => AVAILABLE,
+      complete: async (
+        _model: PiModel,
+        _context: unknown,
+        options?: { transformHeaders?: (headers: Record<string, string | null>) => unknown },
+      ) => {
+        seen.push(
+          // SAFETY: safe cast — the transform is ours and returns a header record.
+          (await options?.transformHeaders?.({ authorization: "Bearer x" })) as Record<
+            string,
+            string
+          >,
+        );
+        return { stopReason: "stop" };
+      },
+      // SAFETY: safe cast — test double narrowed to the two calls ModelSource uses.
+    } as unknown as ExtensionContext["modelRegistry"];
+    return { registry, seen };
+  }
+
+  const opencodeGo = model({ provider: "opencode-go", id: "deepseek-v4-flash" });
+
+  it("attaches the opencode session header, which Pi's own stream path adds and complete() does not", async () => {
+    const { registry, seen } = fakeRegistry();
+    const failure = await modelSourceFrom(registry, "sess-1").probe(
+      opencodeGo,
+      new AbortController().signal,
+    );
+    expect(failure).toBeUndefined();
+    expect(seen[0]).toEqual({
+      authorization: "Bearer x",
+      "x-opencode-session": "sess-1",
+      "x-opencode-client": "pi",
+    });
+  });
+
+  it("leaves every other provider's headers alone", async () => {
+    const { registry, seen } = fakeRegistry();
+    await modelSourceFrom(registry, "sess-1").probe(anthropicOpus, new AbortController().signal);
+    expect(seen[0]).toEqual({ authorization: "Bearer x" });
+  });
+
+  it("adds nothing when the session has no id yet", async () => {
+    const { registry, seen } = fakeRegistry();
+    await modelSourceFrom(registry, "").probe(opencodeGo, new AbortController().signal);
+    expect(seen[0]).toEqual({ authorization: "Bearer x" });
   });
 });

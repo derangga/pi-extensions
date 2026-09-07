@@ -86,7 +86,44 @@ export function modelKey(model: PiModel): string {
   return `${model.provider}/${model.id}`;
 }
 
-export function modelSourceFrom(registry: ExtensionContext["modelRegistry"]): ModelSource {
+/** Pi's own header record: a null value means "drop this header". */
+type ProbeHeaders = Record<string, string | null>;
+
+/**
+ * opencode's gateway routes on a session header, and answers 400
+ * MissingSessionID without it. Pi attaches that header inside its own stream
+ * path, which `modelRegistry.complete` does not go through, so the preflight
+ * probe has to attach it itself or it condemns every working opencode model.
+ * Matched on provider and host the way Pi matches it, so a model reached
+ * through the gateway under another provider id still gets the header.
+ */
+function opencodeSessionHeaders(
+  model: PiModel,
+  sessionId: string | undefined,
+): (headers: ProbeHeaders) => ProbeHeaders {
+  if (!sessionId) {
+    return (headers) => headers;
+  }
+  let host: string;
+  try {
+    host = new URL(model.baseUrl).hostname;
+  } catch {
+    host = "";
+  }
+  if (!model.provider.startsWith("opencode") && host !== "opencode.ai") {
+    return (headers) => headers;
+  }
+  return (headers) => ({
+    ...headers,
+    "x-opencode-session": sessionId,
+    "x-opencode-client": "pi",
+  });
+}
+
+export function modelSourceFrom(
+  registry: ExtensionContext["modelRegistry"],
+  sessionId?: string,
+): ModelSource {
   return {
     available: () => registry.getAvailable(),
     probe: async (model, signal) => {
@@ -94,7 +131,7 @@ export function modelSourceFrom(registry: ExtensionContext["modelRegistry"]): Mo
         const reply = await registry.complete(
           model,
           { messages: [{ role: "user", content: "ping", timestamp: Date.now() }] },
-          { maxTokens: 16, signal },
+          { maxTokens: 16, signal, transformHeaders: opencodeSessionHeaders(model, sessionId) },
         );
         return reply.stopReason === "error"
           ? (reply.errorMessage ?? "provider returned an error")

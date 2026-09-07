@@ -94,7 +94,7 @@ export default function broodmotherExtension(pi: ExtensionAPI): void {
           cwd: ctx.cwd,
           parent: { model: ctx.model, thinking: ctx.thinkingLevel },
           parentSession: ctx.sessionManager.getSessionFile(),
-          source: modelSourceFrom(ctx.modelRegistry),
+          source: modelSourceFrom(ctx.modelRegistry, ctx.sessionManager.getSessionId()),
         }),
       );
     },
