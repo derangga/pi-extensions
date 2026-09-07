@@ -102,9 +102,7 @@ type JsonValue =
  */
 export function decodeSettings(input: unknown): LoadedSettings {
   let raw: unknown;
-  if (typeof input !== "string") {
-    raw = input;
-  } else {
+  if (typeof input === "string") {
     try {
       // SAFETY: JSON.parse is the boundary parser for the settings file; invalid JSON is handled as a warning, not propagated.
       raw = JSON.parse(input) as unknown;
@@ -114,6 +112,8 @@ export function decodeSettings(input: unknown): LoadedSettings {
         warnings: [`settings file is not valid JSON: ${messageFor(cause)}`],
       };
     }
+  } else {
+    raw = input;
   }
   const record = decodeRecord(raw);
   if (Option.isNone(record)) {

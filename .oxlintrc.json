@@ -65,7 +65,12 @@
   },
   "overrides": [
     {
-      "files": ["packages/*/test/**/*.ts", "packages/**/test/**/*.ts", "packages/**/test/helpers/**/*.ts", "vitest.config.ts"],
+      "files": [
+        "packages/*/test/**/*.ts",
+        "packages/**/test/**/*.ts",
+        "packages/**/test/helpers/**/*.ts",
+        "vitest.config.ts"
+      ],
       "rules": {
         "no-console": "off",
         "anti-slop/no-unknown-parameters": "off",
