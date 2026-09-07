@@ -16,7 +16,14 @@ import {
   SUBAGENT_INSTRUCTIONS,
 } from "../src/child.js";
 import { createIntercomTools, type TaskChannel } from "../src/intercom.js";
+import { createSubagentTools } from "../src/tools.js";
 import type { PiModel } from "../src/thinking.js";
+
+/**
+ * Derived rather than listed, so a fifth parent tool is covered the day it is
+ * registered instead of the day someone remembers this file.
+ */
+const PARENT_TOOL_NAMES = createSubagentTools({} as never).map((tool) => tool.name);
 
 vi.setConfig({ testTimeout: 30_000 });
 
@@ -94,6 +101,8 @@ describe("child session", () => {
       for (const tool of ["bash", "edit", "write"]) expect(active).not.toContain(tool);
       expect(CHILD_TOOL_NAMES).toContain("fff-multi-grep");
       expect(CHILD_TOOL_NAMES).toContain("multi_grep");
+      // A child that could reach these would spawn children of its own.
+      for (const tool of PARENT_TOOL_NAMES) expect(active).not.toContain(tool);
 
       expect(created.sessionFile).toBeDefined();
       expect(created.session.sessionManager.getHeader()?.parentSession).toBe(
@@ -147,5 +156,14 @@ describe("child session", () => {
     await shutdownChildSession(session, 1);
 
     expect(dispose).toHaveBeenCalledOnce();
+  });
+});
+
+describe("child tool allowlist", () => {
+  it("names no tool that would let a child spawn children", () => {
+    expect(PARENT_TOOL_NAMES.length).toBeGreaterThan(0);
+    for (const tool of PARENT_TOOL_NAMES) {
+      expect(CHILD_TOOL_NAMES as readonly string[]).not.toContain(tool);
+    }
   });
 });
