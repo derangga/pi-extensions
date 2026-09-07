@@ -157,13 +157,14 @@ describe("child session", () => {
   it("bounds shutdown handlers before disposing", async () => {
     const dispose = vi.fn<() => void>();
     // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-    const session = {
+    const rawSession: unknown = {
       extensionRunner: {
         hasHandlers: () => true,
         emit: () => new Promise<never>(() => undefined),
       },
       dispose,
-    } as unknown as AgentSession;
+    };
+    const session = rawSession as AgentSession;
 
     await shutdownChildSession(session, 1);
 

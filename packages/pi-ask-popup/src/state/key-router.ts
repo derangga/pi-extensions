@@ -2,7 +2,13 @@ import { Key, matchesKey } from "@earendil-works/pi-tui";
 import type { QuestionAnswer } from "../tool/types.js";
 import { ROW_INTENT_META } from "./row-intent.js";
 import type { QuestionnaireRuntime, QuestionnaireState } from "./state.js";
-type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue };
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { readonly [key: string]: JsonValue };
 
 const KEYBIND_UP = "tui.select.up";
 const KEYBIND_DOWN = "tui.select.down";

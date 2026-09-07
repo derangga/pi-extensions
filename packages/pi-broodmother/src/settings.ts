@@ -87,23 +87,33 @@ export interface LoadedSettings {
   readonly warnings: readonly string[];
 }
 
-type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue };
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { readonly [key: string]: JsonValue };
 
 /**
  * Decodes field by field rather than as one struct, so a single bad value costs
  * that field and nothing else. Decoding the whole object at once would throw
  * away three good settings because someone typed a concurrency of 99.
  */
-export function decodeSettings(jsonText: string): LoadedSettings {
+export function decodeSettings(input: unknown): LoadedSettings {
   let raw: unknown;
-  try {
-    // SAFETY: JSON.parse is the boundary parser for the settings file; invalid JSON is handled as a warning, not propagated.
-    raw = JSON.parse(jsonText) as unknown;
-  } catch (cause) {
-    return {
-      settings: DEFAULT_SETTINGS,
-      warnings: [`settings file is not valid JSON: ${messageFor(cause)}`],
-    };
+  if (typeof input !== "string") {
+    raw = input;
+  } else {
+    try {
+      // SAFETY: JSON.parse is the boundary parser for the settings file; invalid JSON is handled as a warning, not propagated.
+      raw = JSON.parse(input) as unknown;
+    } catch (cause) {
+      return {
+        settings: DEFAULT_SETTINGS,
+        warnings: [`settings file is not valid JSON: ${messageFor(cause)}`],
+      };
+    }
   }
   const record = decodeRecord(raw);
   if (Option.isNone(record)) {

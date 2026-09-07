@@ -1,17 +1,16 @@
 import { normalizeColor } from "../colors.js";
 import type { WidgetOptions } from "../types.js";
 import type { WidgetProperty, WidgetPropertyDefault, WidgetSpec } from "./types.js";
-type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue };
 
-function isString(value: JsonValue | undefined): value is string {
+function isString(value: unknown): value is string {
   return typeof value === "string";
 }
 
-function isBoolean(value: JsonValue | undefined): value is boolean {
+function isBoolean(value: unknown): value is boolean {
   return typeof value === "boolean";
 }
 
-function isNumber(value: JsonValue | undefined): value is number {
+function isNumber(value: unknown): value is number {
   return typeof value === "number";
 }
 
@@ -67,10 +66,10 @@ export function defaultOptionsFromSpec(spec: WidgetOptionsSpec): WidgetOptions {
  */
 export function sanitizeOptionsFromSpec(
   spec: WidgetOptionsSpec,
-  input: Record<string, JsonValue>,
+  input: Record<string, unknown>,
 ): WidgetOptions {
   const defaults = defaultOptionsFromSpec(spec);
-  const merged: Record<string, JsonValue> = { ...defaults, ...input };
+  const merged: Record<string, unknown> = { ...defaults, ...input } as Record<string, unknown>;
   const next: WidgetOptions = {};
 
   for (const option of spec.baseOptions) {
@@ -84,11 +83,12 @@ export function sanitizeOptionsFromSpec(
   // A color that fails to normalize falls back to the spec's default rather than
   // vanishing, so a typo in a hand-edited file behaves like every other bad
   // value here. A widget that declares no default keeps the key absent.
-  const fg = normalizeColor(merged.fg) ?? normalizeColor(defaults.fg);
+  // SAFETY: merged values are validated via normalizeColor at boundary; defaults are ColorName-typed
+  const fg = normalizeColor(merged.fg as unknown) ?? normalizeColor(defaults.fg);
   if (fg) {
     next.fg = fg;
   }
-  const bg = normalizeColor(merged.bg) ?? normalizeColor(defaults.bg);
+  const bg = normalizeColor(merged.bg as unknown) ?? normalizeColor(defaults.bg);
   if (bg) {
     next.bg = bg;
   }
@@ -101,7 +101,7 @@ export function sanitizeOptionsFromSpec(
   return next;
 }
 
-function sanitizeProperty(property: WidgetProperty, value: JsonValue | undefined): string | number | boolean {
+function sanitizeProperty(property: WidgetProperty, value: unknown): string | number | boolean {
   switch (property.kind) {
     case "boolean":
       return isBoolean(value) ? value : property.default;
@@ -120,7 +120,7 @@ function sanitizeProperty(property: WidgetProperty, value: JsonValue | undefined
 }
 
 function sanitizeBaseOption(
-  value: JsonValue | undefined,
+  value: unknown,
   defaultValue: WidgetOptions[keyof WidgetOptions],
 ): WidgetOptions[keyof WidgetOptions] {
   if (isBoolean(defaultValue)) {
@@ -136,7 +136,7 @@ function sanitizeBaseOption(
 }
 
 function clampNumber(
-  value: JsonValue | undefined,
+  value: unknown,
   defaultValue: WidgetPropertyDefault,
   min = Number.NEGATIVE_INFINITY,
   max = Number.POSITIVE_INFINITY,

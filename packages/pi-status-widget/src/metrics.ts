@@ -1,13 +1,11 @@
 import { isRecord, type SessionMetrics } from "./types.js";
-function isString(value: JsonValue | undefined): value is string {
+function isString(value: unknown): value is string {
   return typeof value === "string";
 }
 
-function isNumber(value: JsonValue | undefined): value is number {
+function isNumber(value: unknown): value is number {
   return typeof value === "number";
 }
-
-type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue };
 
 /**
  * Intentionally loose structural projection of the `usage` field on a Pi session
@@ -69,7 +67,7 @@ export function collectSessionMetrics(entries: readonly unknown[]): SessionMetri
   return { costUsd, firstTimestampMs };
 }
 
-function getMessage(entry: JsonValue | undefined): MessageLike | undefined {
+function getMessage(entry: unknown): MessageLike | undefined {
   if (!isRecord(entry)) {
     return undefined;
   }
@@ -78,7 +76,7 @@ function getMessage(entry: JsonValue | undefined): MessageLike | undefined {
 }
 
 /** A message without its own timestamp falls back to the entry wrapping it. */
-function getEntryTimestamp(entry: JsonValue | undefined): string | number | undefined {
+function getEntryTimestamp(entry: unknown): string | number | undefined {
   if (!isRecord(entry)) {
     return undefined;
   }
@@ -89,12 +87,12 @@ function getEntryTimestamp(entry: JsonValue | undefined): string | number | unde
   return undefined;
 }
 
-function getUsage(value: JsonValue | undefined): UsageLike | undefined {
+function getUsage(value: unknown): UsageLike | undefined {
   // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   return isRecord(value) ? (value as UsageLike) : undefined;
 }
 
-function normalizeTimestamp(value: JsonValue | undefined): number | undefined {
+function normalizeTimestamp(value: unknown): number | undefined {
   if (isNumber(value) && Number.isFinite(value)) {
     return value;
   }
@@ -105,6 +103,6 @@ function normalizeTimestamp(value: JsonValue | undefined): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function numberOrZero(value: JsonValue | undefined): number {
+function numberOrZero(value: unknown): number {
   return isNumber(value) && Number.isFinite(value) ? value : 0;
 }

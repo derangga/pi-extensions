@@ -1,7 +1,6 @@
 import type { Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
 
 import type { ColorScheme } from "./schemes.js";
-type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue };
 
 /**
  * ANSI 16-color codes, keyed by the name a config file uses. Each pair is
@@ -75,7 +74,7 @@ export function resolveColorLevel(env: NodeJS.ProcessEnv = process.env, theme?: 
   return theme?.getColorMode?.() === "truecolor" ? "truecolor" : "ansi";
 }
 
-export function normalizeColor(value: JsonValue | undefined): ColorName | undefined {
+export function normalizeColor(value: unknown): ColorName | undefined {
   if (typeof value !== "string") {
     return undefined;
   }
@@ -90,8 +89,8 @@ export function normalizeColor(value: JsonValue | undefined): ColorName | undefi
   // for some installation. themeForeground absorbs a name the loaded theme
   // rejects.
   return value.startsWith(PI_PREFIX) && value.length > PI_PREFIX.length
-    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-    ? (value as ColorName)
+    ? // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+      (value as ColorName)
     : undefined;
 }
 

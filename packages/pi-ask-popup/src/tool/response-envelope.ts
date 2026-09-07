@@ -37,32 +37,38 @@ export function buildQuestionnaireResponse(
   params: QuestionParams,
 ): ToolResult {
   if (result?.error === "timed_out") {
-    return buildToolResult(TIMED_OUT_MESSAGE, {
+    const details: QuestionnaireResult = {
       answers: result.answers,
       cancelled: true,
       error: "timed_out",
-      ...(result.globalNote && result.globalNote.length > 0
-        ? { globalNote: result.globalNote }
-        : {}),
-      ...(result.unansweredNotes && result.unansweredNotes.length > 0
-        ? { unansweredNotes: result.unansweredNotes }
-        : {}),
-    });
+    };
+    if (result.globalNote && result.globalNote.length > 0) {
+      (details as { globalNote: string }).globalNote = result.globalNote;
+    }
+    if (result.unansweredNotes && result.unansweredNotes.length > 0) {
+      (details as { unansweredNotes: typeof result.unansweredNotes }).unansweredNotes =
+        result.unansweredNotes;
+    }
+    return buildToolResult(TIMED_OUT_MESSAGE, details);
   }
   if (!result || result.cancelled) {
     // The decline text stays canonical even when a global note rides a
     // cancelled result. The note survives in `details`, like partial answers.
-    return buildToolResult(DECLINE_MESSAGE, {
+    const details: QuestionnaireResult = {
       answers: result?.answers ?? [],
       cancelled: true,
-      ...(result?.error ? { error: result.error } : {}),
-      ...(result?.globalNote && result.globalNote.length > 0
-        ? { globalNote: result.globalNote }
-        : {}),
-      ...(result?.unansweredNotes && result.unansweredNotes.length > 0
-        ? { unansweredNotes: result.unansweredNotes }
-        : {}),
-    });
+    };
+    if (result?.error) {
+      (details as { error: typeof result.error }).error = result.error;
+    }
+    if (result?.globalNote && result.globalNote.length > 0) {
+      (details as { globalNote: string }).globalNote = result.globalNote;
+    }
+    if (result?.unansweredNotes && result.unansweredNotes.length > 0) {
+      (details as { unansweredNotes: typeof result.unansweredNotes }).unansweredNotes =
+        result.unansweredNotes;
+    }
+    return buildToolResult(DECLINE_MESSAGE, details);
   }
 
   const segments: string[] = [];

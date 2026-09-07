@@ -65,7 +65,7 @@
   },
   "overrides": [
     {
-      "files": ["packages/*/test/**/*.ts", "vitest.config.ts"],
+      "files": ["packages/*/test/**/*.ts", "packages/**/test/**/*.ts", "packages/**/test/helpers/**/*.ts", "vitest.config.ts"],
       "rules": {
         "no-console": "off",
         "anti-slop/no-unknown-parameters": "off",
@@ -102,7 +102,11 @@
         "anti-slop/no-unsafe-dictionary-type": "warn",
         "anti-slop/no-runtime-typeof": "warn",
         "anti-slop/no-known-value-widening": "warn",
-        "anti-slop/no-conditional-empty-object-spread": "warn"
+        "anti-slop/no-conditional-empty-object-spread": "warn",
+        "anti-slop/no-chained-type-assertions": "warn",
+        "anti-slop/require-safety-comment-for-type-assertion": "warn",
+        "anti-slop/no-shape-in-symbol-names": "warn",
+        "anti-slop/no-object-parameters": "warn"
       }
     }
   ]

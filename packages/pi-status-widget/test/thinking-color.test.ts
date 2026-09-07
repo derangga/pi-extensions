@@ -5,7 +5,13 @@ import { registry } from "../src/widgets/registry.js";
 import { thinkingLevelForeground } from "../src/widgets/utils/thinking.js";
 import { baseCtx, statusbarData } from "./helpers/data.js";
 import { partialTheme, taggedTheme } from "./helpers/theme.js";
-type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue };
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { readonly [key: string]: JsonValue };
 
 const EVERY_LEVEL = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
 

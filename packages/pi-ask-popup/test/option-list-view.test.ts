@@ -26,7 +26,7 @@ function props(over: Partial<OptionListViewProps> = {}): OptionListViewProps {
     selectedIndex: over.selectedIndex ?? 0,
     focused: over.focused ?? true,
     inputBuffer: over.inputBuffer ?? "",
-    ...(over.confirmed ? { confirmed: over.confirmed } : {} as never),
+    ...(over.confirmed ? { confirmed: over.confirmed } : ({} as never)),
   };
 }
 

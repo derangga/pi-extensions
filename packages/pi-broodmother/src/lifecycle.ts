@@ -2,7 +2,6 @@ import type { AgentSession, AgentSessionEvent } from "@earendil-works/pi-coding-
 import { Effect, Predicate, Schema } from "effect";
 
 import {
-type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue };
   createChildSession,
   type ChildSessionOptions,
   type CreatedChildSession,

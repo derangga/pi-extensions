@@ -47,7 +47,7 @@ function makeFixture(overQuestions?: QuestionData[]) {
     makeTabComponents({
       optionList: makeStatefulView<OptionListViewProps>(),
       preview: makeFakePreviewPane(),
-      ...(q.multiSelect === true ? { multiSelect: makeFakeMultiSelectView() } : {} as never),
+      ...(q.multiSelect === true ? { multiSelect: makeFakeMultiSelectView() } : ({} as never)),
     }),
   );
 

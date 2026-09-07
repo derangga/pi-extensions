@@ -74,7 +74,12 @@ function makePane(question: QuestionData, getWidth: () => number = () => 120) {
     description: o.description,
   }));
   const optionListView = new OptionListView({ items, theme: selectTheme });
-  const previewBlock = new PreviewBlockRenderer({ question, theme, markdownTheme, markdownFactory });
+  const previewBlock = new PreviewBlockRenderer({
+    question,
+    theme,
+    markdownTheme,
+    markdownFactory,
+  });
   const pane = new PreviewPane({
     question,
     getTerminalWidth: getWidth,
@@ -869,7 +874,12 @@ describe("PreviewPane — adaptive left column width", () => {
       description: o.description,
     }));
     const optionListView = new OptionListView({ items, theme: selectTheme });
-    const previewBlock = new PreviewBlockRenderer({ question, theme, markdownTheme, markdownFactory });
+    const previewBlock = new PreviewBlockRenderer({
+      question,
+      theme,
+      markdownTheme,
+      markdownFactory,
+    });
     const pane = new PreviewPane({
       question,
       getTerminalWidth: () => 120,

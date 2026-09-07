@@ -16,7 +16,6 @@ import { ContextLengthWidget } from "./tokens/context-length.js";
 import { ContextWidget } from "./tokens/context.js";
 import { CostWidget } from "./tokens/cost.js";
 import type { Widget } from "./types.js";
-type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue };
 
 const WIDGETS = [
   ModelWidget,
@@ -43,8 +42,8 @@ interface WidgetRegistry {
 
   spec(type: WidgetType): WidgetSpecUnion;
   maybeSpec(type: string): WidgetSpecUnion | undefined;
-  createEntry(type: WidgetType, options?: Record<string, JsonValue>): WidgetEntry;
-  normalizeOptions(type: WidgetType, input: Record<string, JsonValue>): WidgetOptions;
+  createEntry(type: WidgetType, options?: Record<string, unknown>): WidgetEntry;
+  normalizeOptions(type: WidgetType, input: Record<string, unknown>): WidgetOptions;
   hydrateWidget(entry: WidgetEntry): Widget;
 }
 
@@ -65,7 +64,7 @@ function createWidgetRegistry(widgets: readonly WidgetSpecUnion[]): WidgetRegist
 
   const buildEntry = (
     type: WidgetType,
-    options: Record<string, JsonValue> = {},
+    options: Record<string, unknown> = {},
     enabled = true,
   ): WidgetEntry => ({
     id: `${type}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,

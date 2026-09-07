@@ -19,10 +19,11 @@ import type { RunView, TaskView } from "../src/run.js";
 
 /** Identity colours, so an assertion reads the text and not an escape code. */
 // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-const theme = {
+const rawTheme: unknown = {
   fg: (_color: string, text: string) => text,
   bold: (text: string) => text,
-} as unknown as Theme;
+};
+const theme = rawTheme as Theme;
 
 const NOW = 60_000;
 
@@ -185,11 +186,12 @@ describe("createWidgetHost", () => {
         (content as (tui: unknown, theme: Theme) => unknown)(tui, theme);
       }
     });
+    const rawCtx: unknown = { hasUI: true, ui: { setWidget } };
     return {
       tui,
       setWidget,
       // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-      ctx: { hasUI: true, ui: { setWidget } } as unknown as ExtensionContext,
+      ctx: rawCtx as ExtensionContext,
     };
   }
 
@@ -219,7 +221,8 @@ describe("createWidgetHost", () => {
     const host = createWidgetHost(() => []);
     host.update(undefined);
     // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-    host.update({ hasUI: false, ui: { setWidget } } as unknown as ExtensionContext);
+    const rawCtx2: unknown = { hasUI: false, ui: { setWidget } };
+    host.update(rawCtx2 as ExtensionContext);
     expect(setWidget).not.toHaveBeenCalled();
   });
 
@@ -231,14 +234,15 @@ describe("createWidgetHost", () => {
     expect(setWidget).toHaveBeenLastCalledWith(WIDGET_KEY, undefined);
 
     // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-    const throwing = {
+    const rawThrowing: unknown = {
       hasUI: true,
       ui: {
         setWidget: () => {
           throw new Error("tui is gone");
         },
       },
-    } as unknown as ExtensionContext;
+    };
+    const throwing = rawThrowing as ExtensionContext;
     const second = createWidgetHost(() => [], 150);
     second.update(throwing);
     expect(() => second.clear(throwing)).not.toThrow();

@@ -9,7 +9,13 @@ import { defaultOptionsFromSpec, sanitizeOptionsFromSpec } from "../src/widgets/
 import { instanceFor, OverrideWidget, ProbeWidget } from "./helpers/widgets.js";
 import { baseCtx, statusbarData } from "./helpers/data.js";
 import { partialTheme } from "./helpers/theme.js";
-type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue };
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { readonly [key: string]: JsonValue };
 
 const widgetsDir = resolve(dirname(fileURLToPath(import.meta.url)), "..", "src", "widgets");
 

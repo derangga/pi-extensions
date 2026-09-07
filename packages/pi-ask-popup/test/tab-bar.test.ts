@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { TabBar, type TabBarProps } from "../src/view/components/tab-bar.js";
 
 // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-const theme = makeTheme() as unknown as Theme;
+const theme = makeTheme() as Theme;
 
 interface PropsOver {
   questions?: ReadonlyArray<{ header?: string; question: string }>;

@@ -3,7 +3,13 @@ import { type Component, truncateToWidth, type TUI } from "@earendil-works/pi-tu
 import { Predicate } from "effect";
 
 import { aggregateUsage, type RunView, type TaskStatus, type TaskView } from "./run.js";
-type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue };
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { readonly [key: string]: JsonValue };
 
 /**
  * Roughly one render per 150ms. A child streaming tokens fires the change hook
@@ -285,13 +291,13 @@ export function createWidgetHost(
 
 /** A task as it looks mid-stream: the model is still typing, so nothing is sure. */
 interface PartialTask {
-  readonly id?: unknown;
-  readonly agent?: unknown;
-  readonly task?: unknown;
-  readonly needs?: unknown;
+  readonly id?: JsonValue | undefined;
+  readonly agent?: JsonValue | undefined;
+  readonly task?: JsonValue | undefined;
+  readonly needs?: JsonValue | undefined;
 }
 
-function text(value: JsonValue | undefined): string | undefined {
+function text(value: unknown): string | undefined {
   if (!Predicate.isString(value)) {
     return undefined;
   }
@@ -315,18 +321,18 @@ function edges(needs: unknown): string[] {
 export function callLines(args: unknown, theme: Theme): string[] {
   // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   const tasks: PartialTask[] = Array.isArray((args as { tasks?: unknown } | undefined)?.tasks)
-    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-    ? ((args as { tasks: unknown[] }).tasks.filter(Predicate.isObject) as PartialTask[])
+    ? // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+      ((args as { tasks: unknown[] }).tasks.filter(Predicate.isObject) as PartialTask[])
     : [];
   // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   const autoAwait = (args as { autoAwait?: unknown } | undefined)?.autoAwait === true;
 
-  const shape =
+  const displayShape =
     tasks.length === 0
       ? "preparing…"
       : `${tasks.some((task) => edges(task.needs).length > 0) ? "graph" : "parallel"} ${tasks.length}`;
   const lines = [
-    `${theme.fg("toolTitle", "subagent")} ${theme.fg("accent", shape)} ${theme.fg("muted", autoAwait ? "[await]" : "[background]")}`,
+    `${theme.fg("toolTitle", "subagent")} ${theme.fg("accent", displayShape)} ${theme.fg("muted", autoAwait ? "[await]" : "[background]")}`,
   ];
 
   for (const [index, task] of tasks.entries()) {

@@ -16,40 +16,52 @@ import {
 type Message = AgentSession["messages"][number];
 
 function assistant(text: string, stopReason = "stop", errorMessage?: string): Message {
-  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-  return {
+  const base: Record<string, unknown> = {
     role: "assistant",
     content: text ? [{ type: "text", text }] : [],
     stopReason,
-    ...(errorMessage ? { errorMessage } : {}),
-  } as unknown as Message;
+  };
+  if (errorMessage !== undefined) {
+    base.errorMessage = errorMessage;
+  }
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+  const raw: unknown = base;
+  return raw as Message;
 }
 
-function toolStart(toolName: string, args: unknown): AgentSessionEvent {
+type ToolArgs = Record<string, unknown> | undefined;
+function toolStart(toolName: string, args: ToolArgs): AgentSessionEvent {
   // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-  return {
+  const raw: unknown = {
     type: "tool_execution_start",
     toolCallId: "call-1",
     toolName,
     args,
-  } as AgentSessionEvent;
+  };
+  return raw as AgentSessionEvent;
 }
 
 function messageEnd(usage: Record<string, number>, cost?: number): AgentSessionEvent {
+  const usageRecord: Record<string, unknown> = { ...usage };
+  if (cost !== undefined) {
+    usageRecord.cost = { total: cost };
+  }
   // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-  return {
+  const raw: unknown = {
     type: "message_end",
     message: {
       role: "assistant",
       content: [],
-      usage: { ...usage, ...(cost === undefined ? {} : { cost: { total: cost } }) },
+      usage: usageRecord,
     },
-  } as unknown as AgentSessionEvent;
+  };
+  return raw as AgentSessionEvent;
 }
 
 function turnEnd(message: Message = assistant("")): AgentSessionEvent {
   // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-  return { type: "turn_end", message, toolResults: [] } as unknown as AgentSessionEvent;
+  const raw: unknown = { type: "turn_end", message, toolResults: [] };
+  return raw as AgentSessionEvent;
 }
 
 interface FakeControls {
@@ -91,7 +103,7 @@ function fakeChild(
   });
   const dispose = vi.fn<() => void>(() => order.push("dispose"));
   // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-  const session = {
+  const rawSession: unknown = {
     messages,
     sessionFile: "/tmp/child.jsonl",
     subscribe,
@@ -103,7 +115,8 @@ function fakeChild(
       emit: emitShutdown,
     },
     dispose,
-  } as unknown as AgentSession;
+  };
+  const session = rawSession as AgentSession;
   const created: CreatedChildSession = {
     session,
     sessionFile: session.sessionFile,
@@ -114,7 +127,8 @@ function fakeChild(
 }
 
 // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-const childOptions = {} as ChildSessionOptions;
+const rawChildOptions: unknown = {};
+const childOptions = rawChildOptions as ChildSessionOptions;
 
 function options(
   created: CreatedChildSession,

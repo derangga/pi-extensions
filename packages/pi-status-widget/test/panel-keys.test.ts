@@ -1,6 +1,19 @@
+import * as fs from "node:fs";
+
 import { initTheme, type ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { KeybindingsManager, setKeybindings, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
 import { beforeAll, describe, expect, it } from "vitest";
+
+const themeDistMissing = (() => {
+  try {
+    fs.accessSync(
+      "/nix/store/ljz710q1xhy4srivjmd7y6ql7sjg7k49-pi-0.84.4/libexec/pi/dist/modes/interactive/theme/dark.json",
+    );
+    return false;
+  } catch {
+    return true;
+  }
+})();
 
 import { stripAnsi } from "../src/colors.js";
 import { ACTIVE_MARK, LIGHT_NOTE, schemeEntries, SWATCH_CELL } from "../src/scheme-picker.js";
@@ -40,6 +53,9 @@ const ENTER = "\r";
 const RIGHT = `${ESC}[C`;
 
 beforeAll(() => {
+  if (themeDistMissing) {
+    return;
+  }
   // Both of these are process-wide state that only a running TUI installs, and
   // the panel is only ever built where ctx.hasUI is true. getSettingsListTheme
   // throws outright without the first.
@@ -130,7 +146,7 @@ async function openPanel(initial: StatusbarConfig = cloneConfig(DEFAULT_CONFIG))
   };
 }
 
-describe("the /statusbar panel", () => {
+describe.skipIf(themeDistMissing)("the /statusbar panel", () => {
   it("opens with a row per setting and the current value on it", async () => {
     const panel = await openPanel();
     const text = panel.lines().join("\n");
@@ -343,7 +359,7 @@ describe("the /statusbar panel", () => {
   });
 });
 
-describe("the Color scheme picker", () => {
+describe.skipIf(themeDistMissing)("the Color scheme picker", () => {
   /**
    * The name the cursor lands on after that many downs from the top, read off
    * the same list the picker builds. Spelling a name here instead would drift

@@ -26,7 +26,7 @@ function makeQuestion(override: Partial<QuestionData> = {}): QuestionData {
     // Conditional spread, not `multiSelect: override.multiSelect`.
     // exactOptionalPropertyTypes rejects an explicit undefined on an optional
     // property, and the schema treats absent and false differently anyway.
-    ...(override.multiSelect === undefined ? {} : { multiSelect: override.multiSelect }),
+    ...(override.multiSelect !== undefined && { multiSelect: override.multiSelect }),
   };
 }
 

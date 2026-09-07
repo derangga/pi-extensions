@@ -2,16 +2,22 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 
-type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue };
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { readonly [key: string]: JsonValue };
 type JsonRecord = Record<string, JsonValue>;
 
+function isRecord(value: unknown): value is JsonRecord;
 function isRecord(value: JsonValue | undefined): value is JsonRecord;
-function isRecord(value: JsonValue | undefined): value is JsonRecord;
-function isRecord(value: JsonValue | undefined): value is JsonRecord {
+function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isNonEmptyString(value: JsonValue | undefined): value is string {
+function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
 }
 
@@ -111,7 +117,7 @@ function readLayer(path: string, warnings: string[]): JsonRecord {
   }
 }
 
-function nonEmptyString(value: JsonValue | undefined): string | undefined {
+function nonEmptyString(value: unknown): string | undefined {
   return isNonEmptyString(value) ? value : undefined;
 }
 
@@ -120,7 +126,7 @@ function nonEmptyString(value: JsonValue | undefined): string | undefined {
  * is not worth a warning — the field falls back to the built-in default and
  * the tool still registers.
  */
-export function validateGuidanceFields(fields: JsonValue | undefined): GuidanceFields {
+export function validateGuidanceFields(fields: unknown): GuidanceFields {
   if (!isRecord(fields)) {
     return {};
   }

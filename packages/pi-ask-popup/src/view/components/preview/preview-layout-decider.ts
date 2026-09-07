@@ -203,10 +203,7 @@ export function crossTabLeftWidthWithDonation(
  * cross-tab aggregated). The Math.max(1, ...) calls keep both columns >= 1 col on
  * extreme inputs.
  */
-export function columnWidths(
-  paneWidth: number,
-  adaptiveLeft: number,
-) {
+export function columnWidths(paneWidth: number, adaptiveLeft: number) {
   const gap = PREVIEW_COLUMN_GAP;
   const leftWidth = Math.min(adaptiveLeft, Math.max(1, paneWidth - gap - 1));
   const rightWidth = Math.max(1, paneWidth - leftWidth - gap);
@@ -218,11 +215,7 @@ export function columnWidths(
  * `render()`. Stacked uses the full pane width for both; side-by-side splits via
  * `columnWidths`, with the preview column offset by `PREVIEW_PADDING_LEFT`.
  */
-export function bodyWidths(
-  paneWidth: number,
-  mode: PreviewLayoutMode,
-  adaptiveLeft: number,
-) {
+export function bodyWidths(paneWidth: number, mode: PreviewLayoutMode, adaptiveLeft: number) {
   if (mode === "stacked") {
     return { optionsWidth: paneWidth, previewWidth: paneWidth };
   }

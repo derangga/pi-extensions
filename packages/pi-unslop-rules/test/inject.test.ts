@@ -20,14 +20,15 @@ type BeforeAgentStart = (
 ) => Promise<BeforeAgentStartEventResult | void> | BeforeAgentStartEventResult | void;
 
 /** Only `on` is stubbed. It is the only method the entry point calls. */
-function stubApi(): { pi: ExtensionAPI; handlers: Map<string, BeforeAgentStart> } {
+function stubApi() {
   const handlers = new Map<string, BeforeAgentStart>();
   // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-  const pi = {
+  const rawPi: unknown = {
     on(event: string, handler: BeforeAgentStart): void {
       handlers.set(event, handler);
     },
-  } as unknown as ExtensionAPI;
+  };
+  const pi = rawPi as ExtensionAPI;
   return { pi, handlers };
 }
 

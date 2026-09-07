@@ -91,7 +91,8 @@ describe("resolveColorLevel", () => {
     // The peer floor is 0.80 and getColorMode is younger. This call sits inside
     // session_start, where a throw costs the whole footer.
     // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-    expect(resolveColorLevel({}, {} as unknown as Theme)).toBe("ansi");
+    const rawTheme: unknown = {};
+    expect(resolveColorLevel({}, rawTheme as Theme)).toBe("ansi");
   });
 });
 

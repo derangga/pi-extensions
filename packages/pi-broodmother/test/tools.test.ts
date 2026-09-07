@@ -79,12 +79,14 @@ function tool(name: string, overrides: Partial<SubagentToolHost> = {}): ToolDefi
 
 /** Identity colours, so an assertion reads the text and not an escape code. */
 // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-const theme = {
+const rawTheme: unknown = {
   fg: (_color: string, text: string) => text,
   bold: (text: string) => text,
-} as unknown as Theme;
+};
+const theme = rawTheme as Theme;
 
-async function callRaw(definition: ToolDefinition, params: unknown) {
+type ToolCallParams = Record<string, unknown>;
+async function callRaw(definition: ToolDefinition, params: ToolCallParams) {
   return definition.execute(
     "call-1",
     // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
@@ -96,7 +98,7 @@ async function callRaw(definition: ToolDefinition, params: unknown) {
   );
 }
 
-async function call(definition: ToolDefinition, params: unknown): Promise<string> {
+async function call(definition: ToolDefinition, params: ToolCallParams): Promise<string> {
   const result = await definition.execute(
     "call-1",
     // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.

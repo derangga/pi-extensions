@@ -1,7 +1,13 @@
 import { type Static, Type } from "typebox";
 import { LABELS_BY_KIND, ROW_INTENT_META } from "../state/row-intent.js";
 
-type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue };
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { readonly [key: string]: JsonValue };
 
 export const MAX_QUESTIONS = 4;
 export const MIN_OPTIONS = 2;

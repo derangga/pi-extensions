@@ -125,13 +125,13 @@ describe("gitCommandsFor", () => {
   });
 });
 
-const OUTPUT: Record<string, string> = {
+const OUTPUT = {
   "rev-parse --show-toplevel": "/repo",
   "rev-parse --short HEAD": "abc1234",
   "status --porcelain=v1": PORCELAIN_MIXED,
   "diff --shortstat HEAD": SHORTSTAT,
   "rev-list --left-right --count @{upstream}...HEAD": AHEAD_BEHIND,
-};
+} satisfies Record<string, string>;
 
 interface Stub {
   pi: ExtensionAPI;
@@ -153,7 +153,7 @@ function stubPi(output: Record<string, string> = OUTPUT, failing: readonly strin
         ? { stdout: "", stderr: "fatal", code: 128, killed: false }
         : { stdout: `${stdout}\n`, stderr: "", code: 0, killed: false };
     },
-  } as unknown as ExtensionAPI;
+  } as ExtensionAPI;
   return { pi, calls };
 }
 

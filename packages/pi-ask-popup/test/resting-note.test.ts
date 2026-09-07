@@ -187,7 +187,7 @@ describe("notes hint", () => {
 describe("tab bar note marker", () => {
   function barFor(state: ReturnType<typeof makeQuestionnaireState>): string {
     // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-    const bar = new TabBar(makeTheme() as unknown as Theme);
+    const bar = new TabBar(makeTheme() as Theme);
     bar.setProps(selectTabBarProps(state, makePerTabContext({ questions: TWO_QUESTIONS, i: 0 })));
     return bar.render(80)[0]!;
   }
@@ -219,7 +219,7 @@ describe("tab bar note marker", () => {
       makeQuestion({ header: "H".repeat(16), question: `Q${i}` }),
     );
     // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-    const bar = new TabBar(makeTheme() as unknown as Theme);
+    const bar = new TabBar(makeTheme() as Theme);
     const render = (noted: boolean) => {
       bar.setProps(
         selectTabBarProps(

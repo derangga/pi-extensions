@@ -10,7 +10,13 @@ import { registry, type WidgetType } from "../src/widgets/registry.js";
 import { WidgetStore } from "../src/widgets/store.js";
 import { statusbarData, type DataOverrides } from "./helpers/data.js";
 import { partialTheme, taggedTheme } from "./helpers/theme.js";
-type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue };
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { readonly [key: string]: JsonValue };
 
 const SETTINGS: StatusbarSettings = {
   version: 1,

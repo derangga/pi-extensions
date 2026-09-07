@@ -123,22 +123,22 @@ export function commandForSettingChange(id: string, value: string): StatusbarCom
   if (id === ROW_PRESET) {
     // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     return PRESET_VALUES.includes(value as Preset)
-      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-      ? { kind: "preset", preset: value as Preset }
+      ? // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+        { kind: "preset", preset: value as Preset }
       : undefined;
   }
   if (id === ROW_SEPARATOR) {
     // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     return SEPARATOR_VALUES.includes(value as SeparatorStyle)
-      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-      ? { kind: "separator", separator: value as SeparatorStyle }
+      ? // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+        { kind: "separator", separator: value as SeparatorStyle }
       : undefined;
   }
   if (id === ROW_ICONS) {
     // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     return ICON_MODE_VALUES.includes(value as IconMode)
-      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-      ? { kind: "icons", iconMode: value as IconMode }
+      ? // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+        { kind: "icons", iconMode: value as IconMode }
       : undefined;
   }
   if (id === ROW_COLORS) {

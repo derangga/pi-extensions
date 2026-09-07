@@ -40,7 +40,13 @@
 
 import type { BasicColor, HexColor } from "./colors.js";
 import type { ThinkingLevel } from "./widgets/utils/thinking.js";
-type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue };
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { readonly [key: string]: JsonValue };
 
 export interface ColorScheme {
   /** True when the scheme expects a light terminal background. */
@@ -460,7 +466,9 @@ export type ColorSchemeName = SchemeName | typeof DEFAULT_SCHEME;
  * "default" rather than a failed load, the same way an unknown preset and an
  * unknown separator already do.
  */
-export function normalizeColorSchemeName(value: JsonValue | undefined): ColorSchemeName | undefined {
+export function normalizeColorSchemeName(
+  value: JsonValue | undefined,
+): ColorSchemeName | undefined {
   if (typeof value !== "string") {
     return undefined;
   }

@@ -26,7 +26,8 @@ import type { PiModel } from "../src/thinking.js";
 
 function model(id: string, fields: Partial<PiModel> = {}): PiModel {
   // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-  return { id, provider: "test", reasoning: true, ...fields } as unknown as PiModel;
+  const raw: unknown = { id, provider: "test", reasoning: true, ...fields };
+  return raw as PiModel;
 }
 
 const OPUS = model("claude-opus-5");
@@ -189,7 +190,8 @@ describe("withDismissHint", () => {
   const FOOTER = "  Enter/Space to change · Esc to cancel";
   const SEARCH_FOOTER = "  Type to search · Enter/Space to change · Esc to cancel";
   // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-  const base = { hint: (text: string) => `[${text}]` } as Parameters<typeof withDismissHint>[0];
+  const rawBase: unknown = { hint: (text: string) => `[${text}]` };
+  const base = rawBase as Parameters<typeof withDismissHint>[0];
   const noop = () => {};
   const plain = {
     label: (text: string) => text,

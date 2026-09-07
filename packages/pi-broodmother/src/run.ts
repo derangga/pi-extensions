@@ -37,7 +37,6 @@ import {
 } from "./resolve.js";
 import { Settings } from "./settings.js";
 import type { PiModel, ThinkingLevel } from "./thinking.js";
-type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue };
 
 /** A task as the tool schema decodes it: the graph's fields plus the choices. */
 export interface TaskRequest extends TaskInput {

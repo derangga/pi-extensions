@@ -8,7 +8,13 @@ import type { WrappingSelectItem } from "./row-intent.js";
 import type { QuestionnaireAction } from "./key-router.js";
 import { ROW_INTENT_META } from "./row-intent.js";
 import { noteForTab, type QuestionnaireState } from "./state.js";
-type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue };
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { readonly [key: string]: JsonValue };
 
 function isString(value: JsonValue | undefined): value is string {
   return typeof value === "string";
@@ -223,7 +229,8 @@ function doneFor(state: QuestionnaireState, ctx: ApplyContext, cancelled: boolea
   }
   if (unansweredNotes.length > 0) {
     // SAFETY: unansweredNotes is optional per QuestionnaireResult; present only when non-empty.
-    (result as QuestionnaireResult & { unansweredNotes: UnansweredNote[] }).unansweredNotes = unansweredNotes;
+    (result as QuestionnaireResult & { unansweredNotes: UnansweredNote[] }).unansweredNotes =
+      unansweredNotes;
   }
   return { state, effects: [{ kind: "done", result }] };
 }
@@ -379,7 +386,6 @@ const notesExitHandler: Handler<"notes_exit"> = (state, _action, _ctx) => {
       const { notes: _removed, ...withoutNotes } = stripped;
       // SAFETY: withoutNotes preserves all required QuestionAnswer fields; notes is optional and removed intentionally.
       answers.set(state.currentTab, withoutNotes as QuestionAnswer);
-      answers.set(state.currentTab, stripped);
     }
   } else {
     notes.set(state.currentTab, trimmed);

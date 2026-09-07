@@ -14,7 +14,8 @@ export function contextForDependencies<const TDeps extends readonly WidgetDepend
 ): WidgetContext<TDeps> {
   const output: BaseWidgetContext & Partial<StatusbarData> = { ...baseCtx };
   // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-  const writableOutput = output as BaseWidgetContext & Partial<Record<WidgetDependency, unknown>>;
+  const writableOutput = output as BaseWidgetContext &
+    Partial<Record<WidgetDependency, StatusbarData[WidgetDependency]>>;
   for (const dependency of dependencies) {
     writableOutput[dependency] = data[dependency];
   }

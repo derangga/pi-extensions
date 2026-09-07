@@ -5,7 +5,13 @@ import { registry, type WidgetType } from "../src/widgets/registry.js";
 import { formatCount, formatPiTokenCount } from "../src/widgets/utils/token-format.js";
 import { formatElapsed } from "../src/widgets/utils/session.js";
 import { baseCtx, statusbarData, type DataOverrides } from "./helpers/data.js";
-type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue };
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { readonly [key: string]: JsonValue };
 
 /**
  * Renders a widget the way the footer does: a config entry through the

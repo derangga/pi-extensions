@@ -10,7 +10,14 @@ import { SEPARATOR_VALUES, type SeparatorStyle } from "./separators.js";
 import type { IconMode, StatusbarConfig, StatusbarSettings, WidgetEntry } from "./types.js";
 import { ICON_MODE_VALUES, isRecord } from "./types.js";
 import { registry, type WidgetType } from "./widgets/registry.js";
-type JsonValue = string | number | boolean | null | JsonValue[] | { readonly [key: string]: JsonValue };
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { readonly [key: string]: JsonValue }
+  | undefined;
 
 export const STATUS_KEY = "pi-statusbar";
 
@@ -38,7 +45,10 @@ function linesForPreset(preset: Preset): WidgetEntry[][] {
 }
 
 function widgetsFromPresetLine(line: readonly PresetWidget[]): WidgetEntry[] {
-  return line.map((widget) => registry.createEntry(widget.type, widget.options));
+  // SAFETY: PresetWidget options are authored as WidgetOptions-compatible JsonValues; registry validates at boundary.
+  return line.map((widget) =>
+    registry.createEntry(widget.type, widget.options as Record<string, JsonValue>),
+  );
 }
 
 /**
@@ -54,7 +64,7 @@ export function configWithPreset(config: StatusbarConfig, preset: Preset): Statu
   };
 }
 
-export function normalizeConfig(input: JsonValue | undefined): StatusbarConfig {
+export function normalizeConfig(input: unknown): StatusbarConfig {
   if (!isRecord(input)) {
     return cloneConfig(DEFAULT_CONFIG);
   }
@@ -137,7 +147,7 @@ function normalizeLines(linesValue: unknown, preset: Preset): WidgetEntry[][] {
   return linesValue.map((line) => normalizeWidgets(line));
 }
 
-function normalizeWidgets(value: JsonValue | undefined): WidgetEntry[] {
+function normalizeWidgets(value: unknown): WidgetEntry[] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -167,16 +177,16 @@ function normalizeWidgets(value: JsonValue | undefined): WidgetEntry[] {
   return widgets;
 }
 
-export function isPreset(value: JsonValue | undefined): value is Preset {
+export function isPreset(value: unknown): value is Preset {
   return typeof value === "string" && Object.hasOwn(PRESET_DEFINITIONS, value);
 }
 
-export function isSeparatorStyle(value: JsonValue | undefined): value is SeparatorStyle {
+export function isSeparatorStyle(value: unknown): value is SeparatorStyle {
   // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   return typeof value === "string" && SEPARATORS.has(value as SeparatorStyle);
 }
 
-export function isIconMode(value: JsonValue | undefined): value is IconMode {
+export function isIconMode(value: unknown): value is IconMode {
   // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   return typeof value === "string" && ICON_MODE_VALUES.includes(value as IconMode);
 }

@@ -22,12 +22,13 @@ import { DEFAULT_SETTINGS, Settings, type SubagentSettings } from "../src/settin
 import type { PiModel } from "../src/thinking.js";
 
 // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-const model = {
+const rawModel: unknown = {
   provider: "anthropic",
   id: "claude-opus-5",
   name: "Opus",
   reasoning: true,
-} as unknown as PiModel;
+};
+const model = rawModel as PiModel;
 
 function source(): ModelSource {
   return { available: () => [model], probe: async () => undefined };
@@ -93,14 +94,15 @@ function childFactory(answer: Answer): ChildFactory {
       prompt: async (task: string) => {
         for (const listener of listeners) {
           // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-          listener({
+          const rawToolEvent: unknown = {
             type: "tool_execution_start",
             toolCallId: "call-1",
             toolName: "grep",
             args: { pattern: "useEffect" },
-          } as AgentSessionEvent);
+          };
+          listener(rawToolEvent as AgentSessionEvent);
           // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-          listener({
+          const rawMessageEnd: unknown = {
             type: "message_end",
             message: {
               role: "assistant",
@@ -113,24 +115,27 @@ function childFactory(answer: Answer): ChildFactory {
                 cost: { total: 0.002 },
               },
             },
-          } as unknown as AgentSessionEvent);
+          };
+          listener(rawMessageEnd as AgentSessionEvent);
         }
         const text = await answer(task, options);
         // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-        messages.push({
+        const rawMessage: unknown = {
           role: "assistant",
           content: [{ type: "text", text }],
           stopReason: "stop",
-        } as unknown as AgentSession["messages"][number]);
+        };
+        messages.push(rawMessage as AgentSession["messages"][number]);
       },
       steer: async () => undefined,
       abort: async () => undefined,
       dispose: () => undefined,
       extensionRunner: { hasHandlers: () => false, emit: async () => undefined },
     };
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+    const rawSession: unknown = session;
     return {
-      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-      session: session as unknown as Awaited<ReturnType<ChildFactory>>["session"],
+      session: rawSession as Awaited<ReturnType<ChildFactory>>["session"],
       sessionFile: session.sessionFile,
       fffLoaded: false,
       notes: [],

@@ -301,7 +301,7 @@ describe("timeout — session timer", () => {
           ],
         },
       ],
-      ...(timeout === undefined ? {} : { timeout }),
+      ...(timeout !== undefined && { timeout }),
     };
     const done = vi.fn<(result: QuestionnaireResult) => void>();
     const session = new QuestionnaireSession({

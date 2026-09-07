@@ -9,7 +9,8 @@ import { supportedThinkingLevels, THINKING_LEVELS, type PiModel } from "../src/t
  */
 function model(fields: Partial<PiModel>): PiModel {
   // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-  return { id: "test", provider: "test", reasoning: true, ...fields } as unknown as PiModel;
+  const raw: unknown = { id: "test", provider: "test", reasoning: true, ...fields };
+  return raw as PiModel;
 }
 
 describe("supportedThinkingLevels", () => {
