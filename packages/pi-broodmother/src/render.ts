@@ -20,6 +20,13 @@ export const WIDGET_KEY = "pi-broodmother";
 /** Header plus tasks. Past this the widget is eating the transcript. */
 export const WIDGET_MAX_LINES = 9;
 const GOAL_MAX = 64;
+/**
+ * How much of a prompt the expanded call row prints. Per task, not per call: a
+ * shared budget would give a wide run two lines each, which is the truncation
+ * this exists to escape. A chained prompt carries its upstream output, so the
+ * cap is what keeps one edge from filling the screen.
+ */
+const PROMPT_MAX_LINES = 20;
 
 /**
  * Pi's Component is a synchronous `render(width)` that repaints several times a
@@ -318,7 +325,10 @@ export function createWidgetHost(
 interface PartialTask {
   readonly id?: JsonValue | undefined;
   readonly agent?: JsonValue | undefined;
+  /** The three-to-five word label, which is what the row shows. */
   readonly task?: JsonValue | undefined;
+  /** The whole instruction. Only the expanded row has room for it. */
+  readonly prompt?: JsonValue | undefined;
   readonly needs?: JsonValue | undefined;
 }
 
@@ -339,11 +349,42 @@ function edges(needs: unknown): string[] {
 }
 
 /**
+ * The prompt as the child will read it, not as `text` would flatten it. A goal
+ * on one line wants its whitespace collapsed; a prompt of twenty does not.
+ */
+function promptLines(value: unknown): readonly string[] {
+  if (!Predicate.isString(value)) {
+    return [];
+  }
+  const body = value.trim();
+  return body === "" ? [] : body.split("\n");
+}
+
+/**
+ * A prompt as indented lines, capped, with a line saying what was held back.
+ * The call row and the result row share it so the cap and the pointer cannot
+ * drift apart: they are showing the same prompt at two moments.
+ */
+function promptBlock(value: unknown, theme: Theme, indent: string): string[] {
+  const prompt = promptLines(value);
+  const kept = prompt.slice(0, PROMPT_MAX_LINES).map((line) => `${indent}${theme.fg("dim", line)}`);
+  const dropped = prompt.length - PROMPT_MAX_LINES;
+  if (dropped <= 0) {
+    return kept;
+  }
+  const held = `… +${dropped} ${dropped === 1 ? "line" : "lines"}`;
+  return [...kept, `${indent}${theme.fg("muted", held)}`];
+}
+
+/**
  * Drawn while the arguments are still streaming, so every field is optional and
  * every type is a guess. It costs nothing and it is the difference between
  * watching a plan appear and watching a spinner.
+ *
+ * Expanded, it prints each task's prompt instead of a 64 character slice of it,
+ * which is the only place the prompt the orchestrator wrote is readable in full.
  */
-export function callLines(args: unknown, theme: Theme): string[] {
+export function callLines(args: unknown, theme: Theme, expanded = false): string[] {
   // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   const tasks: PartialTask[] = Array.isArray((args as { tasks?: unknown } | undefined)?.tasks)
     ? // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
@@ -369,6 +410,11 @@ export function callLines(args: unknown, theme: Theme): string[] {
     lines.push(
       `  ${theme.fg("muted", id)} ${theme.fg("accent", agent)}${edge}${goal ? ` ${theme.fg("dim", truncate(goal))}` : ""}`,
     );
+    if (expanded) {
+      // The prompt as typed. `{previous}` is still a hole here, because the
+      // call row reads tool arguments and substitution happens at dispatch.
+      lines.push(...promptBlock(task.prompt, theme, "    "));
+    }
   }
   return lines;
 }

@@ -298,7 +298,7 @@ export function createSubagentTools(host: SubagentToolHost): ToolDefinition[] {
         }
         return waitResult(await host.wait(run.id, undefined), {});
       },
-      renderCall: (args, theme) => lines(callLines(args, theme)),
+      renderCall: (args, theme, { expanded }) => lines(callLines(args, theme, expanded)),
       renderResult: (result, { expanded }, theme) => renderRunResult(result, expanded, theme),
     },
     {

@@ -295,6 +295,71 @@ describe("callLines", () => {
     expect(line).not.toContain("\n");
     expect(line.length).toBeLessThan(120);
   });
+
+  it("keeps every line of the prompt when expanded, beside the label", () => {
+    const prompt = "first line\nsecond line\nthird line";
+    const lines = callLines(
+      { tasks: [{ id: "one", agent: "a", task: "read code", prompt }] },
+      theme,
+      true,
+    );
+    expect(lines).toHaveLength(5);
+    // The row keeps the short label in both modes; only the block is new.
+    expect(lines[1]).toContain("one a");
+    expect(lines[1]).toContain("read code");
+    expect(lines[1]).not.toContain("first line");
+    expect(lines[2]).toContain("first line");
+    expect(lines[3]).toContain("second line");
+    expect(lines[4]).toContain("third line");
+  });
+
+  it("never expands the label, which is three words and not the prompt", () => {
+    const lines = callLines(
+      { tasks: [{ agent: "a", task: "read code", prompt: "the real instruction" }] },
+      theme,
+      true,
+    );
+    expect(lines).toHaveLength(3);
+    expect(lines[2]).toContain("the real instruction");
+    expect(lines[2]).not.toContain("read code");
+  });
+
+  it("does not truncate a long single-line prompt when expanded", () => {
+    const prompt = "y".repeat(200);
+    const lines = callLines({ tasks: [{ agent: "a", prompt }] }, theme, true);
+    expect(lines[2]).toContain(prompt);
+    expect(lines[2]).not.toContain("…");
+  });
+
+  it("caps the expanded prompt and says how many lines it dropped", () => {
+    const prompt = Array.from({ length: 26 }, (_, index) => `line ${index + 1}`).join("\n");
+    const lines = callLines({ tasks: [{ agent: "a", prompt }] }, theme, true);
+    // header, task, 20 prompt lines, pointer
+    expect(lines).toHaveLength(23);
+    expect(lines[21]).toContain("line 20");
+    expect(lines[22]).toContain("+6 lines");
+    expect(lines[22]).not.toContain("line 21");
+  });
+
+  it("says one line rather than 1 lines", () => {
+    const prompt = Array.from({ length: 21 }, (_, index) => `line ${index + 1}`).join("\n");
+    const lines = callLines({ tasks: [{ agent: "a", prompt }] }, theme, true);
+    expect(lines.at(-1)).toContain("+1 line");
+    expect(lines.at(-1)).not.toContain("+1 lines");
+  });
+
+  it("expands nothing for a task whose prompt is missing or not a string", () => {
+    const lines = callLines({ tasks: [{ agent: "a" }, { agent: "b", prompt: 12 }] }, theme, true);
+    expect(lines).toHaveLength(3);
+    expect(lines[1]).toContain("task_1 a");
+    expect(lines[2]).toContain("task_2 b");
+  });
+
+  it("drops blank trailing lines rather than spending the cap on them", () => {
+    const lines = callLines({ tasks: [{ agent: "a", prompt: "only line\n\n  \n" }] }, theme, true);
+    expect(lines).toHaveLength(3);
+    expect(lines[2]).toContain("only line");
+  });
 });
 
 describe("resultLines", () => {
