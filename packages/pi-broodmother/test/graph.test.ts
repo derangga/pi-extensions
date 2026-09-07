@@ -146,7 +146,9 @@ describe("wave assignment", () => {
     ]);
     const waves = new Map(planned.map((entry) => [entry.id, entry.wave]));
     for (const entry of planned) {
-      for (const need of entry.needs) expect(waves.get(need)!).toBeLessThan(entry.wave);
+      for (const need of entry.needs) {
+        expect(waves.get(need)!).toBeLessThan(entry.wave);
+      }
     }
   });
 

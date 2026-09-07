@@ -111,7 +111,9 @@ export class SchemePicker implements Component {
     const lines: string[] = [];
     for (let index = start; index < end; index += 1) {
       const entry = this.entries[index];
-      if (entry) lines.push(this.renderRow(entry, index === this.cursor, nameWidth, width));
+      if (entry) {
+        lines.push(this.renderRow(entry, index === this.cursor, nameWidth, width));
+      }
     }
     // Only when something is off screen, so a tall terminal shows no counter.
     if (start > 0 || end < this.entries.length) {
@@ -122,10 +124,15 @@ export class SchemePicker implements Component {
 
   handleInput(data: string): void {
     const keys = getKeybindings();
-    if (keys.matches(data, "tui.select.up")) this.move(-1);
-    else if (keys.matches(data, "tui.select.down")) this.move(1);
-    else if (keys.matches(data, "tui.select.confirm")) this.handlers.onPick(this.selected());
-    else if (keys.matches(data, "tui.select.cancel")) this.handlers.onCancel();
+    if (keys.matches(data, "tui.select.up")) {
+      this.move(-1);
+    } else if (keys.matches(data, "tui.select.down")) {
+      this.move(1);
+    } else if (keys.matches(data, "tui.select.confirm")) {
+      this.handlers.onPick(this.selected());
+    } else if (keys.matches(data, "tui.select.cancel")) {
+      this.handlers.onCancel();
+    }
   }
 
   /** Where the cursor is, so a test can read it without parsing a rendered row. */

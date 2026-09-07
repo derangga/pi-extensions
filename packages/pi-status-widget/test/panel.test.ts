@@ -57,7 +57,9 @@ describe("cycleValue", () => {
 
   it("returns to where it started after a full lap", () => {
     let value = "default";
-    for (let step = 0; step < values.length; step += 1) value = cycleValue(values, value, 1);
+    for (let step = 0; step < values.length; step += 1) {
+      value = cycleValue(values, value, 1);
+    }
     expect(value).toBe("default");
   });
 
@@ -115,7 +117,9 @@ describe("buildSettingItems", () => {
 
   it("gives every cycling row values that cycleValue can walk", () => {
     for (const item of buildSettingItems(cloneConfig(DEFAULT_CONFIG))) {
-      if (item.id === ROW_COLORS) continue;
+      if (item.id === ROW_COLORS) {
+        continue;
+      }
       expect(item.values?.length ?? 0).toBeGreaterThan(1);
       expect(item.values).toContain(item.currentValue);
     }

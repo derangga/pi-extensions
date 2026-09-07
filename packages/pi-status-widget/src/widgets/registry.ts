@@ -55,7 +55,9 @@ function createWidgetRegistry(widgets: readonly WidgetSpecUnion[]): WidgetRegist
 
   const specFor = (type: WidgetType): WidgetSpecUnion => {
     const spec = specsByType.get(type);
-    if (!spec) throw new Error(`Unsupported widget type: ${type}`);
+    if (!spec) {
+      throw new Error(`Unsupported widget type: ${type}`);
+    }
     return spec;
   };
 

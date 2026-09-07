@@ -41,7 +41,9 @@ function writeProject(projectDir: string, body: string): void {
 }
 
 afterEach(() => {
-  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+  for (const root of roots.splice(0)) {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 describe("configPaths", () => {

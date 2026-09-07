@@ -29,7 +29,9 @@ function markedLight(name: string): boolean {
   const quoted = `\`${name}\``;
   let at = readme.indexOf(quoted);
   while (at !== -1) {
-    if (readme.slice(at + quoted.length).startsWith(LIGHT_SUFFIX)) return true;
+    if (readme.slice(at + quoted.length).startsWith(LIGHT_SUFFIX)) {
+      return true;
+    }
     at = readme.indexOf(quoted, at + 1);
   }
   return false;

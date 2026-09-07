@@ -79,7 +79,9 @@ export function buildQuestionnaireResponse(
     // before the "nothing to report" check below, a questionnaire submitted
     // with nothing but such a note counts as answered rather than declined.
     const n = result.unansweredNotes?.find((x) => x.questionIndex === i);
-    if (n) segments.push(buildUnansweredNoteSegment(n));
+    if (n) {
+      segments.push(buildUnansweredNoteSegment(n));
+    }
   }
   if (result.globalNote && result.globalNote.length > 0) {
     // Raw multiline echo, no reformatting, trailing period matching the shape
@@ -98,8 +100,12 @@ export function buildQuestionnaireResponse(
  */
 export function buildAnswerSegment(a: QuestionAnswer): string {
   const parts: string[] = [`"${a.question}"="${formatAnswerScalar(a, "envelope")}"`];
-  if (a.preview && a.preview.length > 0) parts.push(`selected preview: ${a.preview}`);
-  if (a.notes && a.notes.length > 0) parts.push(`user notes: ${a.notes}`);
+  if (a.preview && a.preview.length > 0) {
+    parts.push(`selected preview: ${a.preview}`);
+  }
+  if (a.notes && a.notes.length > 0) {
+    parts.push(`user notes: ${a.notes}`);
+  }
   return `${parts.join(". ")}.`;
 }
 

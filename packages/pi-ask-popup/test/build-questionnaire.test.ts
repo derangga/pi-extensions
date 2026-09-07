@@ -25,7 +25,9 @@ beforeAll(() => {
   try {
     initTheme();
   } finally {
-    if (prev !== undefined) process.env.PI_PACKAGE_DIR = prev;
+    if (prev !== undefined) {
+      process.env.PI_PACKAGE_DIR = prev;
+    }
   }
 });
 
@@ -158,7 +160,9 @@ describe("column width across tabs", () => {
     built.adapter.apply(makeQuestionnaireState({ currentTab }));
     for (const line of built.render(120)) {
       const at = line.indexOf("┌");
-      if (at >= 0) return at;
+      if (at >= 0) {
+        return at;
+      }
     }
     return -1;
   }

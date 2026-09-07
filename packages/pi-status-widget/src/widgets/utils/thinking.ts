@@ -59,10 +59,16 @@ export function thinkingLevelForeground(
   theme: Theme | undefined,
   scheme?: ColorScheme,
 ): ColorName | undefined {
-  if (level === undefined) return configured;
+  if (level === undefined) {
+    return configured;
+  }
   const levelColor = LEVEL_COLORS[level as ThinkingLevel];
-  if (!levelColor) return configured;
+  if (!levelColor) {
+    return configured;
+  }
 
-  if (scheme) return scheme.thinking[level as ThinkingLevel];
+  if (scheme) {
+    return scheme.thinking[level as ThinkingLevel];
+  }
   return hasThemeColor(theme, levelColor.theme) ? `pi:${levelColor.theme}` : levelColor.fallback;
 }

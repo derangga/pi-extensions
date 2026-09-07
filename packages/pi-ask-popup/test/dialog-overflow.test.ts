@@ -42,7 +42,9 @@ function indicatorRows(lines: readonly string[], glyph: string): number[] {
 
 function trailingBlanks(lines: readonly string[]): number {
   let n = 0;
-  for (let i = lines.length - 1; i >= 0 && trimmed(lineAt(lines, i)) === ""; i--) n++;
+  for (let i = lines.length - 1; i >= 0 && trimmed(lineAt(lines, i)) === ""; i--) {
+    n++;
+  }
   return n;
 }
 
@@ -89,7 +91,9 @@ describe("dialog overflow — staying inside the terminal", () => {
     for (const termRows of [10, 15, 24]) {
       for (const width of [60, 80, 120]) {
         const lines = renderDialog({ ...OVERFLOWING, getTerminalRows: () => termRows }, width);
-        for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+        for (const line of lines) {
+          expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+        }
       }
     }
   });

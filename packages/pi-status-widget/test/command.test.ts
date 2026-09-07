@@ -228,7 +228,9 @@ describe("registerStatusbarCommand", () => {
   });
 
   it("names every separator style in the usage, so none is undiscoverable", () => {
-    for (const separator of SEPARATOR_VALUES) expect(USAGE).toContain(separator);
+    for (const separator of SEPARATOR_VALUES) {
+      expect(USAGE).toContain(separator);
+    }
   });
 
   it("sets every one of the twelve schemes, and default to get back out", async () => {

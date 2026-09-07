@@ -37,6 +37,8 @@ describe("supportedThinkingLevels", () => {
 
   it("never invents a level outside the known set", () => {
     const levels = supportedThinkingLevels(model({ thinkingLevelMap: { max: "m", xhigh: "x" } }));
-    for (const level of levels) expect(THINKING_LEVELS).toContain(level);
+    for (const level of levels) {
+      expect(THINKING_LEVELS).toContain(level);
+    }
   });
 });

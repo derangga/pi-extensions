@@ -304,7 +304,9 @@ describe("Manager.wait", () => {
     );
 
     expect(outcome.kind).toBe("traffic");
-    if (outcome.kind !== "traffic") return;
+    if (outcome.kind !== "traffic") {
+      return;
+    }
     expect(outcome.messages).toHaveLength(1);
     expect(outcome.messages[0]).toMatchObject({ kind: "ask", text: "which branch?" });
   });
@@ -356,7 +358,9 @@ describe("Manager.wait", () => {
     );
 
     expect(outcome.kind).toBe("settled");
-    if (outcome.kind !== "settled") return;
+    if (outcome.kind !== "settled") {
+      return;
+    }
     expect(outcome.run.finished).toBe(true);
   });
 });

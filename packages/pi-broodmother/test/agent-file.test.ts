@@ -23,7 +23,9 @@ function writeAgent(root: string, relativeDir: string, name: string, content: st
 }
 
 afterEach(() => {
-  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+  for (const root of roots.splice(0)) {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 describe("loadAgentFile", () => {

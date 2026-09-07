@@ -37,7 +37,9 @@ function temporaryRoot(label: string): string {
 }
 
 afterEach(() => {
-  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+  for (const root of roots.splice(0)) {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 describe("child session", () => {
@@ -97,12 +99,18 @@ describe("child session", () => {
       expect(active).toContain("ffgrep");
       expect(active).toContain("ask_parent");
       expect(active).toContain("notify_parent");
-      for (const tool of ["read", "grep", "find", "ls"]) expect(active).toContain(tool);
-      for (const tool of ["bash", "edit", "write"]) expect(active).not.toContain(tool);
+      for (const tool of ["read", "grep", "find", "ls"]) {
+        expect(active).toContain(tool);
+      }
+      for (const tool of ["bash", "edit", "write"]) {
+        expect(active).not.toContain(tool);
+      }
       expect(CHILD_TOOL_NAMES).toContain("fff-multi-grep");
       expect(CHILD_TOOL_NAMES).toContain("multi_grep");
       // A child that could reach these would spawn children of its own.
-      for (const tool of PARENT_TOOL_NAMES) expect(active).not.toContain(tool);
+      for (const tool of PARENT_TOOL_NAMES) {
+        expect(active).not.toContain(tool);
+      }
 
       expect(created.sessionFile).toBeDefined();
       expect(created.session.sessionManager.getHeader()?.parentSession).toBe(

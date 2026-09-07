@@ -143,7 +143,9 @@ describe("AsyncCache", () => {
     const cache = new AsyncCache(2);
     const fetcher = vi.fn<(filter: string) => Promise<string>>(async (filter) => filter);
 
-    for (const key of ["a", "b", "c"]) cache.get(key, 1000, key, fetcher);
+    for (const key of ["a", "b", "c"]) {
+      cache.get(key, 1000, key, fetcher);
+    }
     await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(3));
 
     expect(cache.get("a", 1000, "a", fetcher)).toBeNull();

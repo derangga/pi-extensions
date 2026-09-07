@@ -27,7 +27,9 @@ export function loadAgentFile(
   agentDir = getAgentDir(),
 ): AgentFile | undefined {
   const decoded = decodeName(name?.trim());
-  if (Option.isNone(decoded)) return undefined;
+  if (Option.isNone(decoded)) {
+    return undefined;
+  }
 
   const filename = `${decoded.value}.md`;
   const path = [
@@ -35,7 +37,9 @@ export function loadAgentFile(
     join(cwd, ".agents", "agents", filename),
     join(agentDir, "agents", filename),
   ].find(existsSync);
-  if (!path) return undefined;
+  if (!path) {
+    return undefined;
+  }
 
   try {
     const { frontmatter, body } = parseFrontmatter(readFileSync(path, "utf8"));

@@ -102,7 +102,9 @@ export async function createChildSession(
   const fffEntry =
     options.fffEntry === undefined ? resolveFffEntry() : (options.fffEntry ?? undefined);
   const notes: string[] = [];
-  if (!fffEntry) notes.push(`${FFF_PACKAGE} is not installed; using Pi's read-only tools only`);
+  if (!fffEntry) {
+    notes.push(`${FFF_PACKAGE} is not installed; using Pi's read-only tools only`);
+  }
 
   const loader = new DefaultResourceLoader({
     cwd: options.cwd,

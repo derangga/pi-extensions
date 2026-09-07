@@ -119,17 +119,25 @@ export class PreviewPane implements StatefulView<PreviewPaneProps>, Component {
   }
 
   render(width: number): string[] {
-    if (this.question.multiSelect === true) return this.optionListView.render(width);
+    if (this.question.multiSelect === true) {
+      return this.optionListView.render(width);
+    }
     // Spec: hide the preview pane entirely when no option carries a `preview`.
-    if (!this.previewBlock.hasAnyPreview()) return this.optionListView.render(width);
+    if (!this.previewBlock.hasAnyPreview()) {
+      return this.optionListView.render(width);
+    }
     // `inputMode` (typing on the "other" custom-answer row): the preview is irrelevant —
     // the row sits at index `options.length`, out of bounds for any option's preview — so
     // render the option list at the full pane width instead of the cramped left column.
     // Side-by-side + preview block resume verbatim on nav-away (inputMode clears).
-    if (this.props.inputMode) return this.optionListView.render(width);
+    if (this.props.inputMode) {
+      return this.optionListView.render(width);
+    }
 
     const mode = decideLayout(this.getTerminalWidth(), width);
-    if (mode === "side-by-side") return this.renderSideBySide(width, mode);
+    if (mode === "side-by-side") {
+      return this.renderSideBySide(width, mode);
+    }
 
     // Stacked: options + blank gap + preview block.
     return [
@@ -146,24 +154,38 @@ export class PreviewPane implements StatefulView<PreviewPaneProps>, Component {
   }
 
   focusedItemRowRange(width: number): [number, number] {
-    if (this.question.multiSelect === true) return this.optionListView.focusedItemRowRange(width);
-    if (!this.previewBlock.hasAnyPreview()) return this.optionListView.focusedItemRowRange(width);
+    if (this.question.multiSelect === true) {
+      return this.optionListView.focusedItemRowRange(width);
+    }
+    if (!this.previewBlock.hasAnyPreview()) {
+      return this.optionListView.focusedItemRowRange(width);
+    }
     // `inputMode`: compute the focused row range against the FULL pane width (not the
     // side-by-side leftWidth), mirroring `render`'s full-width option list.
-    if (this.props.inputMode) return this.optionListView.focusedItemRowRange(width);
+    if (this.props.inputMode) {
+      return this.optionListView.focusedItemRowRange(width);
+    }
     const mode = decideLayout(this.getTerminalWidth(), width);
-    if (mode === "stacked") return this.optionListView.focusedItemRowRange(width);
+    if (mode === "stacked") {
+      return this.optionListView.focusedItemRowRange(width);
+    }
     const adaptiveLeft = this.getAdaptiveLeft(width);
     const { leftWidth } = columnWidths(width, adaptiveLeft);
     return this.optionListView.focusedItemRowRange(leftWidth);
   }
 
   naturalHeight(width: number): number {
-    if (this.question.multiSelect === true) return this.optionListView.render(width).length;
-    if (!this.previewBlock.hasAnyPreview()) return this.optionListView.render(width).length;
+    if (this.question.multiSelect === true) {
+      return this.optionListView.render(width).length;
+    }
+    if (!this.previewBlock.hasAnyPreview()) {
+      return this.optionListView.render(width).length;
+    }
     // `inputMode`: height is the full-width option list only (no preview block) — preserves
     // the `naturalHeight === render.length` parity invariant.
-    if (this.props.inputMode) return this.optionListView.render(width).length;
+    if (this.props.inputMode) {
+      return this.optionListView.render(width).length;
+    }
     const mode = decideLayout(this.getTerminalWidth(), width);
     const adaptiveLeft = this.getAdaptiveLeft(width);
     const { optionsWidth, previewWidth } = bodyWidths(width, mode, adaptiveLeft);
@@ -173,16 +195,24 @@ export class PreviewPane implements StatefulView<PreviewPaneProps>, Component {
       this.props.selectedIndex,
       mode,
     );
-    if (mode === "side-by-side") return Math.max(optionsHeight, previewBlockHeight);
+    if (mode === "side-by-side") {
+      return Math.max(optionsHeight, previewBlockHeight);
+    }
     return optionsHeight + STACKED_GAP_ROWS + previewBlockHeight;
   }
 
   maxNaturalHeight(width: number): number {
-    if (this.question.multiSelect === true) return this.optionListView.render(width).length;
-    if (!this.previewBlock.hasAnyPreview()) return this.optionListView.render(width).length;
+    if (this.question.multiSelect === true) {
+      return this.optionListView.render(width).length;
+    }
+    if (!this.previewBlock.hasAnyPreview()) {
+      return this.optionListView.render(width).length;
+    }
     // `inputMode`: like naturalHeight — full-width option list only, so the
     // `maxNaturalHeight >= naturalHeight` parity invariant holds (both equal the list height).
-    if (this.props.inputMode) return this.optionListView.render(width).length;
+    if (this.props.inputMode) {
+      return this.optionListView.render(width).length;
+    }
     const mode = decideLayout(this.getTerminalWidth(), width);
     const adaptiveLeft = this.getAdaptiveLeft(width);
     const { optionsWidth, previewWidth } = bodyWidths(width, mode, adaptiveLeft);
@@ -190,9 +220,13 @@ export class PreviewPane implements StatefulView<PreviewPaneProps>, Component {
     let maxPreviewBlock = 0;
     for (let i = 0; i < this.question.options.length; i++) {
       const h = this.previewBlock.blockHeight(previewWidth, i, mode);
-      if (h > maxPreviewBlock) maxPreviewBlock = h;
+      if (h > maxPreviewBlock) {
+        maxPreviewBlock = h;
+      }
     }
-    if (mode === "side-by-side") return Math.max(optionsHeight, maxPreviewBlock);
+    if (mode === "side-by-side") {
+      return Math.max(optionsHeight, maxPreviewBlock);
+    }
     return optionsHeight + STACKED_GAP_ROWS + maxPreviewBlock;
   }
 
@@ -227,7 +261,9 @@ export class PreviewPane implements StatefulView<PreviewPaneProps>, Component {
     const boxWidth = Math.max(1, visibleWidth(contentLines[0] ?? ""));
     const boxAlignedPad = Math.max(PREVIEW_PADDING_LEFT, colWidth - boxWidth);
     return contentLines.map((line) => {
-      if (line === "") return "";
+      if (line === "") {
+        return "";
+      }
       // A line wider than the box (a long-locale notes affordance) slides left to
       // stay fully visible; truncation engages only when the column itself runs out.
       const pad = Math.max(

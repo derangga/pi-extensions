@@ -30,12 +30,18 @@ export class AsyncCache {
     onRefresh?: () => void,
   ): V | null {
     const entry = this.entryFor<V>(key);
-    if (this.isFresh(entry, ttlMs)) return entry.value;
+    if (this.isFresh(entry, ttlMs)) {
+      return entry.value;
+    }
 
-    if (onRefresh) entry.listeners.add(onRefresh);
+    if (onRefresh) {
+      entry.listeners.add(onRefresh);
+    }
     // One refresh in flight per key. Concurrent reads join the pending one
     // instead of each spawning their own subprocesses.
-    if (!entry.pending) entry.pending = this.refresh(entry, filter, fetcher);
+    if (!entry.pending) {
+      entry.pending = this.refresh(entry, filter, fetcher);
+    }
 
     return entry.value;
   }
@@ -46,7 +52,9 @@ export class AsyncCache {
 
   private entryFor<V>(key: string): CacheEntry<V> {
     const cached = this.entries.get(key);
-    if (cached) return cached as CacheEntry<V>;
+    if (cached) {
+      return cached as CacheEntry<V>;
+    }
 
     const entry: CacheEntry<V> = {
       value: null,
@@ -99,9 +107,13 @@ export class AsyncCache {
   }
 
   private evictOldestEntry(): void {
-    if (this.entries.size <= this.maxEntries) return;
+    if (this.entries.size <= this.maxEntries) {
+      return;
+    }
     const oldestKey = this.entries.keys().next().value;
-    if (oldestKey !== undefined) this.entries.delete(oldestKey);
+    if (oldestKey !== undefined) {
+      this.entries.delete(oldestKey);
+    }
   }
 }
 

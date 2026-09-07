@@ -73,7 +73,9 @@ describe("defaults", () => {
   it("clones deeply, so a caller cannot mutate the shared default", () => {
     const clone = cloneConfig(DEFAULT_CONFIG);
     const widget = clone.lines[0]?.[0];
-    if (widget) widget.options.icon = "changed";
+    if (widget) {
+      widget.options.icon = "changed";
+    }
     expect(DEFAULT_CONFIG.lines[0]?.[0]?.options.icon).not.toBe("changed");
   });
 });

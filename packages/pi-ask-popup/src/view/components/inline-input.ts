@@ -27,7 +27,9 @@ export interface RenderInlineInputOptions {
  * Mirrors the original wrapping-select.resolveOffset exactly.
  */
 function resolveCursorOffset(buffer: string, requested: number | undefined): number {
-  if (requested !== undefined && requested >= 0 && requested <= buffer.length) return requested;
+  if (requested !== undefined && requested >= 0 && requested <= buffer.length) {
+    return requested;
+  }
   return buffer.length;
 }
 

@@ -105,12 +105,16 @@ export async function runRpcQuestionnaire(
   const dialogOpts = params.timeout === undefined ? undefined : { timeout: params.timeout };
   for (let qi = 0; qi < params.questions.length; qi++) {
     const q = params.questions[qi];
-    if (!q) continue;
+    if (!q) {
+      continue;
+    }
     const header = q.header ? `[${q.header}] ` : "";
     const answer = q.multiSelect
       ? await askMultiSelect(ui, q, qi, header, dialogOpts)
       : await askSingleSelect(ui, q, qi, header, dialogOpts);
-    if (answer === undefined) return { answers, cancelled: true };
+    if (answer === undefined) {
+      return { answers, cancelled: true };
+    }
     answers.push(answer);
   }
   return { answers, cancelled: false };
@@ -127,12 +131,16 @@ async function askSingleSelect(
   const options = q.options.map(formatOptionLine);
   options.push(`${q.options.length + 1}. ${ROW_INTENT_META.other.label}`);
   const chosen = await ui.select(`${header}${q.question}${buildPreviewBlock(q)}`, options, opts);
-  if (chosen === undefined || chosen === null) return undefined;
+  if (chosen === undefined || chosen === null) {
+    return undefined;
+  }
   const idx = parseIndex(chosen, options.length);
   // A host that returns something outside the list it was given is
   // indistinguishable from a dismissal. Treating it as one beats fabricating
   // an answer the user never gave.
-  if (idx === null) return undefined;
+  if (idx === null) {
+    return undefined;
+  }
   const option = q.options[idx];
   if (option) {
     return {
@@ -149,7 +157,9 @@ async function askSingleSelect(
   }
   // The "Type something." row, which is the one index past the authored options.
   const typed = await ui.input(`${header}${q.question}\n\n${CUSTOM_ANSWER_TITLE}`, "", opts);
-  if (typed === undefined || typed === null) return undefined;
+  if (typed === undefined || typed === null) {
+    return undefined;
+  }
   return { questionIndex, question: q.question, kind: "custom", answer: typed };
 }
 
@@ -167,7 +177,9 @@ async function askMultiSelect(
     MULTI_SELECT_PLACEHOLDER,
     opts,
   );
-  if (value === undefined || value === null) return undefined;
+  if (value === undefined || value === null) {
+    return undefined;
+  }
   const trimmed = value.trim();
   if (trimmed.length === 0) {
     // A deliberate empty commit, the same as pressing Next with nothing ticked.
@@ -186,7 +198,9 @@ async function askMultiSelect(
     const selected: string[] = [];
     for (const i of indices) {
       const label = q.options[i]?.label;
-      if (label !== undefined && !selected.includes(label)) selected.push(label);
+      if (label !== undefined && !selected.includes(label)) {
+        selected.push(label);
+      }
     }
     return { questionIndex, question: q.question, kind: "multi", answer: null, selected };
   }

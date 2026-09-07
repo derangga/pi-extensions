@@ -138,13 +138,19 @@ interface Pick<A> {
  */
 function pickModelRef(task: TaskChoice, settings: SubagentSettings): Pick<string> {
   const agent = task.agentFile?.model?.trim();
-  if (agent) return { value: agent, source: "agent" };
+  if (agent) {
+    return { value: agent, source: "agent" };
+  }
 
   const setting = settings.model.trim();
-  if (setting && setting !== INHERIT) return { value: setting, source: "settings" };
+  if (setting && setting !== INHERIT) {
+    return { value: setting, source: "settings" };
+  }
 
   const own = task.model?.trim();
-  if (own) return { value: own, source: "task" };
+  if (own) {
+    return { value: own, source: "task" };
+  }
 
   return { value: undefined, source: "parent" };
 }
@@ -154,9 +160,15 @@ function pickThinking(
   settings: SubagentSettings,
   parent: ParentChoice,
 ): Pick<ThinkingLevel> {
-  if (task.agentFile?.thinking) return { value: task.agentFile.thinking, source: "agent" };
-  if (settings.thinking !== INHERIT) return { value: settings.thinking, source: "settings" };
-  if (task.thinking) return { value: task.thinking, source: "task" };
+  if (task.agentFile?.thinking) {
+    return { value: task.agentFile.thinking, source: "agent" };
+  }
+  if (settings.thinking !== INHERIT) {
+    return { value: settings.thinking, source: "settings" };
+  }
+  if (task.thinking) {
+    return { value: task.thinking, source: "task" };
+  }
   return { value: parent.thinking, source: "parent" };
 }
 
@@ -181,10 +193,18 @@ function score(model: PiModel, query: string): number {
   const name = normalize(model.name ?? model.id);
   const full = normalize(modelKey(model));
 
-  if (id === query || full === query) return 100;
-  if (undated(id) === undated(query) || undated(full) === undated(query)) return 90;
-  if (id.includes(query) || full.includes(query)) return 60 + (query.length / id.length) * 30;
-  if (name.includes(query)) return 40 + (query.length / name.length) * 20;
+  if (id === query || full === query) {
+    return 100;
+  }
+  if (undated(id) === undated(query) || undated(full) === undated(query)) {
+    return 90;
+  }
+  if (id.includes(query) || full.includes(query)) {
+    return 60 + (query.length / id.length) * 30;
+  }
+  if (name.includes(query)) {
+    return 40 + (query.length / name.length) * 20;
+  }
 
   const parts = query.split(/[\s\-/]+/);
   const everyPartLands = parts.every(
@@ -208,12 +228,16 @@ export function resolveModelRef(
   sessionProvider: string | undefined,
 ): PiModel | undefined {
   const trimmed = ref.trim();
-  if (!trimmed) return undefined;
+  if (!trimmed) {
+    return undefined;
+  }
 
   const slash = trimmed.indexOf("/");
   if (slash > 0) {
     const exact = available.find((model) => normalize(modelKey(model)) === normalize(trimmed));
-    if (exact) return exact;
+    if (exact) {
+      return exact;
+    }
   }
 
   // A bare id resolves against the session's own provider before anything
@@ -223,7 +247,9 @@ export function resolveModelRef(
     const own = available.find(
       (model) => model.provider === sessionProvider && normalize(model.id) === normalize(trimmed),
     );
-    if (own) return own;
+    if (own) {
+      return own;
+    }
   }
 
   const query = normalize(trimmed);
@@ -236,12 +262,16 @@ export function resolveModelRef(
       best = model;
     }
   }
-  if (best && bestScore >= 20) return best;
+  if (best && bestScore >= 20) {
+    return best;
+  }
 
   // A provider/modelId that matched nothing under that provider retries the
   // bare id everywhere, so the same model on another provider beats silently
   // dropping back to the parent's.
-  if (slash > 0) return resolveModelRef(trimmed.slice(slash + 1), available, sessionProvider);
+  if (slash > 0) {
+    return resolveModelRef(trimmed.slice(slash + 1), available, sessionProvider);
+  }
 
   return undefined;
 }
@@ -251,11 +281,15 @@ export function resolveModelRef(
 /** The strongest supported level no stronger than the one asked for. */
 function clampThinking(model: PiModel, level: ThinkingLevel): ThinkingLevel {
   const supported = supportedThinkingLevels(model);
-  if (supported.includes(level)) return level;
+  if (supported.includes(level)) {
+    return level;
+  }
 
   for (let index = THINKING_LEVELS.indexOf(level); index >= 0; index--) {
     const candidate = THINKING_LEVELS[index];
-    if (candidate && supported.includes(candidate)) return candidate;
+    if (candidate && supported.includes(candidate)) {
+      return candidate;
+    }
   }
   return supported[0] ?? "off";
 }
@@ -315,10 +349,14 @@ const resolveThinkingFor = Effect.fn("Resolve.thinking")(function* (
   model: PiModel,
   level: Pick<ThinkingLevel>,
 ): Effect.fn.Return<{ level: ThinkingLevel; notes: readonly string[] }, ThinkingUnsupported> {
-  if (level.value === undefined) return { level: "off" as ThinkingLevel, notes: [] };
+  if (level.value === undefined) {
+    return { level: "off" as ThinkingLevel, notes: [] };
+  }
 
   const supported = supportedThinkingLevels(model);
-  if (supported.includes(level.value)) return { level: level.value, notes: [] };
+  if (supported.includes(level.value)) {
+    return { level: level.value, notes: [] };
+  }
 
   if (level.source !== "parent") {
     return yield* new ThinkingUnsupported({
@@ -393,11 +431,15 @@ export const resolveTasks = Effect.fn("Resolve.tasks")(function* (
   const distinct = new Map<string, PiModel>();
   for (const task of resolved) {
     const key = modelKey(task.model);
-    if (key !== parentKey) distinct.set(key, task.model);
+    if (key !== parentKey) {
+      distinct.set(key, task.model);
+    }
   }
 
   const failures = yield* probeAll(source, [...distinct.values()], settings.concurrency);
-  if (failures.size === 0) return resolved;
+  if (failures.size === 0) {
+    return resolved;
+  }
 
   return yield* Effect.forEach(resolved, (task) =>
     applyProbe(task, failures.get(modelKey(task.model)), parent),
@@ -415,7 +457,9 @@ const applyProbe = Effect.fn("Resolve.fallback")(function* (
   failure: string | undefined,
   parent: ParentChoice,
 ): Effect.fn.Return<ResolvedTask, NoModelAvailable> {
-  if (failure === undefined) return task;
+  if (failure === undefined) {
+    return task;
+  }
 
   const failed = modelKey(task.model);
   if (!parent.model) {

@@ -152,7 +152,9 @@ export class QuestionTabStrategy implements TabContentStrategy {
   bodyComponent(state: DialogState): Component {
     const question = this.config.questions[state.currentTab];
     const multiSelect = this.config.tabsByIndex[state.currentTab]?.multiSelect;
-    if (question?.multiSelect === true && multiSelect) return multiSelect;
+    if (question?.multiSelect === true && multiSelect) {
+      return multiSelect;
+    }
     return this.config.getPreviewPane();
   }
 
@@ -161,7 +163,9 @@ export class QuestionTabStrategy implements TabContentStrategy {
   }
 
   midRows(state: DialogState): Component[] {
-    if (!state.notesVisible) return this.restingNoteRows(state);
+    if (!state.notesVisible) {
+      return this.restingNoteRows(state);
+    }
     return [
       new Text(this.config.theme.fg("muted", NOTES_HEADER), 1, 0),
       this.config.notesInput,
@@ -190,9 +194,13 @@ export class QuestionTabStrategy implements TabContentStrategy {
    * put noise on every un-noted tab of every questionnaire.
    */
   restingNoteRows(state: DialogState): Component[] {
-    if (this.restingNoteRowCount(state) === 0) return [];
+    if (this.restingNoteRowCount(state) === 0) {
+      return [];
+    }
     const note = noteForTab(state, state.currentTab);
-    if (note.length === 0) return [new Spacer(1)];
+    if (note.length === 0) {
+      return [new Spacer(1)];
+    }
     return [
       new OneLineClippedText(
         this.config.theme.fg("dim", `${NOTES_LABEL} ${collapseToOneLine(note)}`),
@@ -213,9 +221,13 @@ export class QuestionTabStrategy implements TabContentStrategy {
    * then, and its own height is the intentional expansion.
    */
   restingNoteRowCount(state: DialogState): number {
-    if (state.notesVisible) return 0;
+    if (state.notesVisible) {
+      return 0;
+    }
     for (let i = 0; i < this.config.questions.length; i++) {
-      if (noteForTab(state, i).length > 0) return 1;
+      if (noteForTab(state, i).length > 0) {
+        return 1;
+      }
     }
     return 0;
   }
@@ -273,13 +285,17 @@ export class SubmitTabStrategy implements TabContentStrategy {
     const c = new Container();
     for (let i = 0; i < this.config.questions.length; i++) {
       const q = this.config.questions[i];
-      if (!q) continue;
+      if (!q) {
+        continue;
+      }
       const a = state.answers.get(i);
       const note = noteForTab(state, i);
       // A note with no answer still gets an entry. Skipping it, which is what
       // this loop used to do, dropped the note from the review and from the
       // result: the user wrote something and was never told it went nowhere.
-      if (!a && note.length === 0) continue;
+      if (!a && note.length === 0) {
+        continue;
+      }
       c.addChild(new Text(this.config.theme.fg("muted", ` ● ${tabLabel(q.header, i)}`), 1, 0));
       // No arrow row when there is no answer. The absent row is the signal, and
       // the footer already names the question in its incomplete warning, so
@@ -326,7 +342,9 @@ export class SubmitTabStrategy implements TabContentStrategy {
   midRows(state: DialogState): Component[] {
     // The question tabs' notes editor, mirrored for the global note. The draft
     // itself is reducer-owned; this only renders it.
-    if (!state.notesVisible) return [];
+    if (!state.notesVisible) {
+      return [];
+    }
     return [
       new Text(this.config.theme.fg("muted", GLOBAL_NOTES_HEADER), 1, 0),
       this.config.notesInput,
@@ -338,7 +356,9 @@ export class SubmitTabStrategy implements TabContentStrategy {
     const missing: string[] = [];
     for (let i = 0; i < this.config.questions.length; i++) {
       const q = this.config.questions[i];
-      if (q && !state.answers.has(i)) missing.push(tabLabel(q.header, i));
+      if (q && !state.answers.has(i)) {
+        missing.push(tabLabel(q.header, i));
+      }
     }
     const promptText =
       missing.length === 0
@@ -380,9 +400,13 @@ export class SubmitTabStrategy implements TabContentStrategy {
 }
 
 function remainingLabel(state: DialogState): string | undefined {
-  if (state.timerCancelled) return undefined;
+  if (state.timerCancelled) {
+    return undefined;
+  }
   const ms = state.remainingMs;
-  if (ms === undefined) return undefined;
+  if (ms === undefined) {
+    return undefined;
+  }
   const secs = Math.max(0, Math.ceil(ms / 1000));
   return `${secs}s left`;
 }
@@ -408,7 +432,9 @@ export function buildHintText(
   collapseKey: string,
 ): string {
   const parts: string[] = [HINT_PART_ENTER, HINT_PART_NAV];
-  if (question?.multiSelect === true) parts.push(HINT_PART_TOGGLE);
+  if (question?.multiSelect === true) {
+    parts.push(HINT_PART_TOGGLE);
+  }
   if (question && !state.notesVisible && !state.inputMode) {
     // "add" is wrong once one exists, and the hint is the only affordance
     // telling a keyboard user the resting row can be reopened at all.
@@ -416,17 +442,25 @@ export function buildHintText(
       noteForTab(state, state.currentTab).length > 0 ? HINT_PART_NOTES_EDIT : HINT_PART_NOTES,
     );
   }
-  if (isMulti) parts.push(HINT_PART_TAB);
+  if (isMulti) {
+    parts.push(HINT_PART_TAB);
+  }
   parts.push(HINT_PART_CANCEL);
   if (collapseKey !== COLLAPSE_KEY_OFF) {
     parts.push(
       HINT_PART_COLLAPSE_TEMPLATE.replace(KEY_PLACEHOLDER, formatKeySpecForDisplay(collapseKey)),
     );
   }
-  if (state.notesVisible || state.inputMode) parts.push(HINT_PART_NEW_LINE);
-  if (state.inputMode) parts.push(HINT_PART_CLEAR);
+  if (state.notesVisible || state.inputMode) {
+    parts.push(HINT_PART_NEW_LINE);
+  }
+  if (state.inputMode) {
+    parts.push(HINT_PART_CLEAR);
+  }
   const rem = remainingLabel(state);
-  if (rem) parts.push(rem);
+  if (rem) {
+    parts.push(rem);
+  }
   return parts.join(" · ");
 }
 
@@ -438,10 +472,16 @@ export function buildHintText(
  */
 export function buildSubmitHintText(state: DialogState): string {
   const parts: string[] = [HINT_PART_ENTER, HINT_PART_NAV];
-  if (!state.notesVisible) parts.push(REVIEW_GLOBAL_HINT);
+  if (!state.notesVisible) {
+    parts.push(REVIEW_GLOBAL_HINT);
+  }
   parts.push(HINT_PART_CANCEL);
-  if (state.notesVisible) parts.push(HINT_PART_NEW_LINE);
+  if (state.notesVisible) {
+    parts.push(HINT_PART_NEW_LINE);
+  }
   const rem = remainingLabel(state);
-  if (rem) parts.push(rem);
+  if (rem) {
+    parts.push(rem);
+  }
   return parts.join(" · ");
 }

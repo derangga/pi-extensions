@@ -237,7 +237,9 @@ describe("a note on a question that was never answered", () => {
   function submit(state: ReturnType<typeof makeQuestionnaireState>) {
     const { effects } = reduce(state, { kind: "submit" }, ctx);
     const done = effects.find((e) => e.kind === "done");
-    if (done?.kind !== "done") throw new Error("expected a done effect");
+    if (done?.kind !== "done") {
+      throw new Error("expected a done effect");
+    }
     return done.result;
   }
 
@@ -273,7 +275,9 @@ describe("a note on a question that was never answered", () => {
       ctx,
     );
     const done = effects.find((e) => e.kind === "done");
-    if (done?.kind !== "done") throw new Error("expected a done effect");
+    if (done?.kind !== "done") {
+      throw new Error("expected a done effect");
+    }
     expect(done.result.unansweredNotes).toHaveLength(1);
   });
 

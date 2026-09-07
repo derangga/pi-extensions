@@ -63,11 +63,17 @@ export function gitCommandsFor(
 
   for (const line of lines) {
     for (const widget of line) {
-      if (!widget.enabled) continue;
-      if (!Object.hasOwn(COMMAND_FOR_WIDGET, widget.type)) continue;
+      if (!widget.enabled) {
+        continue;
+      }
+      if (!Object.hasOwn(COMMAND_FOR_WIDGET, widget.type)) {
+        continue;
+      }
       anyGitWidget = true;
       const command = COMMAND_FOR_WIDGET[widget.type as GitWidgetType];
-      if (command) commands.add(command);
+      if (command) {
+        commands.add(command);
+      }
     }
   }
 
@@ -112,7 +118,9 @@ export function getGitInfo(
 
 async function fetchGitInfo({ pi, cwd, branchHint, commands }: GitFetch): Promise<GitInfo> {
   const inRepo = await git(pi, cwd, ["rev-parse", "--show-toplevel"]);
-  if (!inRepo) return EMPTY_GIT_INFO;
+  if (!inRepo) {
+    return EMPTY_GIT_INFO;
+  }
 
   const [sha, porcelain, shortstat, aheadBehind] = await Promise.all([
     commands.has("sha") ? git(pi, cwd, ["rev-parse", "--short", "HEAD"]) : null,
@@ -161,15 +169,21 @@ export function parsePorcelain(
   let untracked = 0;
 
   for (const line of output?.split("\n") ?? []) {
-    if (line.length < 2) continue;
+    if (line.length < 2) {
+      continue;
+    }
     const x = line[0];
     const y = line[1];
     if (x === "?" && y === "?") {
       untracked += 1;
       continue;
     }
-    if (x !== " " && x !== undefined) staged += 1;
-    if (y !== " " && y !== undefined) unstaged += 1;
+    if (x !== " " && x !== undefined) {
+      staged += 1;
+    }
+    if (y !== " " && y !== undefined) {
+      unstaged += 1;
+    }
   }
 
   return { staged, unstaged, untracked };

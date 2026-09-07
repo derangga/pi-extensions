@@ -70,7 +70,9 @@ function host(overrides: Partial<SubagentToolHost> = {}): SubagentToolHost {
 
 function tool(name: string, overrides: Partial<SubagentToolHost> = {}): ToolDefinition {
   const found = createSubagentTools(host(overrides)).find((entry) => entry.name === name);
-  if (!found) throw new Error(`no tool named ${name}`);
+  if (!found) {
+    throw new Error(`no tool named ${name}`);
+  }
   return found;
 }
 

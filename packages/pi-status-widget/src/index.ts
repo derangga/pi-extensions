@@ -86,7 +86,9 @@ export default async function statusbarExtension(pi: ExtensionAPI): Promise<void
           // Only when the handle is still ours. A later apply() mounts its
           // footer before this dispose runs, and clearing unconditionally would
           // leave the live footer with no way to repaint on a level change.
-          if (requestRender === ownRequestRender) requestRender = undefined;
+          if (requestRender === ownRequestRender) {
+            requestRender = undefined;
+          }
         },
         // Required by Component, and there is nothing to drop: every draw reads
         // its values fresh, so a theme change lands on the next render anyway.

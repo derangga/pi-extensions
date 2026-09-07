@@ -101,13 +101,17 @@ describe("discriminator discipline", () => {
   function walkSources(dir: string): string[] {
     const out: string[] = [];
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
+      if (entry.name.startsWith(".") || entry.name === "node_modules") {
+        continue;
+      }
       const abs = resolve(dir, entry.name);
       if (entry.isDirectory()) {
         out.push(...walkSources(abs));
         continue;
       }
-      if (entry.isFile() && entry.name.endsWith(".ts")) out.push(abs);
+      if (entry.isFile() && entry.name.endsWith(".ts")) {
+        out.push(abs);
+      }
     }
     return out;
   }
@@ -117,8 +121,9 @@ describe("discriminator discipline", () => {
     for (const file of walkSources(SRC_DIR)) {
       const text = readFileSync(file, "utf8");
       for (const flag of BANNED) {
-        if (new RegExp(`\\b${flag}\\b`).test(text))
+        if (new RegExp(`\\b${flag}\\b`).test(text)) {
           offenders.push(`${relative(SRC_DIR, file)}: ${flag}`);
+        }
       }
     }
     expect(offenders).toEqual([]);

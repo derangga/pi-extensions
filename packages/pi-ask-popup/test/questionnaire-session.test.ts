@@ -244,8 +244,12 @@ describe("the draft cannot be destroyed by the editor's own submit handling", ()
     const CTRL_ENTER = "<CTRL_ENTER>";
     const remapped: typeof keybindings = {
       matches(data, name) {
-        if (name === "tui.input.submit") return data === CTRL_ENTER;
-        if (name === "tui.input.newLine") return data === ENTER || data === SHIFT_ENTER;
+        if (name === "tui.input.submit") {
+          return data === CTRL_ENTER;
+        }
+        if (name === "tui.input.newLine") {
+          return data === ENTER || data === SHIFT_ENTER;
+        }
         return keybindings.matches(data, name);
       },
     };

@@ -96,7 +96,9 @@ export class MultiSelectView implements StatefulView<MultiSelectViewProps> {
   }
 
   private layout(width: number): MultiSelectLayout {
-    if (this.cachedLayout?.width === width) return this.cachedLayout.value;
+    if (this.cachedLayout?.width === width) {
+      return this.cachedLayout.value;
+    }
 
     const build: MultiSelectBuild = { lines: [], focusedRange: [0, 0] };
     const contentWidth = Math.max(1, width - this.prefixVisibleWidth());
@@ -106,7 +108,9 @@ export class MultiSelectView implements StatefulView<MultiSelectViewProps> {
 
     const otherStart = build.lines.length;
     build.lines.push(...this.renderOtherRow(contentWidth, numberWidth));
-    if (this.props.other.active) build.focusedRange = [otherStart, build.lines.length];
+    if (this.props.other.active) {
+      build.focusedRange = [otherStart, build.lines.length];
+    }
 
     this.appendNextRow(build, width);
 
@@ -124,7 +128,9 @@ export class MultiSelectView implements StatefulView<MultiSelectViewProps> {
     for (let i = 0; i < this.question.options.length; i++) {
       const opt = this.question.options[i];
       const row = this.props.rows[i];
-      if (!opt || !row) continue;
+      if (!opt || !row) {
+        continue;
+      }
       const start = build.lines.length;
       const pointer = row.active ? this.theme.fg("accent", ACTIVE_POINTER) : INACTIVE_POINTER;
       // Checked and active rows share the accent hue, matching the dialog's selection rhythm.
@@ -146,7 +152,9 @@ export class MultiSelectView implements StatefulView<MultiSelectViewProps> {
           build.lines.push(CONTINUATION_INDENT + this.theme.fg("muted", segment));
         }
       }
-      if (row.active) build.focusedRange = [start, build.lines.length];
+      if (row.active) {
+        build.focusedRange = [start, build.lines.length];
+      }
     }
   }
 
@@ -159,7 +167,9 @@ export class MultiSelectView implements StatefulView<MultiSelectViewProps> {
       ? this.theme.fg("accent", this.theme.bold(this.props.nextLabel))
       : this.props.nextLabel;
     build.lines.push(truncateToWidth(`${nextPointer}${nextLabel}`, width, ""));
-    if (this.props.nextActive) build.focusedRange = [nextStart, build.lines.length];
+    if (this.props.nextActive) {
+      build.focusedRange = [nextStart, build.lines.length];
+    }
   }
 
   private renderOtherRow(contentWidth: number, numberWidth: number): string[] {

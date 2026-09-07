@@ -119,7 +119,9 @@ describe("gitCommandsFor", () => {
 
     expect(heavy).toEqual(new Set<GitCommand>(["sha", "porcelain", "shortstat", "aheadBehind"]));
     expect(heavy.size).toBeGreaterThan(compact.size);
-    for (const command of compact) expect(heavy.has(command)).toBe(true);
+    for (const command of compact) {
+      expect(heavy.has(command)).toBe(true);
+    }
   });
 });
 
@@ -142,7 +144,9 @@ function stubPi(output: Record<string, string> = OUTPUT, failing: readonly strin
     exec: async (_command: string, args: string[]) => {
       const key = args.join(" ");
       calls.push(key);
-      if (failing.includes(key)) throw new Error(`exec failed: ${key}`);
+      if (failing.includes(key)) {
+        throw new Error(`exec failed: ${key}`);
+      }
       const stdout = output[key];
       return stdout === undefined
         ? { stdout: "", stderr: "fatal", code: 128, killed: false }

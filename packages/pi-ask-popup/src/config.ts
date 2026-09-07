@@ -106,13 +106,19 @@ function nonEmptyString(value: unknown): string | undefined {
  * the tool still registers.
  */
 export function validateGuidanceFields(fields: unknown): GuidanceFields {
-  if (fields === null || typeof fields !== "object") return {};
+  if (fields === null || typeof fields !== "object") {
+    return {};
+  }
   const g = fields as Record<string, unknown>;
   const out: GuidanceFields = {};
   const description = nonEmptyString(g.description);
-  if (description !== undefined) out.description = description;
+  if (description !== undefined) {
+    out.description = description;
+  }
   const promptSnippet = nonEmptyString(g.promptSnippet);
-  if (promptSnippet !== undefined) out.promptSnippet = promptSnippet;
+  if (promptSnippet !== undefined) {
+    out.promptSnippet = promptSnippet;
+  }
   const guidelines = g.promptGuidelines;
   if (
     Array.isArray(guidelines) &&
@@ -135,7 +141,9 @@ export function loadConfig(sources: ConfigSources): ConfigLoadResult {
   for (const path of configPaths(sources)) {
     const raw = readLayer(path, warnings);
     const collapseKey = nonEmptyString(raw.collapseKey);
-    if (collapseKey !== undefined) config.collapseKey = collapseKey;
+    if (collapseKey !== undefined) {
+      config.collapseKey = collapseKey;
+    }
     const guidance = validateGuidanceFields(raw.guidance);
     if (Object.keys(guidance).length > 0) {
       config.guidance = { ...config.guidance, ...guidance };
@@ -183,7 +191,9 @@ const SPECIAL_KEYS = new Set([
 const MODIFIERS = new Set(["ctrl", "shift", "alt", "super"]);
 
 function isBaseKey(key: string): boolean {
-  if (key.length !== 1) return SPECIAL_KEYS.has(key);
+  if (key.length !== 1) {
+    return SPECIAL_KEYS.has(key);
+  }
   return (key >= "a" && key <= "z") || (key >= "0" && key <= "9") || SYMBOL_KEYS.has(key);
 }
 
@@ -199,12 +209,18 @@ function isBaseKey(key: string): boolean {
  * user types, anywhere.
  */
 function isValidCollapseKeySpec(spec: string): boolean {
-  if (!spec || spec.startsWith("+") || spec.endsWith("+") || spec.includes("++")) return false;
+  if (!spec || spec.startsWith("+") || spec.endsWith("+") || spec.includes("++")) {
+    return false;
+  }
   const parts = spec.split("+");
   const base = parts[parts.length - 1] ?? "";
   const modifiers = parts.slice(0, -1);
-  if (modifiers.length !== new Set(modifiers).size) return false;
-  if (!modifiers.every((m) => MODIFIERS.has(m))) return false;
+  if (modifiers.length !== new Set(modifiers).size) {
+    return false;
+  }
+  if (!modifiers.every((m) => MODIFIERS.has(m))) {
+    return false;
+  }
   return isBaseKey(base);
 }
 
@@ -220,8 +236,12 @@ export function resolveCollapseKey(config: {
   collapseKey?: CollapseKeySpec | undefined;
 }): CollapseKeySpec {
   const raw = config.collapseKey?.trim().toLowerCase();
-  if (raw === undefined || raw === "") return DEFAULT_COLLAPSE_KEY;
-  if (raw === COLLAPSE_KEY_OFF) return COLLAPSE_KEY_OFF;
+  if (raw === undefined || raw === "") {
+    return DEFAULT_COLLAPSE_KEY;
+  }
+  if (raw === COLLAPSE_KEY_OFF) {
+    return COLLAPSE_KEY_OFF;
+  }
   return isValidCollapseKeySpec(raw) ? raw : DEFAULT_COLLAPSE_KEY;
 }
 

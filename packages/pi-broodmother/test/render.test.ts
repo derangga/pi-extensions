@@ -157,7 +157,9 @@ describe("SubagentWidget", () => {
     );
     // Measured, not counted: truncateToWidth leaves reset escapes behind, so
     // the string is longer than the columns it occupies.
-    for (const line of widget.render(30)) expect(visibleWidth(line)).toBeLessThanOrEqual(30);
+    for (const line of widget.render(30)) {
+      expect(visibleWidth(line)).toBeLessThanOrEqual(30);
+    }
   });
 
   it("reads the snapshot on every render rather than caching it", () => {
@@ -193,7 +195,9 @@ describe("createWidgetHost", () => {
     const { ctx, setWidget, tui } = fakeContext();
     const host = createWidgetHost(() => [], 150);
 
-    for (let index = 0; index < 20; index++) host.update(ctx);
+    for (let index = 0; index < 20; index++) {
+      host.update(ctx);
+    }
     expect(setWidget).toHaveBeenCalledTimes(1);
 
     // Twenty changes inside one window are one repaint. That is the whole

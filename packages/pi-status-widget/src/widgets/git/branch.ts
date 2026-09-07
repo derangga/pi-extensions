@@ -20,9 +20,13 @@ export const GitBranchWidget = defineWidget({
   defaultStyle: { fg: "magenta", bg: "default", bold: false },
   render({ ctx, options, renderWidget }) {
     const branch = ctx.git.branch;
-    if (!branch) return renderWidget("");
+    if (!branch) {
+      return renderWidget("");
+    }
 
-    if (options.gitBranchDisplayStyle === "round-brackets") return renderWidget(`(${branch})`);
+    if (options.gitBranchDisplayStyle === "round-brackets") {
+      return renderWidget(`(${branch})`);
+    }
     if (options.gitBranchDisplayStyle === "custom") {
       return renderWidget(`${options.surroundLeft}${branch}${options.surroundRight}`);
     }

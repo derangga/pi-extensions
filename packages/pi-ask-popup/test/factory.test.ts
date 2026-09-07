@@ -26,7 +26,9 @@ beforeAll(() => {
   try {
     initTheme();
   } finally {
-    if (prev !== undefined) process.env.PI_PACKAGE_DIR = prev;
+    if (prev !== undefined) {
+      process.env.PI_PACKAGE_DIR = prev;
+    }
   }
 });
 
@@ -103,7 +105,9 @@ function register(): { mock: MockPi; tool: CapturedTool } {
   const mock = createMockPi();
   registerAskPopupTool(mock.pi);
   const tool = mock.tools.get(ASK_POPUP_TOOL_NAME);
-  if (!tool) throw new Error("the tool did not register");
+  if (!tool) {
+    throw new Error("the tool did not register");
+  }
   return { mock, tool };
 }
 
@@ -244,7 +248,9 @@ describe("choosing several", () => {
    * highlight.
    */
   const toCommitRow = (c: Driven, from: number) => {
-    for (let i = from; i < 4; i++) c.handleInput(KEY.DOWN);
+    for (let i = from; i < 4; i++) {
+      c.handleInput(KEY.DOWN);
+    }
   };
 
   it("toggles with Space and commits on the last row", async () => {
@@ -375,7 +381,9 @@ describe("moving between questions", () => {
       c.handleInput(KEY.SHIFT_TAB);
       c.handleInput(KEY.DOWN);
       c.handleInput(KEY.SPACE); // BE on
-      for (let i = 1; i < 4; i++) c.handleInput(KEY.DOWN); // to the commit row
+      for (let i = 1; i < 4; i++) {
+        c.handleInput(KEY.DOWN);
+      } // to the commit row
       c.handleInput(KEY.ENTER); // commit, advancing to Q2
       c.handleInput(KEY.ENTER); // Q2, advancing to review
       c.handleInput(KEY.ENTER); // submit
@@ -419,7 +427,9 @@ describe("pasted and dictated text", () => {
   it("takes a bracketed paste into the typed answer", async () => {
     const pasted = Array.from({ length: 20 }, (_v, i) => `line ${i}`).join("\n");
     const { details } = await ask(THREE_OPTIONS, (c) => {
-      for (let i = 0; i < 3; i++) c.handleInput(KEY.DOWN);
+      for (let i = 0; i < 3; i++) {
+        c.handleInput(KEY.DOWN);
+      }
       c.handleInput(`\x1b[200~${pasted}\x1b[201~`);
       c.handleInput(KEY.ENTER);
     });

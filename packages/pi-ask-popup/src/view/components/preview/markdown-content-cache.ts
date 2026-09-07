@@ -33,7 +33,9 @@ export class MarkdownContentCache {
     this.previewTexts = new Map();
     for (let i = 0; i < question.options.length; i++) {
       const raw = question.options[i]?.preview;
-      if (raw && raw.length > 0) this.previewTexts.set(i, raw);
+      if (raw && raw.length > 0) {
+        this.previewTexts.set(i, raw);
+      }
     }
     this.markdownCache = new Map();
   }
@@ -52,7 +54,9 @@ export class MarkdownContentCache {
    */
   bodyFor(optionIndex: number, innerWidth: number): string[] {
     if (this.cachedWidth !== innerWidth) {
-      for (const md of this.markdownCache.values()) md.invalidate();
+      for (const md of this.markdownCache.values()) {
+        md.invalidate();
+      }
       this.cachedWidth = innerWidth;
     }
     const text = this.previewTexts.get(optionIndex);
@@ -70,7 +74,9 @@ export class MarkdownContentCache {
   }
 
   invalidate(): void {
-    for (const md of this.markdownCache.values()) md.invalidate();
+    for (const md of this.markdownCache.values()) {
+      md.invalidate();
+    }
     this.cachedWidth = undefined;
   }
 }

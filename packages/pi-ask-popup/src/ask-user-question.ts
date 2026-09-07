@@ -74,7 +74,9 @@ export const BEL = "\x07";
  */
 function emitTerminalAttention(): void {
   try {
-    if (process.stdout.isTTY) process.stdout.write(BEL);
+    if (process.stdout.isTTY) {
+      process.stdout.write(BEL);
+    }
   } catch {
     // Best effort. Failing to get someone's attention must not stop the
     // questionnaire from being asked.
@@ -189,16 +191,24 @@ function registerCollapseKeyListener(
   let hasAnnouncedHide = false;
   return ctx.ui.onTerminalInput((data) => {
     const handle = overlayHandleRef.current;
-    if (!handle) return undefined;
+    if (!handle) {
+      return undefined;
+    }
     // Act only while this questionnaire is hidden (its own input is
     // unreachable) or actually focused. With another overlay on top, the key
     // belongs to that one; toggling from underneath it would be baffling.
-    if (!handle.isHidden() && !handle.isFocused()) return undefined;
-    if (!matchesKey(data, collapseKey as Parameters<typeof matchesKey>[1])) return undefined;
+    if (!handle.isHidden() && !handle.isFocused()) {
+      return undefined;
+    }
+    if (!matchesKey(data, collapseKey as Parameters<typeof matchesKey>[1])) {
+      return undefined;
+    }
     // Kitty-protocol terminals report press, repeat and release separately.
     // Toggling on all three would make a tap reopen what it just closed, and a
     // held key flicker.
-    if (isKeyRelease(data) || isKeyRepeat(data)) return { consume: true };
+    if (isKeyRelease(data) || isKeyRepeat(data)) {
+      return { consume: true };
+    }
     sessionRef.current?.toggleCollapsedExternal();
     if (handle.isHidden() && !hasAnnouncedHide) {
       // Once only. The dialog has just vanished, so say how to get it back —
@@ -251,7 +261,9 @@ function makeSessionFactory(config: {
           const editorCommand = SettingsManager.create(ctx.cwd, undefined, {
             projectTrusted: ctx.isProjectTrusted(),
           }).getExternalEditorCommand();
-          if (!editorCommand) throw new Error("No external editor command is configured");
+          if (!editorCommand) {
+            throw new Error("No external editor command is configured");
+          }
           return await editWithExternalEditor(tui, editorCommand, value);
         } catch (error) {
           // Reported, then undefined, which the session reads as "keep the
@@ -365,10 +377,15 @@ export function registerAskPopupTool(pi: ExtensionAPI): void {
     parameters: QuestionParamsSchema,
 
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const typed = params as unknown as QuestionParams;
-      if (!ctx.hasUI) return rejectWithoutUi();
+      // SAFETY: params is validated by QuestionParamsSchema via validateQuestionnaire immediately after narrowing.
+      const typed = params as QuestionParams;
+      if (!ctx.hasUI) {
+        return rejectWithoutUi();
+      }
 
-      for (const warning of pendingWarnings) ctx.ui.notify?.(warning, "warning");
+      for (const warning of pendingWarnings) {
+        ctx.ui.notify?.(warning, "warning");
+      }
       pendingWarnings = [];
 
       const validation = validateQuestionnaire(typed);
@@ -461,7 +478,9 @@ export function registerAskPopupTool(pi: ExtensionAPI): void {
           },
         );
 
-        if (result === undefined) return resolveUndefinedResult(ctx, typed);
+        if (result === undefined) {
+          return resolveUndefinedResult(ctx, typed);
+        }
         return buildQuestionnaireResponse(result, typed);
       } finally {
         removeOverlayInputListener?.();

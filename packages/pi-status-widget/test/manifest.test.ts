@@ -123,7 +123,9 @@ describe("pi-statusbar manifest", () => {
       ]) {
         for (const match of source.matchAll(pattern)) {
           const specifier = match[1];
-          if (specifier && !specifier.startsWith(".")) specifiers.add(specifier);
+          if (specifier && !specifier.startsWith(".")) {
+            specifiers.add(specifier);
+          }
         }
       }
     }

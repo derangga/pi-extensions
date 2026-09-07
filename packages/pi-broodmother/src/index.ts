@@ -23,7 +23,9 @@ import { registerSubagentTools } from "./tools.js";
  * it with `runPromise`, because Pi's own surface is callbacks and promises.
  */
 export default function broodmotherExtension(pi: ExtensionAPI): void {
-  if (inChildSessionContext()) return;
+  if (inChildSessionContext()) {
+    return;
+  }
 
   /**
    * What the widget reads between repaints. A render is synchronous and cannot
@@ -77,7 +79,9 @@ export default function broodmotherExtension(pi: ExtensionAPI): void {
         );
       }),
     );
-    if (!outcome.ok) throw new Error(outcome.message);
+    if (!outcome.ok) {
+      throw new Error(outcome.message);
+    }
     return outcome.value;
   };
 
@@ -127,7 +131,9 @@ export default function broodmotherExtension(pi: ExtensionAPI): void {
     current: () => mirror,
     path: getSettingsPath,
     takeWarnings: () => {
-      if (warningsReported) return [];
+      if (warningsReported) {
+        return [];
+      }
       warningsReported = true;
       return warnings;
     },
@@ -161,9 +167,14 @@ export default function broodmotherExtension(pi: ExtensionAPI): void {
 
   pi.on("agent_start", (_event, ctx) => {
     uiContext = ctx;
-    if (!drawn.beginTurn()) return;
-    if (drawn.current().length === 0) widget.clear(ctx);
-    else widget.update(ctx);
+    if (!drawn.beginTurn()) {
+      return;
+    }
+    if (drawn.current().length === 0) {
+      widget.clear(ctx);
+    } else {
+      widget.update(ctx);
+    }
   });
 
   pi.on("session_shutdown", () => {

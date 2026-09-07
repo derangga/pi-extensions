@@ -24,7 +24,9 @@ export function themeWithColorMode(mode: string): Theme {
 export function partialTheme(defined: readonly string[]): Theme {
   return {
     fg: (color: string, text: string) => {
-      if (!defined.includes(color)) throw new Error(`Unknown theme color: ${color}`);
+      if (!defined.includes(color)) {
+        throw new Error(`Unknown theme color: ${color}`);
+      }
       return `<${color}>${text}</${color}>`;
     },
     getColorMode: () => "256color",

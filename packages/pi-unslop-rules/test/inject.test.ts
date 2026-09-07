@@ -34,7 +34,9 @@ function registeredHandler(): BeforeAgentStart {
   const { pi, handlers } = stubApi();
   unslopExtension(pi);
   const handler = handlers.get("before_agent_start");
-  if (!handler) throw new Error("no before_agent_start handler registered");
+  if (!handler) {
+    throw new Error("no before_agent_start handler registered");
+  }
   return handler;
 }
 
@@ -49,7 +51,9 @@ async function inject(systemPrompt: string): Promise<string> {
     {} as ExtensionContext,
   );
   const injected = (result as BeforeAgentStartEventResult | undefined)?.systemPrompt;
-  if (injected === undefined) throw new Error("handler returned no systemPrompt");
+  if (injected === undefined) {
+    throw new Error("handler returned no systemPrompt");
+  }
   return injected;
 }
 

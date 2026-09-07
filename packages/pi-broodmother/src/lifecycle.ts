@@ -47,14 +47,18 @@ const ACTIVITY_KEYS = ["pattern", "query", "path", "file_path", "filePath", "com
 
 export function describeToolCall(toolName: string, args: unknown): string {
   const verb = toolName.charAt(0).toUpperCase() + toolName.slice(1);
-  if (!Predicate.isObject(args)) return verb;
+  if (!Predicate.isObject(args)) {
+    return verb;
+  }
 
   const fields = args as Record<string, unknown>;
   const candidates = [...ACTIVITY_KEYS.map((key) => fields[key]), ...Object.values(fields)];
   const value = candidates.find(
     (candidate) => Predicate.isString(candidate) && candidate.trim() !== "",
   );
-  if (!Predicate.isString(value)) return verb;
+  if (!Predicate.isString(value)) {
+    return verb;
+  }
 
   const flat = value.replaceAll(/\s+/g, " ").trim();
   return `${verb} ${flat.length > ACTIVITY_MAX ? `${flat.slice(0, ACTIVITY_MAX)}…` : flat}`;
@@ -119,7 +123,9 @@ function messageFor(cause: unknown): string {
 }
 
 function assistantText(message: AgentSession["messages"][number]): string {
-  if (message.role !== "assistant") return "";
+  if (message.role !== "assistant") {
+    return "";
+  }
   return message.content
     .flatMap((part) => (part.type === "text" ? [part.text] : []))
     .join("")
@@ -132,18 +138,26 @@ function lastAssistant(
 ): Extract<AgentSession["messages"][number], { role: "assistant" }> | undefined {
   for (let index = messages.length - 1; index >= start; index--) {
     const message = messages[index];
-    if (message?.role === "assistant") return message;
+    if (message?.role === "assistant") {
+      return message;
+    }
   }
   return undefined;
 }
 
 function sliceUtf8(text: string, maxBytes: number): string {
-  if (maxBytes <= 0) return "";
+  if (maxBytes <= 0) {
+    return "";
+  }
   const bytes = Buffer.from(text, "utf8");
-  if (bytes.length <= maxBytes) return text;
+  if (bytes.length <= maxBytes) {
+    return text;
+  }
 
   let end = maxBytes;
-  while (end > 0 && (bytes[end]! & 0xc0) === 0x80) end--;
+  while (end > 0 && (bytes[end]! & 0xc0) === 0x80) {
+    end--;
+  }
   return bytes.subarray(0, end).toString("utf8");
 }
 
@@ -154,12 +168,16 @@ export function truncateResult(
   status = "",
 ): string {
   const full = `${text}${status}`;
-  if (Buffer.byteLength(full, "utf8") <= maxBytes) return full;
+  if (Buffer.byteLength(full, "utf8") <= maxBytes) {
+    return full;
+  }
 
   const footer = `\n\n[Output truncated. Full transcript: ${sessionFile ?? "child session unavailable"}]`;
   const suffix = `${status}${footer}`;
   const budget = maxBytes - Buffer.byteLength(suffix, "utf8");
-  if (budget <= 0) return sliceUtf8(suffix, maxBytes);
+  if (budget <= 0) {
+    return sliceUtf8(suffix, maxBytes);
+  }
   return `${sliceUtf8(text, budget)}${suffix}`;
 }
 
@@ -219,7 +237,9 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
   };
 
   const unsubscribe = session.subscribe((event: AgentSessionEvent) => {
-    if (event.type === "message_start" && event.message.role === "assistant") streamed = "";
+    if (event.type === "message_start" && event.message.role === "assistant") {
+      streamed = "";
+    }
     if (event.type === "message_update" && event.assistantMessageEvent.type === "text_delta") {
       streamed += event.assistantMessageEvent.delta;
     }
@@ -253,7 +273,9 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
       }
       return;
     }
-    if (event.type !== "turn_end") return;
+    if (event.type !== "turn_end") {
+      return;
+    }
 
     turns++;
     if (!wrapRequested && turns >= maxTurns) {
@@ -275,8 +297,11 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
           void session.abort().catch(() => undefined);
           resume(Effect.succeed("stopped"));
         };
-        if (options.signal!.aborted) stop();
-        else options.signal!.addEventListener("abort", stop, { once: true });
+        if (options.signal!.aborted) {
+          stop();
+        } else {
+          options.signal!.addEventListener("abort", stop, { once: true });
+        }
         return Effect.sync(() => options.signal!.removeEventListener("abort", stop));
       })
     : Effect.never;

@@ -113,10 +113,14 @@ async function openPanel(host: SubagentCommandHost, ctx: ExtensionCommandContext
       for (const fresh of buildSettingItems(settings, available, parent)) {
         list.updateValue(fresh.id, fresh.currentValue);
         const row = items.find((item) => item.id === fresh.id);
-        if (row && fresh.description !== undefined) row.description = fresh.description;
+        if (row && fresh.description !== undefined) {
+          row.description = fresh.description;
+        }
       }
       const thinkingRow = items.find((item) => item.id === ROW_THINKING);
-      if (thinkingRow) thinkingRow.values = thinkingValues(resolved);
+      if (thinkingRow) {
+        thinkingRow.values = thinkingValues(resolved);
+      }
     };
 
     const applyAndSync = (id: string, value: string): void => {
@@ -131,7 +135,9 @@ async function openPanel(host: SubagentCommandHost, ctx: ExtensionCommandContext
     const move = (step: number): void => {
       cursor = (cursor + step + items.length) % items.length;
       const item = items[cursor];
-      if (item) list.selectItem(item.id);
+      if (item) {
+        list.selectItem(item.id);
+      }
     };
 
     return {
@@ -159,8 +165,11 @@ async function openPanel(host: SubagentCommandHost, ctx: ExtensionCommandContext
         }
 
         list.handleInput?.(data);
-        if (keybindings.matches(data, "tui.select.up")) move(-1);
-        else if (keybindings.matches(data, "tui.select.down")) move(1);
+        if (keybindings.matches(data, "tui.select.up")) {
+          move(-1);
+        } else if (keybindings.matches(data, "tui.select.down")) {
+          move(1);
+        }
         tui.requestRender();
       },
     };
@@ -172,8 +181,12 @@ function stepForKey(
   data: string,
   keybindings: { matches(data: string, id: string): boolean },
 ): number | undefined {
-  if (keybindings.matches(data, "tui.select.left")) return -1;
-  if (keybindings.matches(data, "tui.select.right")) return 1;
+  if (keybindings.matches(data, "tui.select.left")) {
+    return -1;
+  }
+  if (keybindings.matches(data, "tui.select.right")) {
+    return 1;
+  }
   return undefined;
 }
 
@@ -196,7 +209,9 @@ export function modelChoices(
 }
 
 function indexOfChoice(available: readonly PiModel[], choice: string): number {
-  if (choice === INHERIT) return 0;
+  if (choice === INHERIT) {
+    return 0;
+  }
   const index = available.findIndex((model) => model.id === choice);
   return index === -1 ? 0 : index + 1;
 }

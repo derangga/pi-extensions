@@ -57,15 +57,21 @@ describe("COLOR_SCHEMES", () => {
     let counted = 0;
     for (const [name, scheme] of entries) {
       for (const key of BASIC_COLOR_NAMES) {
-        if (!HEX.test(scheme.ansi[key])) malformed.push(`${name}.ansi.${key}=${scheme.ansi[key]}`);
+        if (!HEX.test(scheme.ansi[key])) {
+          malformed.push(`${name}.ansi.${key}=${scheme.ansi[key]}`);
+        }
         counted += 1;
       }
       for (const level of THINKING_LEVELS) {
         const value = scheme.thinking[level];
-        if (!HEX.test(value)) malformed.push(`${name}.thinking.${level}=${value}`);
+        if (!HEX.test(value)) {
+          malformed.push(`${name}.thinking.${level}=${value}`);
+        }
         counted += 1;
       }
-      if (!HEX.test(scheme.dim)) malformed.push(`${name}.dim=${scheme.dim}`);
+      if (!HEX.test(scheme.dim)) {
+        malformed.push(`${name}.dim=${scheme.dim}`);
+      }
       counted += 1;
     }
     expect(malformed).toEqual([]);

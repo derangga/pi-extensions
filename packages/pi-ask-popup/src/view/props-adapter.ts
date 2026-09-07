@@ -22,7 +22,9 @@ function getInputCursorOffset(input: Editor): number {
   const lines = input.getLines();
   const cursor = input.getCursor();
   let offset = cursor.col;
-  for (let i = 0; i < cursor.line; i++) offset += (lines[i]?.length ?? 0) + 1;
+  for (let i = 0; i < cursor.line; i++) {
+    offset += (lines[i]?.length ?? 0) + 1;
+  }
   return offset;
 }
 
@@ -82,7 +84,9 @@ export class QuestionnairePropsAdapter {
     // so there is always a tab. Skipping the tick beats asserting non-null and
     // throwing out of a render path if that ever stops being true.
     const activePreviewPane = this.tabsByIndex[paneIndex]?.preview ?? firstTab?.preview;
-    if (!activePreviewPane) return;
+    if (!activePreviewPane) {
+      return;
+    }
 
     const ctx: BindingContext = {
       questions: this.questions,
@@ -94,13 +98,19 @@ export class QuestionnairePropsAdapter {
       activePreviewPane,
     };
 
-    for (const binding of this.globalBindings) binding.apply(state, ctx);
+    for (const binding of this.globalBindings) {
+      binding.apply(state, ctx);
+    }
 
     for (let i = 0; i < this.tabsByIndex.length; i++) {
       const tab = this.tabsByIndex[i];
-      if (!tab) continue;
+      if (!tab) {
+        continue;
+      }
       const tabCtx: PerTabBindingContext = { ...ctx, tab, i };
-      for (const binding of this.perTabBindings) binding.apply(state, tabCtx);
+      for (const binding of this.perTabBindings) {
+        binding.apply(state, tabCtx);
+      }
     }
 
     this.tui.requestRender();
@@ -113,12 +123,16 @@ export class QuestionnairePropsAdapter {
    * refresh them. Walks the same registries `apply()` does, then the extras.
    */
   invalidate(): void {
-    for (const b of this.globalBindings) b.invalidate();
+    for (const b of this.globalBindings) {
+      b.invalidate();
+    }
     for (const tab of this.tabsByIndex) {
       tab.optionList.invalidate();
       tab.preview.invalidate();
       tab.multiSelect?.invalidate();
     }
-    for (const x of this.extraInvalidatables) x.invalidate();
+    for (const x of this.extraInvalidatables) {
+      x.invalidate();
+    }
   }
 }

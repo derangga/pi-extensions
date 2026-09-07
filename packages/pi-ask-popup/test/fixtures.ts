@@ -208,7 +208,9 @@ export function propsCalls<P>(view: { setProps: (props: P) => void }): P[] {
 export function lastProps<P>(view: { setProps: (props: P) => void }): P {
   const calls = propsCalls(view);
   const last = calls.at(-1);
-  if (last === undefined) throw new Error("setProps was never called");
+  if (last === undefined) {
+    throw new Error("setProps was never called");
+  }
   return last;
 }
 

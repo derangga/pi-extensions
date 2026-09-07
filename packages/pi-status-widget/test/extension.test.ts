@@ -34,8 +34,11 @@ beforeEach(async () => {
 });
 
 afterEach(() => {
-  if (previousConfigPath === undefined) delete process.env[CONFIG_ENV];
-  else process.env[CONFIG_ENV] = previousConfigPath;
+  if (previousConfigPath === undefined) {
+    delete process.env[CONFIG_ENV];
+  } else {
+    process.env[CONFIG_ENV] = previousConfigPath;
+  }
 });
 
 /** Loads the extension and starts a session, which is what mounts the footer. */
@@ -50,7 +53,9 @@ async function start(
 }
 
 function mount(factory: FooterFactory | undefined) {
-  if (!factory) throw new Error("no footer factory was registered");
+  if (!factory) {
+    throw new Error("no footer factory was registered");
+  }
   const tui = stubTui();
   const footerData = stubFooterData();
   return { tui, footerData, component: factory(tui.tui, taggedTheme, footerData.footerData) };
@@ -102,8 +107,11 @@ describe("statusbarExtension wiring", () => {
 
       expect(context.statuses).toEqual(["pi-statusbar"]);
     } finally {
-      if (previous === undefined) delete process.env.NO_COLOR;
-      else process.env.NO_COLOR = previous;
+      if (previous === undefined) {
+        delete process.env.NO_COLOR;
+      } else {
+        process.env.NO_COLOR = previous;
+      }
     }
   });
 
@@ -232,7 +240,9 @@ describe("statusbarExtension rendering", () => {
   it("appends another extension's status below the footer", async () => {
     const { context } = await start();
     const factory = context.footers[0];
-    if (!factory) throw new Error("no footer factory was registered");
+    if (!factory) {
+      throw new Error("no footer factory was registered");
+    }
 
     const tui = stubTui();
     const footerData = stubFooterData("main", new Map([["other-extension", "busy"]]));

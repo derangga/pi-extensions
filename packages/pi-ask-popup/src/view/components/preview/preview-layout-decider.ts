@@ -61,7 +61,9 @@ export function adaptiveLeftWidth(
   let maxLabel = 0;
   for (const item of items) {
     const w = visibleWidth(item.label);
-    if (w > maxLabel) maxLabel = w;
+    if (w > maxLabel) {
+      maxLabel = w;
+    }
   }
   const desired = maxLabel + prefixW + confirmedOverhead;
   const ratioCapped = Math.min(desired, Math.floor(paneWidth * MAX_LEFT_RATIO));
@@ -88,7 +90,9 @@ export function crossTabMaxLeftWidth(
     const items = itemsByTab[i] ?? [];
     const totalForNumbering = items.length;
     const tabWidth = adaptiveLeftWidth(items, totalForNumbering, paneWidth);
-    if (tabWidth > max) max = tabWidth;
+    if (tabWidth > max) {
+      max = tabWidth;
+    }
   }
   return max;
 }
@@ -108,10 +112,14 @@ export function previewSourceWidth(question: QuestionData): number {
   let max = 0;
   for (const option of question.options) {
     const text = option.preview;
-    if (!text) continue;
+    if (!text) {
+      continue;
+    }
     for (const line of text.split("\n")) {
       const w = visibleWidth(line);
-      if (w > max) max = w;
+      if (w > max) {
+        max = w;
+      }
     }
   }
   return max;
@@ -138,7 +146,9 @@ export function crossTabPreviewBudget(
       BORDER_HORIZONTAL_OVERHEAD +
       2 * BORDER_INNER_PADDING_HORIZONTAL +
       PREVIEW_PADDING_LEFT;
-    if (budget > max) max = budget;
+    if (budget > max) {
+      max = budget;
+    }
   }
   return max;
 }
@@ -213,7 +223,9 @@ export function bodyWidths(
   mode: PreviewLayoutMode,
   adaptiveLeft: number,
 ): { optionsWidth: number; previewWidth: number } {
-  if (mode === "stacked") return { optionsWidth: paneWidth, previewWidth: paneWidth };
+  if (mode === "stacked") {
+    return { optionsWidth: paneWidth, previewWidth: paneWidth };
+  }
   const { leftWidth, rightWidth } = columnWidths(paneWidth, adaptiveLeft);
   return { optionsWidth: leftWidth, previewWidth: Math.max(1, rightWidth - PREVIEW_PADDING_LEFT) };
 }

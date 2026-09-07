@@ -1,4 +1,4 @@
-import { type Editor, type EditorTheme, type TUI } from "@earendil-works/pi-tui";
+import type { Editor, EditorTheme, TUI } from "@earendil-works/pi-tui";
 import { Editor as PiEditor } from "@earendil-works/pi-tui";
 import { describe, expect, it, vi } from "vitest";
 import type { WrappingSelectItem } from "../src/state/row-intent.js";
@@ -100,7 +100,9 @@ function makeFixture(overQuestions?: QuestionData[]) {
 
 function tabAt(tabs: TabComponents[], index: number): TabComponents {
   const tab = tabs[index];
-  if (!tab) throw new Error(`no tab at ${index}`);
+  if (!tab) {
+    throw new Error(`no tab at ${index}`);
+  }
   return tab;
 }
 
@@ -111,7 +113,9 @@ interface MultiSelectFake {
 
 function multiSelectAt(tabs: TabComponents[], index: number): MultiSelectFake {
   const multiSelect = tabAt(tabs, index).multiSelect;
-  if (!multiSelect) throw new Error(`tab ${index} has no multi-select view`);
+  if (!multiSelect) {
+    throw new Error(`tab ${index} has no multi-select view`);
+  }
   return multiSelect as unknown as MultiSelectFake;
 }
 

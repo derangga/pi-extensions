@@ -59,14 +59,20 @@ function isConfirm(kb: QuestionnaireKeybindings, data: string): boolean {
 }
 
 export function wrapTab(index: number, total: number): number {
-  if (total <= 0) return 0;
+  if (total <= 0) {
+    return 0;
+  }
   return ((index % total) + total) % total;
 }
 
 export function allAnswered(state: QuestionnaireState, runtime: QuestionnaireRuntime): boolean {
-  if (runtime.questions.length === 0) return false;
+  if (runtime.questions.length === 0) {
+    return false;
+  }
   for (let i = 0; i < runtime.questions.length; i++) {
-    if (!state.answers.has(i)) return false;
+    if (!state.answers.has(i)) {
+      return false;
+    }
   }
   return true;
 }
@@ -79,8 +85,12 @@ function computeAutoAdvanceTab(
   state: QuestionnaireState,
   runtime: QuestionnaireRuntime,
 ): number | undefined {
-  if (!runtime.isMulti) return undefined;
-  if (state.currentTab < runtime.questions.length - 1) return state.currentTab + 1;
+  if (!runtime.isMulti) {
+    return undefined;
+  }
+  if (state.currentTab < runtime.questions.length - 1) {
+    return state.currentTab + 1;
+  }
   return runtime.questions.length;
 }
 
@@ -89,7 +99,9 @@ function buildSingleSelectAnswer(
   runtime: QuestionnaireRuntime,
 ): QuestionAnswer | null {
   const q = runtime.questions[state.currentTab];
-  if (!q) return null;
+  if (!q) {
+    return null;
+  }
 
   const item = runtime.currentItem;
 
@@ -102,7 +114,9 @@ function buildSingleSelectAnswer(
       answer: label.length > 0 ? label : null,
     };
   }
-  if (!item) return null;
+  if (!item) {
+    return null;
+  }
   if (item.kind === "other") {
     return null;
   }
@@ -119,12 +133,16 @@ function buildSingleSelectAnswer(
 
 function buildMultiSelected(state: QuestionnaireState, runtime: QuestionnaireRuntime): string[] {
   const q = runtime.questions[state.currentTab];
-  if (!q) return [];
+  if (!q) {
+    return [];
+  }
   const out: string[] = [];
   for (let i = 0; i < q.options.length; i++) {
     if (state.multiSelectChecked.has(i)) {
       const label = q.options[i]?.label;
-      if (typeof label === "string") out.push(label);
+      if (typeof label === "string") {
+        out.push(label);
+      }
     }
   }
   return out;
@@ -135,7 +153,9 @@ function tabSwitchAction(
   state: QuestionnaireState,
   runtime: QuestionnaireRuntime,
 ): QuestionnaireAction | null {
-  if (!runtime.isMulti) return null;
+  if (!runtime.isMulti) {
+    return null;
+  }
   const total = totalTabs(runtime);
   if (matchesKey(data, Key.tab) || matchesKey(data, Key.right)) {
     return { kind: "tab_switch", nextTab: wrapTab(state.currentTab + 1, total) };
@@ -174,14 +194,22 @@ function prevNavOnUp(
 // the user can read the now-uncovered transcript without accidentally mutating
 // answers or notes. The collapse toggle itself is already handled above.
 function routeCollapsed(kb: QuestionnaireKeybindings, data: string): QuestionnaireAction {
-  if (kb.matches(data, KEYBIND_CANCEL)) return { kind: "cancel" };
+  if (kb.matches(data, KEYBIND_CANCEL)) {
+    return { kind: "cancel" };
+  }
   return { kind: "ignore" };
 }
 
 function routeNotesMode(kb: QuestionnaireKeybindings, data: string): QuestionnaireAction {
-  if (kb.matches(data, KEYBIND_CANCEL)) return { kind: "notes_exit" };
-  if (kb.matches(data, KEYBIND_NEW_LINE)) return { kind: "notes_forward", data };
-  if (isConfirm(kb, data)) return { kind: "notes_exit" };
+  if (kb.matches(data, KEYBIND_CANCEL)) {
+    return { kind: "notes_exit" };
+  }
+  if (kb.matches(data, KEYBIND_NEW_LINE)) {
+    return { kind: "notes_forward", data };
+  }
+  if (isConfirm(kb, data)) {
+    return { kind: "notes_exit" };
+  }
   return { kind: "notes_forward", data };
 }
 
@@ -193,22 +221,39 @@ function routeInputMode(
 ): QuestionnaireAction {
   // Newline takes precedence over confirmation if a user configuration binds
   // the same physical key to both semantic actions.
-  if (kb.matches(data, KEYBIND_NEW_LINE)) return { kind: "ignore" };
+  if (kb.matches(data, KEYBIND_NEW_LINE)) {
+    return { kind: "ignore" };
+  }
   if (isConfirm(kb, data)) {
     const answer = buildSingleSelectAnswer(state, runtime);
-    if (!answer) return { kind: "ignore" };
+    if (!answer) {
+      return { kind: "ignore" };
+    }
     return { kind: "confirm", answer, autoAdvanceTab: computeAutoAdvanceTab(state, runtime) };
   }
   // Treat Pi's Ctrl+U line-kill binding as an explicit whole-draft clear,
   // independent of the current cursor position.
-  if (kb.matches(data, KEYBIND_CLEAR)) return { kind: "input_clear" };
-  if (kb.matches(data, KEYBIND_EXTERNAL_EDITOR))
+  if (kb.matches(data, KEYBIND_CLEAR)) {
+    return { kind: "input_clear" };
+  }
+  if (kb.matches(data, KEYBIND_EXTERNAL_EDITOR)) {
     return { kind: "input_edit", value: runtime.inputBuffer };
-  if (kb.matches(data, KEYBIND_CANCEL)) return { kind: "cancel" };
-  if (kb.matches(data, KEYBIND_EDITOR_UP) && runtime.canMoveInputUp) return { kind: "ignore" };
-  if (kb.matches(data, KEYBIND_EDITOR_DOWN) && runtime.canMoveInputDown) return { kind: "ignore" };
-  if (kb.matches(data, KEYBIND_UP)) return prevNavOnUp(state, runtime);
-  if (kb.matches(data, KEYBIND_DOWN)) return nextNavOnDown(state, runtime);
+  }
+  if (kb.matches(data, KEYBIND_CANCEL)) {
+    return { kind: "cancel" };
+  }
+  if (kb.matches(data, KEYBIND_EDITOR_UP) && runtime.canMoveInputUp) {
+    return { kind: "ignore" };
+  }
+  if (kb.matches(data, KEYBIND_EDITOR_DOWN) && runtime.canMoveInputDown) {
+    return { kind: "ignore" };
+  }
+  if (kb.matches(data, KEYBIND_UP)) {
+    return prevNavOnUp(state, runtime);
+  }
+  if (kb.matches(data, KEYBIND_DOWN)) {
+    return nextNavOnDown(state, runtime);
+  }
   return { kind: "ignore" };
 }
 
@@ -218,9 +263,13 @@ function routeSubmitTab(
   state: QuestionnaireState,
   runtime: QuestionnaireRuntime,
 ): QuestionnaireAction {
-  if (kb.matches(data, KEYBIND_CANCEL)) return { kind: "cancel" };
+  if (kb.matches(data, KEYBIND_CANCEL)) {
+    return { kind: "cancel" };
+  }
   const tab = tabSwitchAction(data, state, runtime);
-  if (tab) return tab;
+  if (tab) {
+    return tab;
+  }
   if (kb.matches(data, KEYBIND_UP) || kb.matches(data, KEYBIND_DOWN)) {
     const delta = kb.matches(data, KEYBIND_DOWN) ? 1 : -1;
     const next = wrapTab(state.submitChoiceIndex + delta, 2);
@@ -257,20 +306,28 @@ function routeMultiSelectTab(
   // `blocksMultiToggle` (the Next sentinel) or `activatesInputMode` (the "Type
   // something." row — it is an inline input, not a checkable option).
   if (data === SPACE_KEY) {
-    if (focusedMeta?.blocksMultiToggle) return { kind: "ignore" };
-    if (focusedMeta?.activatesInputMode) return { kind: "ignore" };
+    if (focusedMeta?.blocksMultiToggle) {
+      return { kind: "ignore" };
+    }
+    if (focusedMeta?.activatesInputMode) {
+      return { kind: "ignore" };
+    }
     return { kind: "toggle", index: state.optionIndex };
   }
   if (isConfirm(kb, data)) {
     // Enter on the "Type something." row is handled by the inputMode block above
     // (→ confirm kind:"custom"). Defensive: never enter the toggle/multi_confirm
     // path for an inputMode-activating row.
-    if (focusedMeta?.activatesInputMode) return { kind: "ignore" };
+    if (focusedMeta?.activatesInputMode) {
+      return { kind: "ignore" };
+    }
     // Enter on a regular row toggles (matching Space) — committing the question is now
     // gated behind explicit focus on a row whose META declares `autoSubmitsInMulti`
     // (the Next sentinel), so Enter on options is a no-cost way to flip checkboxes
     // without leaving the keyboard home row.
-    if (!focusedMeta?.autoSubmitsInMulti) return { kind: "toggle", index: state.optionIndex };
+    if (!focusedMeta?.autoSubmitsInMulti) {
+      return { kind: "toggle", index: state.optionIndex };
+    }
     // Enter on Next: carry autoAdvanceTab so the host can advance to the next tab in
     // multi-question mode, OR submit the dialog in single-question mode
     // (autoAdvanceTab === undefined when !isMulti). Without this, a single multi-select
@@ -281,7 +338,9 @@ function routeMultiSelectTab(
       autoAdvanceTab: computeAutoAdvanceTab(state, runtime),
     };
   }
-  if (kb.matches(data, KEYBIND_CANCEL)) return { kind: "cancel" };
+  if (kb.matches(data, KEYBIND_CANCEL)) {
+    return { kind: "cancel" };
+  }
   return { kind: "ignore" };
 }
 
@@ -293,10 +352,14 @@ function routeSingleSelectTab(
 ): QuestionnaireAction {
   if (isConfirm(kb, data)) {
     const answer = buildSingleSelectAnswer(state, runtime);
-    if (!answer) return { kind: "ignore" };
+    if (!answer) {
+      return { kind: "ignore" };
+    }
     return { kind: "confirm", answer, autoAdvanceTab: computeAutoAdvanceTab(state, runtime) };
   }
-  if (kb.matches(data, KEYBIND_CANCEL)) return { kind: "cancel" };
+  if (kb.matches(data, KEYBIND_CANCEL)) {
+    return { kind: "cancel" };
+  }
   return { kind: "ignore" };
 }
 
@@ -339,18 +402,28 @@ export function routeKey(
     return { kind: "toggle_collapsed" };
   }
 
-  if (state.collapsed) return routeCollapsed(kb, data);
-  if (state.notesVisible) return routeNotesMode(kb, data);
-  if (state.inputMode) return routeInputMode(kb, data, state, runtime);
+  if (state.collapsed) {
+    return routeCollapsed(kb, data);
+  }
+  if (state.notesVisible) {
+    return routeNotesMode(kb, data);
+  }
+  if (state.inputMode) {
+    return routeInputMode(kb, data, state, runtime);
+  }
   if (runtime.isMulti && state.currentTab === runtime.questions.length) {
     return routeSubmitTab(kb, data, state, runtime);
   }
 
   const tab = tabSwitchAction(data, state, runtime);
-  if (tab) return tab;
+  if (tab) {
+    return tab;
+  }
 
   const q = runtime.questions[state.currentTab];
-  if (!q) return { kind: "ignore" };
+  if (!q) {
+    return { kind: "ignore" };
+  }
 
   // Universal `n` activation (FR-1): the notes editor opens on every question tab
   // (single- or multi-select, preview or no-preview). The blocks above already
@@ -373,6 +446,8 @@ export function routeKey(
     return nextNavOnDown(state, runtime);
   }
 
-  if (q.multiSelect) return routeMultiSelectTab(kb, data, state, runtime);
+  if (q.multiSelect) {
+    return routeMultiSelectTab(kb, data, state, runtime);
+  }
   return routeSingleSelectTab(kb, data, state, runtime);
 }

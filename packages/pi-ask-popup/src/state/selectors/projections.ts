@@ -44,7 +44,9 @@ function nextLabelFor(ctx: PerTabBindingContext): string {
 
 export const selectMultiSelectProps: PerTabSelector<MultiSelectViewProps> = (state, ctx) => {
   const question = ctx.questions[ctx.i];
-  if (!question) return emptyMultiSelectProps(ctx);
+  if (!question) {
+    return emptyMultiSelectProps(ctx);
+  }
   const focused = ctx.activeView === "options";
   const rows = question.options.map((_option, i) => ({
     checked: state.multiSelectChecked.has(i),

@@ -40,12 +40,18 @@ export const THINKING_LEVELS = [
  * collapses to `off` no matter what the map says.
  */
 export function supportedThinkingLevels(model: PiModel): ThinkingLevel[] {
-  if (!model.reasoning) return ["off"];
+  if (!model.reasoning) {
+    return ["off"];
+  }
 
   return THINKING_LEVELS.filter((level) => {
     const mapped = model.thinkingLevelMap?.[level];
-    if (mapped === null) return false;
-    if (level === "xhigh" || level === "max") return mapped !== undefined;
+    if (mapped === null) {
+      return false;
+    }
+    if (level === "xhigh" || level === "max") {
+      return mapped !== undefined;
+    }
     return true;
   });
 }

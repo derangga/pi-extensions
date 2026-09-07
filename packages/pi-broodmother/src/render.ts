@@ -46,7 +46,9 @@ function statusColor(task: TaskView): ThemeColor {
 }
 
 export function formatTokens(tokens: number): string {
-  if (tokens < 1000) return String(tokens);
+  if (tokens < 1000) {
+    return String(tokens);
+  }
   const thousands = tokens / 1000;
   return thousands < 100 ? `${thousands.toFixed(1)}k` : `${Math.round(thousands)}k`;
 }
@@ -58,12 +60,16 @@ export function formatTokens(tokens: number): string {
  * render says so instead of rounding away to nothing.
  */
 export function formatCost(cost: number): string | undefined {
-  if (!(cost > 0)) return undefined;
+  if (!(cost > 0)) {
+    return undefined;
+  }
   return cost >= 0.0001 ? `$${cost.toFixed(4)}` : "<$0.0001";
 }
 
 export function formatElapsed(task: TaskView, now: number): string {
-  if (task.startedAt === undefined) return "–";
+  if (task.startedAt === undefined) {
+    return "–";
+  }
   const seconds = Math.max(0, Math.round(((task.endedAt ?? now) - task.startedAt) / 1000));
   return seconds >= 60 ? `${Math.floor(seconds / 60)}m${seconds % 60}s` : `${seconds}s`;
 }
@@ -98,7 +104,9 @@ export function widgetLine(task: TaskView, theme: Theme, now: number): string {
 
 export function widgetLines(runs: readonly RunView[], theme: Theme, now: number): string[] {
   const tasks = runs.flatMap((run) => run.tasks);
-  if (tasks.length === 0) return [];
+  if (tasks.length === 0) {
+    return [];
+  }
 
   const done = tasks.filter(isDone).length;
   const live = tasks.length - done;
@@ -119,8 +127,9 @@ export function widgetLines(runs: readonly RunView[], theme: Theme, now: number)
   }
 
   const hidden = tasks.length - shown;
-  if (hidden > 0) lines.push(`${theme.fg("dim", "└─")} ${theme.fg("dim", `+${hidden} more`)}`);
-  else if (lines.length > 1) {
+  if (hidden > 0) {
+    lines.push(`${theme.fg("dim", "└─")} ${theme.fg("dim", `+${hidden} more`)}`);
+  } else if (lines.length > 1) {
     lines[lines.length - 1] = lines[lines.length - 1]!.replace("├─", "└─");
   }
   return lines;
@@ -181,13 +190,17 @@ export function createWidgetRuns(): WidgetRuns {
       ended = true;
     },
     beginTurn() {
-      if (!ended) return false;
+      if (!ended) {
+        return false;
+      }
       ended = false;
       const gone = runs.filter((run) => run.finished);
       // Remembered by id, because the manager keeps pushing every run it holds
       // and a dropped one would otherwise come straight back on the next
       // snapshot. A live run keeps its rows however long it takes.
-      for (const run of gone) dismissed.add(run.id);
+      for (const run of gone) {
+        dismissed.add(run.id);
+      }
       runs = runs.filter((run) => !run.finished);
       return gone.length > 0;
     },
@@ -213,7 +226,9 @@ export function createWidgetHost(
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   const mount = (ctx: ExtensionContext): void => {
-    if (mounted || !ctx.hasUI) return;
+    if (mounted || !ctx.hasUI) {
+      return;
+    }
     mounted = true;
     try {
       ctx.ui.setWidget(
@@ -231,9 +246,13 @@ export function createWidgetHost(
 
   return {
     update(ctx) {
-      if (!ctx?.hasUI) return;
+      if (!ctx?.hasUI) {
+        return;
+      }
       mount(ctx);
-      if (timer) return;
+      if (timer) {
+        return;
+      }
       timer = setTimeout(() => {
         timer = undefined;
         tui?.requestRender();
@@ -243,10 +262,14 @@ export function createWidgetHost(
       timer.unref?.();
     },
     clear(ctx) {
-      if (timer) clearTimeout(timer);
+      if (timer) {
+        clearTimeout(timer);
+      }
       timer = undefined;
       tui = undefined;
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       mounted = false;
       try {
         ctx?.ui.setWidget(WIDGET_KEY, undefined);
@@ -268,7 +291,9 @@ interface PartialTask {
 }
 
 function text(value: unknown): string | undefined {
-  if (!Predicate.isString(value)) return undefined;
+  if (!Predicate.isString(value)) {
+    return undefined;
+  }
   const flat = value.replaceAll(/\s+/g, " ").trim();
   return flat === "" ? undefined : flat;
 }
@@ -338,7 +363,9 @@ export function resultLines(
   now: number = Date.now(),
 ): string[] {
   const lines = [summaryLine(run, theme)];
-  if (!expanded) return lines;
+  if (!expanded) {
+    return lines;
+  }
 
   for (const task of run.tasks) {
     lines.push(`  ${widgetLine(task, theme, now)}`);
@@ -349,8 +376,12 @@ export function resultLines(
       continue;
     }
     const body = text(task.output);
-    if (body) lines.push(`    ${theme.fg("dim", truncate(body, 120))}`);
-    if (task.sessionFile) lines.push(`    ${theme.fg("muted", task.sessionFile)}`);
+    if (body) {
+      lines.push(`    ${theme.fg("dim", truncate(body, 120))}`);
+    }
+    if (task.sessionFile) {
+      lines.push(`    ${theme.fg("muted", task.sessionFile)}`);
+    }
   }
   return lines;
 }

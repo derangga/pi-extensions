@@ -15,6 +15,7 @@
     "builtin": true
   },
   "rules": {
+    "curly": ["error", "all"],
     "eqeqeq": "error",
     "no-console": "warn",
     "typescript/no-floating-promises": "error",

@@ -53,7 +53,9 @@ function render(): string {
             getExtensionStatuses: () => new Map([["other-ext", "busy"]]),
           });
           out.push(`${preset}/${colorLevel}/${width}/${thinkingLevel ?? "none"}`);
-          for (const line of lines) out.push(`  ${JSON.stringify(line)}`);
+          for (const line of lines) {
+            out.push(`  ${JSON.stringify(line)}`);
+          }
         }
       }
     }

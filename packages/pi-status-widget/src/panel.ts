@@ -51,7 +51,9 @@ export function stepForKey(data: string): number | undefined {
 
 /** Wraps in both directions, so neither arrow ever dead-ends on a row. */
 export function cycleValue(values: readonly string[], current: string, step: number): string {
-  if (values.length === 0) return current;
+  if (values.length === 0) {
+    return current;
+  }
   const at = values.indexOf(current);
   // An unknown current value starts the walk at the first entry rather than
   // treating -1 as a position, which would skip an entry going right.

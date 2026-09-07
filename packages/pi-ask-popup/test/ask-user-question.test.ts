@@ -34,7 +34,9 @@ function register() {
   const mock = createMockPi();
   registerAskPopupTool(mock.pi);
   const tool = mock.tools.get(ASK_POPUP_TOOL_NAME);
-  if (!tool) throw new Error("the tool did not register");
+  if (!tool) {
+    throw new Error("the tool did not register");
+  }
   return { mock, tool };
 }
 
@@ -83,8 +85,11 @@ function setIsTTY(value: boolean): void {
 }
 
 afterEach(() => {
-  if (realIsTTY) Object.defineProperty(process.stdout, "isTTY", realIsTTY);
-  else delete (process.stdout as { isTTY?: boolean }).isTTY;
+  if (realIsTTY) {
+    Object.defineProperty(process.stdout, "isTTY", realIsTTY);
+  } else {
+    delete (process.stdout as { isTTY?: boolean }).isTTY;
+  }
   vi.restoreAllMocks();
 });
 
@@ -152,9 +157,14 @@ describe("guidance from config", () => {
   }
 
   afterEach(() => {
-    if (realAgentDir === undefined) delete process.env[AGENT_DIR_ENV];
-    else process.env[AGENT_DIR_ENV] = realAgentDir;
-    for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+    if (realAgentDir === undefined) {
+      delete process.env[AGENT_DIR_ENV];
+    } else {
+      process.env[AGENT_DIR_ENV] = realAgentDir;
+    }
+    for (const root of roots.splice(0)) {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it("lets an operator replace the tool description", () => {
@@ -337,7 +347,9 @@ describe("events", () => {
     const order: string[] = [];
     setIsTTY(true);
     vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
-      if (chunk === BEL) order.push("bell");
+      if (chunk === BEL) {
+        order.push("bell");
+      }
       return true;
     });
     const mock = createMockPi();
@@ -345,8 +357,9 @@ describe("events", () => {
     const tool = mock.tools.get(ASK_POPUP_TOOL_NAME) as CapturedTool;
     const originalEmit = mock.pi.events.emit.bind(mock.pi.events);
     vi.spyOn(mock.pi.events, "emit").mockImplementation((channel: string, payload: unknown) => {
-      if (channel === ASK_POPUP_BLOCKED_EVENT)
+      if (channel === ASK_POPUP_BLOCKED_EVENT) {
         order.push(`blocked:${String((payload as { active: boolean }).active)}`);
+      }
       return originalEmit(channel, payload);
     });
     await run(tool, ONE_QUESTION, rpcHost(["1. Redis — shared"]));
@@ -398,7 +411,9 @@ describe("loading the render graph", () => {
       Promise.reject(new Error("ENOENT: store entry vanished")),
     );
     expect(load.ok).toBe(false);
-    if (load.ok) return;
+    if (load.ok) {
+      return;
+    }
     expect(load.error).toBe("session_load_failed");
     expect(load.message).toContain("never saw the questions");
     expect(load.message).toContain("do NOT treat this as a decline");
@@ -415,7 +430,9 @@ describe("loading the render graph", () => {
       Promise.resolve({} as unknown as SessionModuleShape),
     );
     expect(load.ok).toBe(false);
-    if (load.ok) return;
+    if (load.ok) {
+      return;
+    }
     expect(load.error).toBe("stale_module_cache");
     expect(load.message).toContain("restart Pi");
     expect(load.message).toContain("do NOT treat this as a decline");
@@ -427,7 +444,9 @@ describe("loading the render graph", () => {
       Promise.resolve({} as unknown as SessionModuleShape),
     );
     expect(failed.ok || stale.ok).toBe(false);
-    if (failed.ok || stale.ok) return;
+    if (failed.ok || stale.ok) {
+      return;
+    }
     expect(failed.error).not.toBe(stale.error);
     expect(stale.message).toContain("restart");
     expect(failed.message).not.toContain("restart Pi to restore");
@@ -437,7 +456,9 @@ describe("loading the render graph", () => {
 describe("buildItemsForQuestion", () => {
   it("appends the custom-answer row to a single-select question", () => {
     const question = ONE_QUESTION.questions[0];
-    if (!question) throw new Error("fixture");
+    if (!question) {
+      throw new Error("fixture");
+    }
     const items = buildItemsForQuestion(question);
     expect(items.map((i) => i.kind)).toEqual(["option", "option", "other"]);
     expect(items.at(-1)?.label).toBe(ROW_INTENT_META.other.label);
@@ -445,14 +466,18 @@ describe("buildItemsForQuestion", () => {
 
   it("appends the commit row too when several answers are allowed", () => {
     const question = ONE_QUESTION.questions[0];
-    if (!question) throw new Error("fixture");
+    if (!question) {
+      throw new Error("fixture");
+    }
     const items = buildItemsForQuestion({ ...question, multiSelect: true });
     expect(items.map((i) => i.kind)).toEqual(["option", "option", "other", "next"]);
   });
 
   it("carries each option's description onto its row", () => {
     const question = ONE_QUESTION.questions[0];
-    if (!question) throw new Error("fixture");
+    if (!question) {
+      throw new Error("fixture");
+    }
     expect(buildItemsForQuestion(question)[0]).toEqual({
       kind: "option",
       label: "Redis",

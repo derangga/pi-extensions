@@ -80,7 +80,9 @@ export function computeBoxDimensions(
   let widest = Math.min(BOX_MIN_CONTENT_WIDTH, maxInnerWidth);
   for (const line of contentLines) {
     const w = visibleWidth(line.replace(/\s+$/, ""));
-    if (w > widest) widest = w;
+    if (w > widest) {
+      widest = w;
+    }
   }
   const innerWidth = Math.min(widest, maxInnerWidth);
   const boxWidth = innerWidth + BORDER_HORIZONTAL_OVERHEAD + 2 * BORDER_INNER_PADDING_HORIZONTAL;

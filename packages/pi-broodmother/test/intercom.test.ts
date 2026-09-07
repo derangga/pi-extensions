@@ -269,7 +269,9 @@ describe("Intercom", () => {
         const channel = yield* intercom.openTask(address, {
           onWaitingChange: (waiting) => {
             transitions.push(waiting);
-            if (waiting) throw new Error("broken observer");
+            if (waiting) {
+              throw new Error("broken observer");
+            }
           },
         });
         const pending = yield* channel.ask("Continue?").pipe(Effect.forkChild);

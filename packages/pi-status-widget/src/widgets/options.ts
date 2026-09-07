@@ -33,9 +33,15 @@ export function defaultOptionsFromSpec(spec: WidgetOptionsSpec): WidgetOptions {
     base[property.id] = property.default;
   }
 
-  if (spec.defaultStyle.fg !== undefined) base.fg = spec.defaultStyle.fg;
-  if (spec.defaultStyle.bg !== undefined) base.bg = spec.defaultStyle.bg;
-  if (spec.defaultStyle.bold !== undefined) base.bold = spec.defaultStyle.bold;
+  if (spec.defaultStyle.fg !== undefined) {
+    base.fg = spec.defaultStyle.fg;
+  }
+  if (spec.defaultStyle.bg !== undefined) {
+    base.bg = spec.defaultStyle.bg;
+  }
+  if (spec.defaultStyle.bold !== undefined) {
+    base.bold = spec.defaultStyle.bold;
+  }
 
   return base;
 }
@@ -55,7 +61,9 @@ export function sanitizeOptionsFromSpec(
   const next: WidgetOptions = {};
 
   for (const option of spec.baseOptions) {
-    if (!(option in defaults)) continue;
+    if (!(option in defaults)) {
+      continue;
+    }
     const optionId: string = option;
     next[optionId] = sanitizeBaseOption(merged[optionId], defaults[optionId]);
   }
@@ -64,9 +72,13 @@ export function sanitizeOptionsFromSpec(
   // vanishing, so a typo in a hand-edited file behaves like every other bad
   // value here. A widget that declares no default keeps the key absent.
   const fg = normalizeColor(merged.fg) ?? normalizeColor(defaults.fg);
-  if (fg) next.fg = fg;
+  if (fg) {
+    next.fg = fg;
+  }
   const bg = normalizeColor(merged.bg) ?? normalizeColor(defaults.bg);
-  if (bg) next.bg = bg;
+  if (bg) {
+    next.bg = bg;
+  }
   next.bold = typeof merged.bold === "boolean" ? merged.bold : Boolean(defaults.bold);
 
   for (const property of spec.properties) {
@@ -98,10 +110,15 @@ function sanitizeBaseOption(
   value: unknown,
   defaultValue: WidgetOptions[keyof WidgetOptions],
 ): WidgetOptions[keyof WidgetOptions] {
-  if (typeof defaultValue === "boolean") return typeof value === "boolean" ? value : defaultValue;
-  if (typeof defaultValue === "number")
+  if (typeof defaultValue === "boolean") {
+    return typeof value === "boolean" ? value : defaultValue;
+  }
+  if (typeof defaultValue === "number") {
     return typeof value === "number" && Number.isInteger(value) ? value : defaultValue;
-  if (typeof defaultValue === "string") return typeof value === "string" ? value : defaultValue;
+  }
+  if (typeof defaultValue === "string") {
+    return typeof value === "string" ? value : defaultValue;
+  }
   return defaultValue;
 }
 

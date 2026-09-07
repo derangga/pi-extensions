@@ -103,7 +103,9 @@ function computeScrollStart(
   availableMiddle: number,
   middleRows: number,
 ): number {
-  if (!bodyRange) return 0;
+  if (!bodyRange) {
+    return 0;
+  }
   const focusedRowInMiddle = headingCount + bodyRange[0];
   const focusedHeight = bodyRange[1] - bodyRange[0];
   const idealStart =
@@ -122,13 +124,19 @@ function decorateOverflow(
   hasDown: boolean,
   theme: Theme,
 ): void {
-  if (scrollableMiddle.length === 0) return;
+  if (scrollableMiddle.length === 0) {
+    return;
+  }
   if (hasUp && hasDown && scrollableMiddle.length === 1) {
     scrollableMiddle[0] = theme.fg("dim", OVERFLOW_BOTH);
     return;
   }
-  if (hasUp) scrollableMiddle[0] = theme.fg("dim", OVERFLOW_UP);
-  if (hasDown) scrollableMiddle[scrollableMiddle.length - 1] = theme.fg("dim", OVERFLOW_DOWN);
+  if (hasUp) {
+    scrollableMiddle[0] = theme.fg("dim", OVERFLOW_UP);
+  }
+  if (hasDown) {
+    scrollableMiddle[scrollableMiddle.length - 1] = theme.fg("dim", OVERFLOW_DOWN);
+  }
 }
 
 export type DialogState = QuestionnaireState;
@@ -307,16 +315,24 @@ export class DialogView implements StatefulView<DialogProps> {
     const border = () => new DynamicBorder((s) => theme.fg("accent", s));
 
     container.addChild(border());
-    if (isMulti && tabBar) container.addChild(tabBar);
+    if (isMulti && tabBar) {
+      container.addChild(tabBar);
+    }
     container.addChild(new Spacer(1));
 
-    for (const c of headingRowCache) container.addChild(c);
+    for (const c of headingRowCache) {
+      container.addChild(c);
+    }
     container.addChild(strategy.bodyComponent(state));
     container.addChild(new Spacer(1));
-    for (const c of strategy.midRows(state)) container.addChild(c);
+    for (const c of strategy.midRows(state)) {
+      container.addChild(c);
+    }
 
     container.addChild(border());
-    for (const c of strategy.footerRows(state)) container.addChild(c);
+    for (const c of strategy.footerRows(state)) {
+      container.addChild(c);
+    }
 
     // The residual spacer lives in render(), not here: whether it applies
     // depends on overflow, which the container cannot see.

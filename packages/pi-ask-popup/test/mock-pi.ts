@@ -52,7 +52,9 @@ export function createMockPi(initialTools: string[] = []): MockPi {
   const pi = {
     registerTool: (tool: ToolDefinition) => {
       tools.set(tool.name, tool as unknown as CapturedTool);
-      if (!state.activeTools.includes(tool.name)) state.activeTools.push(tool.name);
+      if (!state.activeTools.includes(tool.name)) {
+        state.activeTools.push(tool.name);
+      }
     },
     on: (name: string, handler: (event: unknown, ctx: ExtensionContext) => void) => {
       const list = handlers.get(name) ?? [];
@@ -78,7 +80,9 @@ export function createMockPi(initialTools: string[] = []): MockPi {
     },
     setActiveTools,
     fire(name, ctx) {
-      for (const handler of handlers.get(name) ?? []) handler({}, ctx);
+      for (const handler of handlers.get(name) ?? []) {
+        handler({}, ctx);
+      }
     },
   };
 }
@@ -106,10 +110,18 @@ export function createMockCtx(options: MockCtxOptions = {}): MockCtx {
   const ui: Record<string, unknown> = {
     notify: (message: string, level?: string) => notices.push({ message, level }),
   };
-  if (options.select) ui.select = options.select;
-  if (options.input) ui.input = options.input;
-  if (options.custom) ui.custom = options.custom;
-  if (options.onTerminalInput) ui.onTerminalInput = options.onTerminalInput;
+  if (options.select) {
+    ui.select = options.select;
+  }
+  if (options.input) {
+    ui.input = options.input;
+  }
+  if (options.custom) {
+    ui.custom = options.custom;
+  }
+  if (options.onTerminalInput) {
+    ui.onTerminalInput = options.onTerminalInput;
+  }
 
   const ctx = {
     hasUI: options.hasUI ?? true,

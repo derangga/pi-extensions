@@ -36,7 +36,9 @@ export function renderStatusbar(
   options: RenderStatusbarOptions,
 ): string[] {
   const settings = store.settings;
-  if (!settings.enabled || width <= 0) return [];
+  if (!settings.enabled || width <= 0) {
+    return [];
+  }
 
   const scheme = activeScheme(settings.colorScheme);
   const baseCtx: BaseWidgetContext = {
@@ -76,7 +78,9 @@ function renderLine(
 
   // A flex separator renders nothing itself; it marks where the line splits.
   const flexIndex = rendered.findIndex((entry) => entry.type === "flex-separator");
-  if (flexIndex === -1) return truncateToWidth(join(rendered), width, ELLIPSIS);
+  if (flexIndex === -1) {
+    return truncateToWidth(join(rendered), width, ELLIPSIS);
+  }
 
   const left = join(rendered.slice(0, flexIndex));
   const right = join(rendered.slice(flexIndex + 1));
@@ -102,7 +106,9 @@ function joinSegments(
   ctx: BaseWidgetContext,
 ): string {
   const segments = entries.map((entry) => entry.segment).filter((segment) => segment.length > 0);
-  if (segments.length === 0) return "";
+  if (segments.length === 0) {
+    return "";
+  }
 
   // A scheme fills in a separator colour the user never chose, so the footer
   // does not read as half painted. Substituted here rather than inside paint:
@@ -137,10 +143,14 @@ function extensionStatusLine(
   scheme: ColorScheme | undefined,
 ): string | undefined {
   const statuses = options.getExtensionStatuses?.();
-  if (!statuses) return undefined;
+  if (!statuses) {
+    return undefined;
+  }
 
   const values = extensionStatusValues(statuses);
-  if (values.length === 0) return undefined;
+  if (values.length === 0) {
+    return undefined;
+  }
 
   // Other extensions' text, which is the argument for leaving it on Pi's theme.
   // Overruled deliberately: while a scheme is active the whole footer is that

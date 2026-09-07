@@ -153,8 +153,12 @@ function statusOf(task: TaskView): string {
 
 function detailLines(task: TaskView, verbose: boolean): string[] {
   const lines: string[] = [];
-  if (task.sessionFile) lines.push(`transcript: ${task.sessionFile}`);
-  if (!verbose) return lines;
+  if (task.sessionFile) {
+    lines.push(`transcript: ${task.sessionFile}`);
+  }
+  if (!verbose) {
+    return lines;
+  }
   lines.push(`model: ${task.model}  thinking: ${task.thinking}  turns: ${task.turns}`);
   // Both totals, named. One number labelled "tokens" would be a guess at which
   // question the reader is asking.
@@ -162,7 +166,9 @@ function detailLines(task: TaskView, verbose: boolean): string[] {
   lines.push(
     `tokens: ${task.tokens} worked, ${task.billedTokens} billed${cost ? `  cost: ${cost}` : ""}`,
   );
-  for (const note of task.notes) lines.push(`note: ${note}`);
+  for (const note of task.notes) {
+    lines.push(`note: ${note}`);
+  }
   return lines;
 }
 
@@ -285,7 +291,9 @@ export function createSubagentTools(host: SubagentToolHost): ToolDefinition[] {
           autoAwait?: boolean;
         };
         const run = await host.start(tasks, ctx);
-        if (autoAwait !== true) return text(formatStart(run), run);
+        if (autoAwait !== true) {
+          return text(formatStart(run), run);
+        }
         return waitResult(await host.wait(run.id, undefined), {});
       },
       renderCall: (args, theme) => lines(callLines(args, theme)),
@@ -357,5 +365,7 @@ export function createSubagentTools(host: SubagentToolHost): ToolDefinition[] {
 }
 
 export function registerSubagentTools(pi: ExtensionAPI, host: SubagentToolHost): void {
-  for (const tool of createSubagentTools(host)) pi.registerTool(tool);
+  for (const tool of createSubagentTools(host)) {
+    pi.registerTool(tool);
+  }
 }

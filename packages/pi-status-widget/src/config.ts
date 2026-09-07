@@ -54,7 +54,9 @@ export function configWithPreset(config: StatusbarConfig, preset: Preset): Statu
 }
 
 export function normalizeConfig(input: unknown): StatusbarConfig {
-  if (!isRecord(input)) return cloneConfig(DEFAULT_CONFIG);
+  if (!isRecord(input)) {
+    return cloneConfig(DEFAULT_CONFIG);
+  }
 
   const preset = isPreset(input.preset) ? input.preset : DEFAULT_CONFIG.preset;
 
@@ -103,8 +105,9 @@ export async function loadConfig(path = getConfigPath()): Promise<LoadedConfig> 
   try {
     raw = await readFile(path, "utf8");
   } catch (error) {
-    if (isNodeError(error) && error.code === "ENOENT")
+    if (isNodeError(error) && error.code === "ENOENT") {
       return { config: cloneConfig(DEFAULT_CONFIG) };
+    }
     return {
       config: cloneConfig(DEFAULT_CONFIG),
       error: `could not read ${path}: ${messageFor(error)}`,
@@ -127,20 +130,28 @@ export async function saveConfig(config: StatusbarConfig, path = getConfigPath()
 }
 
 function normalizeLines(linesValue: unknown, preset: Preset): WidgetEntry[][] {
-  if (!Array.isArray(linesValue)) return linesForPreset(preset);
+  if (!Array.isArray(linesValue)) {
+    return linesForPreset(preset);
+  }
   return linesValue.map((line) => normalizeWidgets(line));
 }
 
 function normalizeWidgets(value: unknown): WidgetEntry[] {
-  if (!Array.isArray(value)) return [];
+  if (!Array.isArray(value)) {
+    return [];
+  }
 
   const widgets: WidgetEntry[] = [];
   for (const item of value) {
-    if (!isRecord(item) || typeof item.type !== "string") continue;
+    if (!isRecord(item) || typeof item.type !== "string") {
+      continue;
+    }
     const spec = registry.maybeSpec(item.type);
     // A type this build does not know is dropped rather than defaulted. Keeping
     // it would put an unrenderable entry in front of the renderer.
-    if (!spec) continue;
+    if (!spec) {
+      continue;
+    }
     const type = spec.type as WidgetType;
     widgets.push({
       id:

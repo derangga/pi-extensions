@@ -66,7 +66,9 @@ function fakeChild(
     resolveAbort = resolve;
   });
   const emit = (event: AgentSessionEvent) => {
-    for (const listener of listeners) listener(event);
+    for (const listener of listeners) {
+      listener(event);
+    }
   };
   const subscribe = vi.fn<(listener: (event: AgentSessionEvent) => void) => () => boolean>(
     (listener) => {
@@ -145,7 +147,9 @@ describe("child lifecycle", () => {
   it("steers once at the soft limit and aborts after the grace turns", async () => {
     const fake = fakeChild(async ({ emit, messages }) => {
       messages.push(assistant("unfinished work"));
-      for (let turn = 0; turn < 2 + GRACE_TURNS; turn++) emit(turnEnd());
+      for (let turn = 0; turn < 2 + GRACE_TURNS; turn++) {
+        emit(turnEnd());
+      }
       await fake.aborted;
       throw new Error("prompt rejected after abort");
     });

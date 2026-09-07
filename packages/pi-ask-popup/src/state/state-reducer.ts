@@ -51,7 +51,9 @@ function orderedAnswers(
   const out: QuestionAnswer[] = [];
   for (let i = 0; i < questions.length; i++) {
     const a = state.answers.get(i);
-    if (a) out.push(a);
+    if (a) {
+      out.push(a);
+    }
   }
   return out;
 }
@@ -73,10 +75,14 @@ function unansweredNotesFor(
 ): UnansweredNote[] {
   const out: UnansweredNote[] = [];
   for (let i = 0; i < questions.length; i++) {
-    if (state.answers.has(i)) continue;
+    if (state.answers.has(i)) {
+      continue;
+    }
     const question = questions[i];
     const note = state.notesByTab.get(i);
-    if (!question || note === undefined || note.length === 0) continue;
+    if (!question || note === undefined || note.length === 0) {
+      continue;
+    }
     out.push({ questionIndex: i, question: question.question, note });
   }
   return out;
@@ -88,12 +94,16 @@ function syncMultiSelectFromAnswers(
   tab: number,
 ): ReadonlySet<number> {
   const q = questions[tab];
-  if (!q?.multiSelect) return new Set();
+  if (!q?.multiSelect) {
+    return new Set();
+  }
   const saved = answers.get(tab);
   const labels = saved?.selected ?? [];
   const indices = new Set<number>();
   for (let i = 0; i < q.options.length; i++) {
-    if (labels.includes(q.options[i]!.label)) indices.add(i);
+    if (labels.includes(q.options[i]!.label)) {
+      indices.add(i);
+    }
   }
   return indices;
 }
@@ -103,10 +113,14 @@ function persistMultiSelectAnswer(
   ctx: ApplyContext,
 ): ReadonlyMap<number, QuestionAnswer> {
   const q = ctx.questions[state.currentTab];
-  if (!q?.multiSelect) return state.answers;
+  if (!q?.multiSelect) {
+    return state.answers;
+  }
   const selected: string[] = [];
   for (let i = 0; i < q.options.length; i++) {
-    if (state.multiSelectChecked.has(i)) selected.push(q.options[i]!.label);
+    if (state.multiSelectChecked.has(i)) {
+      selected.push(q.options[i]!.label);
+    }
   }
   const out = new Map(state.answers);
   if (selected.length === 0) {
@@ -127,7 +141,9 @@ function persistMultiSelectAnswer(
 
 function customDraftValueFor(state: QuestionnaireState, tab: number): string {
   const draft = state.customDraftsByTab.get(tab);
-  if (draft !== undefined) return draft;
+  if (draft !== undefined) {
+    return draft;
+  }
   const answer = state.answers.get(tab);
   return answer?.kind === "custom" && typeof answer.answer === "string" ? answer.answer : "";
 }
@@ -143,7 +159,9 @@ function setCustomDraft(
 }
 
 function withoutCustomDraft(state: QuestionnaireState, tab: number): ReadonlyMap<number, string> {
-  if (!state.customDraftsByTab.has(tab)) return state.customDraftsByTab;
+  if (!state.customDraftsByTab.has(tab)) {
+    return state.customDraftsByTab;
+  }
   const drafts = new Map(state.customDraftsByTab);
   drafts.delete(tab);
   return drafts;
@@ -218,7 +236,9 @@ const navHandler: Handler<"nav"> = (state, action, ctx) => {
     inputMode,
     customDraftsByTab,
   };
-  if (!inputMode) return { state: next, effects: [] };
+  if (!inputMode) {
+    return { state: next, effects: [] };
+  }
   return {
     state: next,
     effects: [{ kind: "set_input_buffer", value: customDraftValueFor(next, state.currentTab) }],
@@ -271,14 +291,19 @@ const confirmHandler: Handler<"confirm"> = (state, action, ctx) => {
     customDraftsByTab,
     ...(isCustomMulti ? { multiSelectChecked: new Set<number>() } : {}),
   };
-  if (action.autoAdvanceTab !== undefined) return switchTabResult(next, action.autoAdvanceTab, ctx);
+  if (action.autoAdvanceTab !== undefined) {
+    return switchTabResult(next, action.autoAdvanceTab, ctx);
+  }
   return doneFor(next, ctx, false);
 };
 
 const toggleHandler: Handler<"toggle"> = (state, action, ctx) => {
   const checked = new Set(state.multiSelectChecked);
-  if (checked.has(action.index)) checked.delete(action.index);
-  else checked.add(action.index);
+  if (checked.has(action.index)) {
+    checked.delete(action.index);
+  } else {
+    checked.add(action.index);
+  }
   const intermediate: QuestionnaireState = { ...state, multiSelectChecked: checked };
   const answers = persistMultiSelectAnswer(intermediate, ctx);
   return { state: { ...intermediate, answers }, effects: [] };
@@ -286,7 +311,9 @@ const toggleHandler: Handler<"toggle"> = (state, action, ctx) => {
 
 const multiConfirmHandler: Handler<"multi_confirm"> = (state, action, ctx) => {
   const q = ctx.questions[state.currentTab];
-  if (!q) return { state, effects: [] };
+  if (!q) {
+    return { state, effects: [] };
+  }
   const pendingNotes = state.notesByTab.get(state.currentTab);
   const answers = new Map(state.answers);
   answers.set(state.currentTab, {
@@ -302,8 +329,9 @@ const multiConfirmHandler: Handler<"multi_confirm"> = (state, action, ctx) => {
     answers,
     multiSelectChecked: syncMultiSelectFromAnswers(answers, ctx.questions, state.currentTab),
   };
-  if (action.autoAdvanceTab !== undefined)
+  if (action.autoAdvanceTab !== undefined) {
     return switchTabResult(synced, action.autoAdvanceTab, ctx);
+  }
   return doneFor(synced, ctx, false);
 };
 
@@ -333,7 +361,9 @@ const notesExitHandler: Handler<"notes_exit"> = (state, _action, _ctx) => {
   } else {
     notes.set(state.currentTab, trimmed);
     const prev = answers.get(state.currentTab);
-    if (prev) answers.set(state.currentTab, { ...prev, notes: trimmed });
+    if (prev) {
+      answers.set(state.currentTab, { ...prev, notes: trimmed });
+    }
   }
   return {
     state: { ...state, notesByTab: notes, answers, notesVisible: false },
@@ -356,7 +386,9 @@ const toggleCollapsedHandler: Handler<"toggle_collapsed"> = (s, _a, _c) => ({
   effects: [{ kind: "set_overlay_hidden", hidden: !s.collapsed }],
 });
 const tickHandler: Handler<"tick"> = (state, action, ctx) => {
-  if (state.timerCancelled || state.deadline === undefined) return { state, effects: [] };
+  if (state.timerCancelled || state.deadline === undefined) {
+    return { state, effects: [] };
+  }
   const remaining = state.deadline - action.now;
   if (remaining > 0) {
     return { state: { ...state, remainingMs: remaining }, effects: [] };

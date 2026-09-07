@@ -19,9 +19,13 @@ export const ContextWidget = defineWidget({
 });
 
 function contextUsage(tokens: number | undefined, maxTokens: number | undefined): string {
-  if (tokens === undefined) return "?";
+  if (tokens === undefined) {
+    return "?";
+  }
   // No window size means no percentage to show, so fall back to the raw count.
-  if (maxTokens === undefined || maxTokens <= 0) return `${formatCount(tokens)} ctx`;
+  if (maxTokens === undefined || maxTokens <= 0) {
+    return `${formatCount(tokens)} ctx`;
+  }
 
   const percent = contextPercent(tokens, maxTokens) ?? 0;
   return `${percent.toFixed(1).replace(/\.0$/, "")}%`;

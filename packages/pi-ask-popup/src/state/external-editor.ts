@@ -23,7 +23,9 @@ function runEditor(command: string, file: string): Promise<void> {
   const [editor, ...args] = command.split(" ");
   // Unreachable given the caller's check, but the destructure is typed as
   // possibly-undefined and a bare assertion here would be worse.
-  if (!editor) return Promise.reject(new Error("External editor command is empty"));
+  if (!editor) {
+    return Promise.reject(new Error("External editor command is empty"));
+  }
 
   return new Promise((resolve, reject) => {
     const child = spawn(editor, [...args, file], {
@@ -64,7 +66,9 @@ export async function editWithExternalEditor(
   // TUI has already been stopped, makes a misconfigured editor command flash
   // the screen off and back on before reporting a problem that was knowable
   // from the start.
-  if (command.trim().length === 0) throw new Error("External editor command is empty");
+  if (command.trim().length === 0) {
+    throw new Error("External editor command is empty");
+  }
 
   const tempDir = mkdtempSync(join(tmpdir(), "pi-ask-popup-"));
   const tempFile = join(tempDir, "answer.md");

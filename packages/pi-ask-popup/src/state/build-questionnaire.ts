@@ -235,7 +235,9 @@ class QuestionnaireBuilder {
       let max = 0;
       for (const tab of tabs) {
         const h = tab.bodyHeights(width).max;
-        if (h > max) max = h;
+        if (h > max) {
+          max = h;
+        }
       }
       return Math.max(1, max);
     };

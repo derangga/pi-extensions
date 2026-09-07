@@ -44,7 +44,9 @@ export function globalBinding<P>(spec: ComponentBinding<P>): BoundGlobalBinding 
 export function perTabBinding<P>(spec: PerTabBinding<P>): BoundPerTabBinding {
   return {
     apply: (state, ctx) => {
-      if (spec.predicate && !spec.predicate(state, ctx)) return;
+      if (spec.predicate && !spec.predicate(state, ctx)) {
+        return;
+      }
       spec.resolve(ctx.tab)?.setProps(spec.select(state, ctx));
     },
   };

@@ -15,7 +15,9 @@ describe("separatorText", () => {
 
   it("pads every style but none, so segments never run together", () => {
     for (const style of SEPARATOR_VALUES) {
-      if (style === "none") continue;
+      if (style === "none") {
+        continue;
+      }
       expect(separatorText(style).length).toBeGreaterThan(0);
       expect(separatorText(style)).not.toBe(separatorText("none"));
     }

@@ -6,7 +6,9 @@ export function contextPercent(
   tokens: number | undefined,
   maxTokens: number | undefined,
 ): number | undefined {
-  if (tokens === undefined || maxTokens === undefined || maxTokens <= 0) return undefined;
+  if (tokens === undefined || maxTokens === undefined || maxTokens <= 0) {
+    return undefined;
+  }
   return Math.min(100, Math.max(0, (tokens / maxTokens) * 100));
 }
 
@@ -25,9 +27,13 @@ export function contextColors(
   contextTokens: number | undefined,
   contextMaxTokens: number | undefined,
 ): { fg?: ColorName; bg?: ColorName } {
-  if (!options.contextConditionalColors) return colorPair(options.fg, options.bg);
+  if (!options.contextConditionalColors) {
+    return colorPair(options.fg, options.bg);
+  }
   const percent = contextPercent(contextTokens, contextMaxTokens);
-  if (percent === undefined) return colorPair(options.fg, options.bg);
+  if (percent === undefined) {
+    return colorPair(options.fg, options.bg);
+  }
 
   if (percent >= options.contextDangerPercent) {
     return colorPair(

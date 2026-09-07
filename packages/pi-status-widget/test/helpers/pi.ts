@@ -139,12 +139,16 @@ export function stubApi(
     execCalls,
     async fire(event, ctx, payload) {
       const handler = handlers.get(event);
-      if (!handler) throw new Error(`no handler registered for ${event}`);
+      if (!handler) {
+        throw new Error(`no handler registered for ${event}`);
+      }
       await handler(payload ?? { type: event }, ctx);
     },
     async run(command, args, ctx) {
       const registered = commands.get(command);
-      if (!registered) throw new Error(`no command registered as ${command}`);
+      if (!registered) {
+        throw new Error(`no command registered as ${command}`);
+      }
       await registered.handler(args, ctx as ExtensionCommandContext);
     },
   };
@@ -166,7 +170,9 @@ export function stubFooterData(
     branchListeners,
     unsubscribeCount: 0,
     changeBranch: () => {
-      for (const listener of branchListeners.slice()) listener();
+      for (const listener of branchListeners.slice()) {
+        listener();
+      }
     },
     footerData: {
       getGitBranch: () => branch,
@@ -176,7 +182,9 @@ export function stubFooterData(
         return () => {
           stub.unsubscribeCount += 1;
           const index = branchListeners.indexOf(listener);
-          if (index >= 0) branchListeners.splice(index, 1);
+          if (index >= 0) {
+            branchListeners.splice(index, 1);
+          }
         };
       },
     } as unknown as ReadonlyFooterDataProvider,

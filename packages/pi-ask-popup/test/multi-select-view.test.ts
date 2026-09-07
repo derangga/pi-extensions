@@ -72,7 +72,9 @@ describe("MultiSelectView.render", () => {
     const blurred = m.render(80);
     const rawBlurred = blurred.map((l) => l);
     // No row may begin with `❯ ` when the pane is blurred.
-    for (const l of rawBlurred) expect(l.startsWith("❯ ")).toBe(false);
+    for (const l of rawBlurred) {
+      expect(l.startsWith("❯ ")).toBe(false);
+    }
 
     m.setProps(makeProps(q, { optionIndex: 1, focused: true }));
     const refocused = m.render(80);
@@ -393,7 +395,9 @@ describe("MultiSelectView — 'Type something.' row", () => {
       const lines = m.render(w);
       expect(lines.length).toBeGreaterThan(5);
       expect(m.naturalHeight(w)).toBe(lines.length);
-      for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(w);
+      for (const line of lines) {
+        expect(visibleWidth(line)).toBeLessThanOrEqual(w);
+      }
     }
   });
 

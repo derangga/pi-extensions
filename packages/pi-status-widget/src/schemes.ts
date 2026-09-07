@@ -459,8 +459,12 @@ export type ColorSchemeName = SchemeName | typeof DEFAULT_SCHEME;
  * unknown separator already do.
  */
 export function normalizeColorSchemeName(value: unknown): ColorSchemeName | undefined {
-  if (typeof value !== "string") return undefined;
-  if (value === DEFAULT_SCHEME) return DEFAULT_SCHEME;
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  if (value === DEFAULT_SCHEME) {
+    return DEFAULT_SCHEME;
+  }
   return Object.hasOwn(SCHEMES, value) ? (value as SchemeName) : undefined;
 }
 

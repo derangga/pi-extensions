@@ -63,7 +63,9 @@ export function resolveModel(
   available: readonly PiModel[],
   parent: PiModel | undefined,
 ): PiModel | undefined {
-  if (settings.model === INHERIT) return parent;
+  if (settings.model === INHERIT) {
+    return parent;
+  }
   return available.find((model) => model.id === settings.model) ?? parent;
 }
 
@@ -73,7 +75,9 @@ export function resolveModel(
  * nobody can name would be offering a guess.
  */
 export function thinkingValues(model: PiModel | undefined): string[] {
-  if (!model) return [INHERIT];
+  if (!model) {
+    return [INHERIT];
+  }
   return [INHERIT, ...supportedThinkingLevels(model)];
 }
 
@@ -180,14 +184,18 @@ export function describeSettings(settings: SubagentSettings, path: string): stri
 }
 
 export function cycleValue(values: readonly string[], current: string, step: number): string {
-  if (values.length === 0) return current;
+  if (values.length === 0) {
+    return current;
+  }
   const index = values.indexOf(current);
   const next = ((index === -1 ? 0 : index) + step + values.length) % values.length;
   return values[next] ?? current;
 }
 
 function modelDescription(settings: SubagentSettings, parent: PiModel | undefined): string {
-  if (settings.model !== INHERIT) return "Every child runs on this, whatever a task asks for.";
+  if (settings.model !== INHERIT) {
+    return "Every child runs on this, whatever a task asks for.";
+  }
   return parent
     ? `Follows the parent, currently ${parent.id}.`
     : "Follows the parent. No parent model is set.";
@@ -201,7 +209,9 @@ function withNumber(
   maximum: number,
 ): SubagentSettings {
   const parsed = Number.parseInt(value, 10);
-  if (!Number.isInteger(parsed) || parsed < minimum || parsed > maximum) return settings;
+  if (!Number.isInteger(parsed) || parsed < minimum || parsed > maximum) {
+    return settings;
+  }
   return { ...settings, [key]: parsed };
 }
 

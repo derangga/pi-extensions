@@ -310,7 +310,9 @@ function viewRun(run: RunState): RunView {
  * call, which is the point of having no catalog.
  */
 function systemPromptFor(agent: string, file: AgentFile | undefined): string {
-  if (file) return file.prompt;
+  if (file) {
+    return file.prompt;
+  }
   const described = agent.trim();
   return described ? `You are ${described}.` : "";
 }
@@ -381,7 +383,9 @@ export class Manager extends Context.Service<
 
         yield* Effect.addFinalizer(() =>
           Effect.sync(() => {
-            for (const run of runs.values()) run.controller.abort();
+            for (const run of runs.values()) {
+              run.controller.abort();
+            }
           }),
         );
 
@@ -391,7 +395,9 @@ export class Manager extends Context.Service<
          * is drawing rather than here.
          */
         const changed = (): void => {
-          if (!options.onChange) return;
+          if (!options.onChange) {
+            return;
+          }
           try {
             options.onChange(order.map((id) => viewRun(runs.get(id)!)));
           } catch {
@@ -401,7 +407,9 @@ export class Manager extends Context.Service<
 
         /** Three events, fire and forget. A subscriber is not part of the run. */
         const publish = (event: SubagentEvent): void => {
-          if (!options.onEvent) return;
+          if (!options.onEvent) {
+            return;
+          }
           try {
             options.onEvent(event);
           } catch {
@@ -416,7 +424,9 @@ export class Manager extends Context.Service<
           // just started and almost always means.
           const id = runId ?? order[order.length - 1];
           const run = id === undefined ? undefined : runs.get(id);
-          if (!run) return yield* new UnknownRun({ runId: id ?? "", known: [...order] });
+          if (!run) {
+            return yield* new UnknownRun({ runId: id ?? "", known: [...order] });
+          }
           return run;
         });
 
@@ -461,7 +471,9 @@ export class Manager extends Context.Service<
         const runOneTask = (run: RunState, request: StartRequest): RunTask =>
           Effect.fn("Manager.runTask")(function* (task: PlannedTask, prompt: string) {
             const state = run.byId.get(task.id);
-            if (!state) return undefined;
+            if (!state) {
+              return undefined;
+            }
 
             if (run.controller.signal.aborted) {
               yield* settleTask(run.id, state, stoppedBeforeStart());
@@ -655,7 +667,9 @@ export class Manager extends Context.Service<
             const collected = yield* Effect.scoped(
               Effect.gen(function* () {
                 const waiter = yield* intercom.park(run.id);
-                if (done()) return undefined;
+                if (done()) {
+                  return undefined;
+                }
 
                 const settled = (
                   target ? Deferred.await(target.settled) : Deferred.await(run.done)

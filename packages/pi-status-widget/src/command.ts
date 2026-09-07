@@ -65,20 +65,35 @@ export type StatusbarCommand =
  */
 export function parseStatusbarCommand(args: string): StatusbarCommand {
   const [name, value] = args.trim().toLowerCase().split(/\s+/, 2);
-  if (!name) return { kind: "show" };
+  if (!name) {
+    return { kind: "show" };
+  }
 
-  if (name === "on") return { kind: "enabled", enabled: true };
-  if (name === "off") return { kind: "enabled", enabled: false };
-  if (name === "reset") return { kind: "reset" };
-  if (name === "preset" && isPreset(value)) return { kind: "preset", preset: value };
-  if (name === "icons" && isIconMode(value)) return { kind: "icons", iconMode: value };
-  if (name === "separator" && isSeparatorStyle(value))
+  if (name === "on") {
+    return { kind: "enabled", enabled: true };
+  }
+  if (name === "off") {
+    return { kind: "enabled", enabled: false };
+  }
+  if (name === "reset") {
+    return { kind: "reset" };
+  }
+  if (name === "preset" && isPreset(value)) {
+    return { kind: "preset", preset: value };
+  }
+  if (name === "icons" && isIconMode(value)) {
+    return { kind: "icons", iconMode: value };
+  }
+  if (name === "separator" && isSeparatorStyle(value)) {
     return { kind: "separator", separator: value };
+  }
   if (name === "colors") {
     // Named colors, not theme. The word theme belongs to the Pi-wide setting
     // in /settings, which this feature does not touch.
     const colorScheme = normalizeColorSchemeName(value);
-    if (colorScheme) return { kind: "colors", colorScheme };
+    if (colorScheme) {
+      return { kind: "colors", colorScheme };
+    }
   }
 
   return { kind: "usage" };
@@ -168,7 +183,9 @@ async function openPanel(
       settingsTheme,
       (id, value) => {
         const command = commandForSettingChange(id, value);
-        if (command) applyAndSync(command);
+        if (command) {
+          applyAndSync(command);
+        }
       },
       () => done(undefined),
     );
@@ -231,7 +248,9 @@ async function openPanel(
     const move = (step: number): void => {
       cursor = (cursor + step + items.length) % items.length;
       const item = items[cursor];
-      if (item) list.selectItem(item.id);
+      if (item) {
+        list.selectItem(item.id);
+      }
     };
 
     return {
@@ -257,7 +276,9 @@ async function openPanel(
             // needed, and item.currentValue reads back the new value.
             list.updateValue(item.id, value);
             const command = commandForSettingChange(item.id, value);
-            if (command) applyAndSync(command);
+            if (command) {
+              applyAndSync(command);
+            }
           }
           tui.requestRender();
           return;
@@ -276,8 +297,11 @@ async function openPanel(
         // user who has bound j and k must not end up moving one cursor and
         // changing another row's value.
         list.handleInput?.(data);
-        if (keybindings.matches(data, "tui.select.up")) move(-1);
-        else if (keybindings.matches(data, "tui.select.down")) move(1);
+        if (keybindings.matches(data, "tui.select.up")) {
+          move(-1);
+        } else if (keybindings.matches(data, "tui.select.down")) {
+          move(1);
+        }
         tui.requestRender();
       },
     };
@@ -291,7 +315,9 @@ async function applyCommand(
   options: { quiet?: boolean } = {},
 ): Promise<void> {
   const say = (message: string, type: "info" | "warning"): void => {
-    if (!options.quiet) ctx.ui.notify(message, type);
+    if (!options.quiet) {
+      ctx.ui.notify(message, type);
+    }
   };
 
   switch (command.kind) {

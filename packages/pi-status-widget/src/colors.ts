@@ -67,13 +67,19 @@ const PI_PREFIX = "pi:";
  * colors beats one that throws out of session_start and never mounts.
  */
 export function resolveColorLevel(env: NodeJS.ProcessEnv = process.env, theme?: Theme): ColorLevel {
-  if ((env.NO_COLOR ?? "").length > 0) return "none";
+  if ((env.NO_COLOR ?? "").length > 0) {
+    return "none";
+  }
   return theme?.getColorMode?.() === "truecolor" ? "truecolor" : "ansi";
 }
 
 export function normalizeColor(value: unknown): ColorName | undefined {
-  if (typeof value !== "string") return undefined;
-  if (value === DEFAULT_COLOR || Object.hasOwn(NAMED_COLORS, value)) return value as NamedColor;
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  if (value === DEFAULT_COLOR || Object.hasOwn(NAMED_COLORS, value)) {
+    return value as NamedColor;
+  }
 
   // A pi: name is not checked against the theme's color list. Pi's ThemeColor
   // union grew between the versions this package supports, and two of its
@@ -110,7 +116,9 @@ export function applyColors(
   theme?: Theme,
   scheme?: ColorScheme,
 ): string {
-  if (level === "none") return text;
+  if (level === "none") {
+    return text;
+  }
 
   let output = text;
   if (foreground && foreground !== DEFAULT_COLOR) {
@@ -119,7 +127,9 @@ export function applyColors(
   if (background && background !== DEFAULT_COLOR) {
     output = paint(output, background, true, level, theme, scheme);
   }
-  if (bold) output = `\x1b[1m${output}\x1b[22m`;
+  if (bold) {
+    output = `\x1b[1m${output}\x1b[22m`;
+  }
   return output;
 }
 
@@ -134,7 +144,9 @@ function paint(
   if (color.startsWith(PI_PREFIX)) {
     // Theme exposes named foregrounds only. Its bg() takes a separate union of
     // background roles, none of which a widget color can name.
-    if (background) return text;
+    if (background) {
+      return text;
+    }
     const themeColor = color.slice(PI_PREFIX.length) as ThemeColor;
     return themeForeground(theme, themeColor, text) ?? text;
   }
@@ -143,10 +155,14 @@ function paint(
   // the scheme decides what that slot looks like. The default sentinel never
   // arrives here, which is what keeps "inherit" outside a scheme's reach.
   let name: string = color;
-  if (scheme && isBasicColor(color)) name = scheme.ansi[color];
+  if (scheme && isBasicColor(color)) {
+    name = scheme.ansi[color];
+  }
   if (name.startsWith("#")) {
     const rgb = parseHex(name);
-    if (!rgb) return text;
+    if (!rgb) {
+      return text;
+    }
     if (level === "truecolor") {
       const [red, green, blue] = rgb;
       return background
@@ -157,7 +173,9 @@ function paint(
   }
 
   const codes = NAMED_COLORS[name as BasicColor];
-  if (!codes) return text;
+  if (!codes) {
+    return text;
+  }
   return background ? `\x1b[${codes[1]}m${text}\x1b[49m` : `\x1b[${codes[0]}m${text}\x1b[39m`;
 }
 
@@ -172,7 +190,9 @@ const HEX_PATTERN = /^#([0-9a-f]{6})$/i;
 /** Undefined for anything but six hex digits: no #rgb shorthand, no #rrggbbaa. */
 export function parseHex(color: string): Rgb | undefined {
   const match = HEX_PATTERN.exec(color);
-  if (!match) return undefined;
+  if (!match) {
+    return undefined;
+  }
   const value = Number.parseInt(match[1]!, 16);
   return [(value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff];
 }
@@ -219,8 +239,12 @@ export function nearestAnsi(rgb: Rgb): BasicColor {
   const saturation = max === 0 ? 0 : (max - min) / max;
 
   if (saturation < GREY_SATURATION || value < BLACK_VALUE) {
-    if (value < BLACK_VALUE) return "black";
-    if (value < 0.55) return "brightBlack";
+    if (value < BLACK_VALUE) {
+      return "black";
+    }
+    if (value < 0.55) {
+      return "brightBlack";
+    }
     return value < 0.9 ? "white" : "brightWhite";
   }
 
@@ -246,7 +270,9 @@ function themeForeground(
   color: ThemeColor,
   text: string,
 ): string | undefined {
-  if (!theme) return undefined;
+  if (!theme) {
+    return undefined;
+  }
   try {
     return theme.fg(color, text);
   } catch {
@@ -257,6 +283,7 @@ function themeForeground(
 // Keep the escape byte out of a regex literal so oxlint's no-control-regex rule
 // does not flag the intentional ANSI matcher. RegExp still receives the ESC
 // sequence at runtime.
+// biome-ignore lint/complexity/useRegexLiterals: intentional - avoids no-control-regex
 const ANSI_ESCAPE_PATTERN = new RegExp(String.raw`\x1B\[[0-?]*[ -/]*[@-~]`, "g");
 
 export function stripAnsi(text: string): string {

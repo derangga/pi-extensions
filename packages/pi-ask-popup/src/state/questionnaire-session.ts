@@ -152,7 +152,9 @@ export class QuestionnaireSession {
 
     this.component = this.assembleComponent(built, config.theme);
     this.viewAdapter.apply(this.state);
-    if (this.state.deadline !== undefined) this.startTimer();
+    if (this.state.deadline !== undefined) {
+      this.startTimer();
+    }
   }
 
   private assembleComponent(
@@ -180,15 +182,17 @@ export class QuestionnaireSession {
    * falls back to cancel-only rather than telling the user to press "Off".
    */
   private startTimer(): void {
-    if (this.timer !== undefined) return;
+    if (this.timer !== undefined) {
+      return;
+    }
     this.timer = setInterval(() => {
       this.commit({ kind: "tick", now: Date.now() });
     }, 1000);
     // Don't keep the process alive after Pi exits.
     // SAFETY: Node's Timeout has unref, DOM/Bun number does not; guard ensures we only call when present.
-    if (typeof (this.timer as unknown as { unref?: () => void }).unref === "function") {
+    if (typeof (this.timer as { unref?: () => void }).unref === "function") {
       // SAFETY: same guard as above — only called when unref is a function.
-      (this.timer as unknown as { unref: () => void }).unref();
+      (this.timer as { unref: () => void }).unref();
     }
   }
 
@@ -200,9 +204,13 @@ export class QuestionnaireSession {
   }
 
   private formatRemaining(): string | undefined {
-    if (this.state.timerCancelled) return undefined;
+    if (this.state.timerCancelled) {
+      return undefined;
+    }
     const ms = this.state.remainingMs;
-    if (ms === undefined) return undefined;
+    if (ms === undefined) {
+      return undefined;
+    }
     const secs = Math.max(0, Math.ceil(ms / 1000));
     return `${secs}s`;
   }
@@ -221,7 +229,9 @@ export class QuestionnaireSession {
   }
 
   dispatch(data: string): void {
-    if (this.inputEditorOpen) return;
+    if (this.inputEditorOpen) {
+      return;
+    }
     const action = routeKey(data, this.state, this.runtime());
     if (action.kind === "ignore") {
       this.handleIgnoreInline(data);
@@ -233,7 +243,9 @@ export class QuestionnaireSession {
   private commit(action: QuestionnaireAction): void {
     const result = reduce(this.state, action, this.applyContext());
     this.state = result.state;
-    for (const effect of result.effects) this.runEffect(effect);
+    for (const effect of result.effects) {
+      this.runEffect(effect);
+    }
     this.state = this.mirrorNotesDraft(this.state);
     this.viewAdapter.apply(this.state);
   }
@@ -274,7 +286,9 @@ export class QuestionnaireSession {
         // A no-op until the handle arrives, and suppressed entirely without a
         // raw terminal listener: see `canReopenWhileHidden`. The state still
         // says collapsed either way, so the view renders the one-line row.
-        if (this.canReopenWhileHidden) this.overlayHandle?.setHidden(effect.hidden);
+        if (this.canReopenWhileHidden) {
+          this.overlayHandle?.setHidden(effect.hidden);
+        }
         return;
       case "clear_timer":
         this.clearTimer();
@@ -294,12 +308,16 @@ export class QuestionnaireSession {
    * nothing.
    */
   private openInputEditorAsync(value: string): void {
-    if (this.inputEditorOpen) return;
+    if (this.inputEditorOpen) {
+      return;
+    }
     this.inputEditorOpen = true;
     void this.editInput(value).then(
       (edited) => {
         this.inputEditorOpen = false;
-        if (edited !== undefined) this.commit({ kind: "input_replace", value: edited });
+        if (edited !== undefined) {
+          this.commit({ kind: "input_replace", value: edited });
+        }
       },
       () => {
         this.inputEditorOpen = false;
@@ -326,7 +344,9 @@ export class QuestionnaireSession {
       timerWasCancelled = true;
     }
     if (!this.state.inputMode) {
-      if (timerWasCancelled) this.viewAdapter.apply(this.state);
+      if (timerWasCancelled) {
+        this.viewAdapter.apply(this.state);
+      }
       return;
     }
     this.inlineInput.handleInput(data);
@@ -377,6 +397,8 @@ export class QuestionnaireSession {
    * else.
    */
   toggleCollapsedExternal(): void {
-    if (!this.inputEditorOpen) this.commit({ kind: "toggle_collapsed" });
+    if (!this.inputEditorOpen) {
+      this.commit({ kind: "toggle_collapsed" });
+    }
   }
 }

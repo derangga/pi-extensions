@@ -130,7 +130,9 @@ export class WrappingSelect implements Component {
   invalidate(): void {}
 
   render(width: number): string[] {
-    if (this.items.length === 0) return [];
+    if (this.items.length === 0) {
+      return [];
+    }
 
     const { startIndex, endIndex } = this.computeVisibleWindow();
     const numberWidth = String(Math.max(1, this.totalItemsForNumbering)).length;
@@ -138,7 +140,9 @@ export class WrappingSelect implements Component {
 
     for (let i = startIndex; i < endIndex; i++) {
       const item = this.items[i];
-      if (!item) continue;
+      if (!item) {
+        continue;
+      }
       const isActive = i === this.selectedIndex && this.focused;
       lines.push(...this.renderItem(item, i, isActive, width, numberWidth));
     }
@@ -155,13 +159,17 @@ export class WrappingSelect implements Component {
    * summing per-item row counts — O(maxVisible) per call.
    */
   focusedItemRowRange(width: number): [number, number] {
-    if (this.items.length === 0) return [0, 0];
+    if (this.items.length === 0) {
+      return [0, 0];
+    }
     const { startIndex, endIndex } = this.computeVisibleWindow();
     const numberWidth = String(Math.max(1, this.totalItemsForNumbering)).length;
     let row = 0;
     for (let i = startIndex; i < endIndex; i++) {
       const item = this.items[i];
-      if (!item) continue;
+      if (!item) {
+        continue;
+      }
       const isActive = i === this.selectedIndex && this.focused;
       const itemRowCount = this.computeItemRowCount(item, i, isActive, width, numberWidth);
       if (i === this.selectedIndex) {
@@ -306,7 +314,9 @@ export class WrappingSelect implements Component {
     continuationPrefix: string,
     contentWidth: number,
   ): string[] {
-    if (!description) return [];
+    if (!description) {
+      return [];
+    }
     const wrapped = wrapTextWithAnsi(description, contentWidth);
     return wrapped.map((segment) => `${continuationPrefix}${this.theme.description(segment)}`);
   }

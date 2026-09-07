@@ -30,7 +30,9 @@ describe("renderInlineInputRow", () => {
     const lines = renderInlineInputRow(opts("a".repeat(60), 60, 15));
     expect(lines.length).toBeGreaterThan(1);
     expect(lines[0]?.startsWith("❯ 1. ")).toBe(true);
-    for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(20);
+    for (const line of lines) {
+      expect(visibleWidth(line)).toBeLessThanOrEqual(20);
+    }
   });
 
   it("preserves explicit newlines and draws the cursor at a logical line end", () => {

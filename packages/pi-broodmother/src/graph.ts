@@ -117,19 +117,24 @@ export const planGraph = Effect.fn("Graph.plan")(function* (
   inputs: readonly TaskInput[],
   limit: number = MAX_TASKS,
 ): Effect.fn.Return<readonly PlannedTask[], GraphError> {
-  if (inputs.length === 0) return yield* new EmptyTaskList();
+  if (inputs.length === 0) {
+    return yield* new EmptyTaskList();
+  }
   if (inputs.length > limit) {
     return yield* new TooManyTasks({ count: inputs.length, limit });
   }
 
   const explicit = new Set<string>();
   for (const [position, input] of inputs.entries()) {
-    if (input.id === undefined) continue;
+    if (input.id === undefined) {
+      continue;
+    }
     if (Option.isNone(decodeTaskId(input.id))) {
       return yield* new InvalidTaskId({ id: input.id, position: position + 1 });
     }
-    if (explicit.has(input.id))
+    if (explicit.has(input.id)) {
       return yield* new DuplicateTaskId({ id: input.id, generated: false });
+    }
     explicit.add(input.id);
   }
 
@@ -143,8 +148,9 @@ export const planGraph = Effect.fn("Graph.plan")(function* (
     // one, and silently pointing an edge at a different task is worse than
     // refusing the call.
     const generated = generatedId(position);
-    if (explicit.has(generated))
+    if (explicit.has(generated)) {
       return yield* new DuplicateTaskId({ id: generated, generated: true });
+    }
     ids.push(generated);
   }
 
@@ -154,8 +160,12 @@ export const planGraph = Effect.fn("Graph.plan")(function* (
     const id = ids[position]!;
     const needs = [...new Set(input.needs ?? [])];
     for (const need of needs) {
-      if (need === id) return yield* new SelfEdge({ task: id });
-      if (!known.has(need)) return yield* new UnknownNeed({ task: id, need });
+      if (need === id) {
+        return yield* new SelfEdge({ task: id });
+      }
+      if (!known.has(need)) {
+        return yield* new UnknownNeed({ task: id, need });
+      }
     }
     edges.push(needs);
   }
@@ -198,7 +208,9 @@ const layer = Effect.fn("Graph.layer")(function* (
     }
     // Assigned after the whole wave, so siblings land in the same one rather
     // than each pushing the next along.
-    for (const { id } of ready) waves.set(id, wave);
+    for (const { id } of ready) {
+      waves.set(id, wave);
+    }
   }
 
   return planned.sort((left, right) => left.index - right.index);
@@ -216,7 +228,9 @@ export function composePrompt(
   outputs: ReadonlyMap<string, string>,
 ): string {
   if (needs.length === 0) {
-    if (!prompt.includes(PREVIOUS)) return prompt;
+    if (!prompt.includes(PREVIOUS)) {
+      return prompt;
+    }
     // Saying so beats leaving a hole where the model expects a result.
     return `${prompt.replaceAll(PREVIOUS, () => "")}\n\n(${PREVIOUS} was empty: this task has no upstream.)`;
   }
@@ -278,7 +292,9 @@ export const runGraph = Effect.fn("Graph.run")(function* (
 
     for (const settlement of settled) {
       settlements.push(settlement);
-      if (settlement.output !== undefined) outputs.set(settlement.id, settlement.output);
+      if (settlement.output !== undefined) {
+        outputs.set(settlement.id, settlement.output);
+      }
     }
   }
 

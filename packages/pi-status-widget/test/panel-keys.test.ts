@@ -73,7 +73,9 @@ async function openPanel(initial: StatusbarConfig = cloneConfig(DEFAULT_CONFIG))
 
   await api.run(COMMAND_NAME, "", context.ctx);
   const panel = context.panel();
-  if (!panel) throw new Error("the command opened no panel");
+  if (!panel) {
+    throw new Error("the command opened no panel");
+  }
 
   const rowIds = buildPanelItems(initial).map((item) => item.id);
   // Mirrors where the panel's own cursor should be, so goTo can walk a
@@ -94,7 +96,9 @@ async function openPanel(initial: StatusbarConfig = cloneConfig(DEFAULT_CONFIG))
     /** Walks the cursor to a row by id, so a new row does not shift the count. */
     goTo: async (id: string) => {
       const target = rowIds.indexOf(id);
-      if (target === -1) throw new Error(`no row ${id}`);
+      if (target === -1) {
+        throw new Error(`no row ${id}`);
+      }
       for (let step = 0; step < (target - at + rowIds.length) % rowIds.length; step += 1) {
         panel.handleInput?.(DOWN);
       }
@@ -108,13 +112,18 @@ async function openPanel(initial: StatusbarConfig = cloneConfig(DEFAULT_CONFIG))
     // notifications passes no matter what the code does.
     /** Several keys inside one tick, with no chance for a resync between them. */
     burst: async (...keys: string[]) => {
-      for (const key of keys) panel.handleInput?.(key);
+      for (const key of keys) {
+        panel.handleInput?.(key);
+      }
       await flush();
     },
     press: async (keys: string) => {
       panel.handleInput?.(keys);
-      if (keys === DOWN) at = (at + 1) % rowIds.length;
-      else if (keys === UP) at = (at - 1 + rowIds.length) % rowIds.length;
+      if (keys === DOWN) {
+        at = (at + 1) % rowIds.length;
+      } else if (keys === UP) {
+        at = (at - 1 + rowIds.length) % rowIds.length;
+      }
       await flush();
     },
     lines: () => panel.render(80),
@@ -328,7 +337,9 @@ describe("the /statusbar panel", () => {
     const hint = lines.findIndex((line) => line.includes("Enter/Space to change"));
 
     expect(PANEL_HINT).not.toMatch(/[\u2190\u2192]/);
-    for (const line of lines.slice(hint)) expect(line).not.toMatch(/[\u2190\u2192]/);
+    for (const line of lines.slice(hint)) {
+      expect(line).not.toMatch(/[\u2190\u2192]/);
+    }
   });
 });
 

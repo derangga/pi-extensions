@@ -119,7 +119,9 @@ function formatStartupFailure(address: TaskAddress, result: ChildRunResult): str
 
 function collectParked(state: IntercomState, traffic: ParentTraffic): ParkedDelivery {
   const parked = state.parked.get(traffic.address.runId);
-  if (!parked || parked.size === 0) return { parked: false, wakes: [] };
+  if (!parked || parked.size === 0) {
+    return { parked: false, wakes: [] };
+  }
 
   const wakes: Deferred.Deferred<void>[] = [];
   for (const waiter of parked) {
@@ -128,14 +130,17 @@ function collectParked(state: IntercomState, traffic: ParentTraffic): ParkedDeli
       wakes.push(waiter.wake);
       continue;
     }
-    if (traffic.kind !== "ask") continue;
+    if (traffic.kind !== "ask") {
+      continue;
+    }
 
     const drop = waiter.messages.findIndex((message) => message.kind !== "ask");
     // A valid run has at most 16 outstanding asks, below the cap, so a queue of
     // nothing but asks cannot happen. If it ever does, overwrite the newest
     // rather than drop the question that arrived.
-    if (drop === -1) waiter.messages[waiter.messages.length - 1] = traffic;
-    else {
+    if (drop === -1) {
+      waiter.messages[waiter.messages.length - 1] = traffic;
+    } else {
       waiter.messages.splice(drop, 1);
       waiter.messages.push(traffic);
     }
@@ -179,8 +184,12 @@ export class Intercom extends Context.Service<
             const wakes = [...state.parked.values()].flatMap((waiters) =>
               [...waiters].map((waiter) => waiter.wake),
             );
-            for (const channel of state.channels.values()) channel.closed = true;
-            for (const pending of state.pending.values()) safelyNotify(pending.channel, false);
+            for (const channel of state.channels.values()) {
+              channel.closed = true;
+            }
+            for (const pending of state.pending.values()) {
+              safelyNotify(pending.channel, false);
+            }
             state.channels.clear();
             state.pending.clear();
             state.parked.clear();
@@ -196,7 +205,9 @@ export class Intercom extends Context.Service<
           ) {
             const parked = yield* Effect.sync(() => collectParked(state, traffic));
             yield* completeAll(parked.wakes, undefined);
-            if (parked.parked) return;
+            if (parked.parked) {
+              return;
+            }
             yield* Effect.try({
               try: () => delivery.send(directText, mode),
               catch: () => undefined,
@@ -222,14 +233,20 @@ export class Intercom extends Context.Service<
                 Effect.gen(function* () {
                   const pending = yield* Effect.sync(() => {
                     opened.closed = true;
-                    if (state.channels.get(key) === opened) state.channels.delete(key);
+                    if (state.channels.get(key) === opened) {
+                      state.channels.delete(key);
+                    }
                     const current = state.pending.get(key);
-                    if (current?.channel !== opened) return undefined;
+                    if (current?.channel !== opened) {
+                      return undefined;
+                    }
                     state.pending.delete(key);
                     safelyNotify(opened, false);
                     return current.reply;
                   });
-                  if (pending) yield* Deferred.succeed(pending, TASK_ENDED_REPLY);
+                  if (pending) {
+                    yield* Deferred.succeed(pending, TASK_ENDED_REPLY);
+                  }
                 }),
             );
 
@@ -239,8 +256,12 @@ export class Intercom extends Context.Service<
                   const reply = yield* Deferred.make<string>();
                   const registration = yield* Effect.acquireRelease(
                     Effect.sync(() => {
-                      if (channel.closed) return "closed" as const;
-                      if (state.pending.has(key)) return "duplicate" as const;
+                      if (channel.closed) {
+                        return "closed" as const;
+                      }
+                      if (state.pending.has(key)) {
+                        return "duplicate" as const;
+                      }
                       const pending: PendingAsk = { channel, reply };
                       state.pending.set(key, pending);
                       safelyNotify(channel, true);
@@ -248,15 +269,25 @@ export class Intercom extends Context.Service<
                     }),
                     (registered) =>
                       Effect.sync(() => {
-                        if (registered !== "registered") return;
+                        if (registered !== "registered") {
+                          return;
+                        }
                         const current = state.pending.get(key);
-                        if (current?.reply === reply) state.pending.delete(key);
-                        if (!channel.closed) safelyNotify(channel, false);
+                        if (current?.reply === reply) {
+                          state.pending.delete(key);
+                        }
+                        if (!channel.closed) {
+                          safelyNotify(channel, false);
+                        }
                       }),
                   );
 
-                  if (registration === "closed") return TASK_ENDED_REPLY;
-                  if (registration === "duplicate") return DUPLICATE_ASK_REPLY;
+                  if (registration === "closed") {
+                    return TASK_ENDED_REPLY;
+                  }
+                  if (registration === "duplicate") {
+                    return DUPLICATE_ASK_REPLY;
+                  }
 
                   yield* publish({ kind: "ask", address, text: question });
                   const answer = yield* Deferred.await(reply).pipe(
@@ -274,7 +305,9 @@ export class Intercom extends Context.Service<
               message: string,
               level: NotificationLevel,
             ) {
-              if (channel.closed) return;
+              if (channel.closed) {
+                return;
+              }
               yield* publish({ kind: "notify", address, text: message, level });
             });
 
@@ -297,7 +330,9 @@ export class Intercom extends Context.Service<
                 Effect.sync(() => {
                   const waiters = state.parked.get(runId);
                   waiters?.delete(opened);
-                  if (waiters?.size === 0) state.parked.delete(runId);
+                  if (waiters?.size === 0) {
+                    state.parked.delete(runId);
+                  }
                 }),
             );
             return {
@@ -315,11 +350,15 @@ export class Intercom extends Context.Service<
             const pending = yield* Effect.sync(() => {
               const key = addressKey({ runId, taskId });
               const current = state.pending.get(key);
-              if (!current || current.channel.closed) return undefined;
+              if (!current || current.channel.closed) {
+                return undefined;
+              }
               state.pending.delete(key);
               return current.reply;
             });
-            if (!pending) return "not_waiting" as const;
+            if (!pending) {
+              return "not_waiting" as const;
+            }
             yield* Deferred.succeed(pending, message);
             return "delivered" as const;
           });

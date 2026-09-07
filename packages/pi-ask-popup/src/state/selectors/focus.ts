@@ -11,7 +11,11 @@ export function selectActiveView(
   state: { notesVisible: boolean; currentTab: number },
   totalQuestions: number,
 ): ActiveView {
-  if (state.notesVisible) return "notes";
-  if (state.currentTab === totalQuestions) return "submit";
+  if (state.notesVisible) {
+    return "notes";
+  }
+  if (state.currentTab === totalQuestions) {
+    return "submit";
+  }
   return "options";
 }

@@ -38,7 +38,9 @@ export function collectSessionMetrics(entries: readonly unknown[]): SessionMetri
 
   for (const entry of entries) {
     const message = getMessage(entry);
-    if (!message) continue;
+    if (!message) {
+      continue;
+    }
 
     const timestampMs = normalizeTimestamp(message.timestamp ?? getEntryTimestamp(entry));
     if (timestampMs !== undefined) {
@@ -46,23 +48,36 @@ export function collectSessionMetrics(entries: readonly unknown[]): SessionMetri
         firstTimestampMs === undefined ? timestampMs : Math.min(firstTimestampMs, timestampMs);
     }
 
-    if (message.role !== "assistant") continue;
+    if (message.role !== "assistant") {
+      continue;
+    }
     const usage = getUsage(message.usage);
-    if (usage) costUsd += numberOrZero(usage.cost?.total);
+    if (usage) {
+      costUsd += numberOrZero(usage.cost?.total);
+    }
   }
 
   return { costUsd, firstTimestampMs };
 }
 
 function getMessage(entry: unknown): MessageLike | undefined {
-  if (!isRecord(entry)) return undefined;
+  if (!isRecord(entry)) {
+    return undefined;
+  }
   const message = entry.message;
   return isRecord(message) ? message : undefined;
 }
 
 /** A message without its own timestamp falls back to the entry wrapping it. */
-function getEntryTimestamp(entry: unknown): unknown {
-  return isRecord(entry) ? entry.timestamp : undefined;
+function getEntryTimestamp(entry: unknown): string | number | undefined {
+  if (!isRecord(entry)) {
+    return undefined;
+  }
+  const timestamp = entry.timestamp;
+  if (typeof timestamp === "string" || typeof timestamp === "number") {
+    return timestamp;
+  }
+  return undefined;
 }
 
 function getUsage(value: unknown): UsageLike | undefined {
@@ -70,8 +85,12 @@ function getUsage(value: unknown): UsageLike | undefined {
 }
 
 function normalizeTimestamp(value: unknown): number | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value !== "string") return undefined;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value !== "string") {
+    return undefined;
+  }
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : undefined;
 }

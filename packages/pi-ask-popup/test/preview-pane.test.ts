@@ -255,7 +255,9 @@ describe("PreviewPane — width safety (Pi crash guard)", () => {
       const { pane, optionListView } = makePane(question, () => w);
       optionListView.setProps({ selectedIndex: 0, focused: true, inputBuffer: "" });
       const lines = pane.render(w);
-      for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(w);
+      for (const line of lines) {
+        expect(visibleWidth(line)).toBeLessThanOrEqual(w);
+      }
     }
   });
 });
@@ -479,7 +481,9 @@ describe("PreviewPane — right-aligned preview with a bounded options column", 
       const { pane, optionListView } = makePane(question, () => w);
       optionListView.setProps({ selectedIndex: 0, focused: true, inputBuffer: "" });
       const lines = pane.render(w);
-      for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(w);
+      for (const line of lines) {
+        expect(visibleWidth(line)).toBeLessThanOrEqual(w);
+      }
     }
   });
 });
@@ -584,7 +588,9 @@ describe("PreviewPane — slack donation to left column", () => {
     const left = crossTabLeftWidthWithDonation(tabs, itemsByTab, questions, 100);
     expect(100 - left - PREVIEW_COLUMN_GAP).toBeGreaterThanOrEqual(MIN_PREVIEW_WIDTH);
     const lines = pane.render(100);
-    for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(100);
+    for (const line of lines) {
+      expect(visibleWidth(line)).toBeLessThanOrEqual(100);
+    }
   });
 
   it("naturalHeight(w) === render(w).length holds with donation active", () => {
@@ -811,7 +817,9 @@ describe("PreviewPane — adaptive left column width", () => {
     const leftW = adaptiveLeftWidth(items, 3, 120);
     expect(leftW).toBe(MIN_LEFT);
     const lines = pane.render(120);
-    for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(120);
+    for (const line of lines) {
+      expect(visibleWidth(line)).toBeLessThanOrEqual(120);
+    }
   });
 
   it("long labels produce wider left column up to MAX_LEFT_RATIO", () => {
@@ -833,7 +841,9 @@ describe("PreviewPane — adaptive left column width", () => {
     expect(leftW).toBeGreaterThan(MIN_LEFT);
     expect(leftW).toBeLessThanOrEqual(Math.floor(120 * MAX_LEFT_RATIO));
     const lines = pane.render(120);
-    for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(120);
+    for (const line of lines) {
+      expect(visibleWidth(line)).toBeLessThanOrEqual(120);
+    }
   });
 
   it("MIN_PREVIEW_WIDTH safety net prevents right-side collapse", () => {

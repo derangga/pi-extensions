@@ -147,10 +147,14 @@ export function sentinelsToAppend(question: QuestionData): SentinelKind[] {
   const out: SentinelKind[] = [];
   for (const kind of SENTINEL_KINDS) {
     const meta = ROW_INTENT_META[kind];
-    if (!meta.livesInMainList) continue;
+    if (!meta.livesInMainList) {
+      continue;
+    }
     const appends =
       question.multiSelect === true ? meta.autoAppendOnMultiSelect : meta.autoAppendOnSingleSelect;
-    if (appends) out.push(kind);
+    if (appends) {
+      out.push(kind);
+    }
   }
   return out;
 }

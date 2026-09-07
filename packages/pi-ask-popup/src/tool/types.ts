@@ -187,7 +187,9 @@ export interface QuestionnaireResult {
 }
 
 export function isQuestionnaireResult(value: unknown): value is QuestionnaireResult {
-  if (!value || typeof value !== "object") return false;
+  if (!value || typeof value !== "object") {
+    return false;
+  }
   const v = value as Record<string, unknown>;
   return Array.isArray(v.answers) && typeof v.cancelled === "boolean";
 }

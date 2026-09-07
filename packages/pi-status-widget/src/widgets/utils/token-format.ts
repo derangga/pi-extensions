@@ -1,15 +1,27 @@
 export function formatCount(value: number): string {
-  if (value < 1000) return `${value}`;
-  if (value < 1_000_000) return `${trimFixed(value / 1000, 1)}k`;
+  if (value < 1000) {
+    return `${value}`;
+  }
+  if (value < 1_000_000) {
+    return `${trimFixed(value / 1000, 1)}k`;
+  }
   return `${trimFixed(value / 1_000_000, 1)}m`;
 }
 
 /** Pi's own rounding for token counts, so a footer segment matches pi's display. */
 export function formatPiTokenCount(value: number): string {
-  if (value < 1000) return `${value}`;
-  if (value < 10_000) return `${(value / 1000).toFixed(1)}k`;
-  if (value < 1_000_000) return `${Math.round(value / 1000)}k`;
-  if (value < 10_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+  if (value < 1000) {
+    return `${value}`;
+  }
+  if (value < 10_000) {
+    return `${(value / 1000).toFixed(1)}k`;
+  }
+  if (value < 1_000_000) {
+    return `${Math.round(value / 1000)}k`;
+  }
+  if (value < 10_000_000) {
+    return `${(value / 1_000_000).toFixed(1)}M`;
+  }
   return `${Math.round(value / 1_000_000)}M`;
 }
 

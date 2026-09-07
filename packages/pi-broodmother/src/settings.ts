@@ -106,7 +106,9 @@ export function decodeSettings(raw: unknown): LoadedSettings {
   const warnings: string[] = [];
 
   const take = <A>(key: string, decode: (input: unknown) => Option.Option<A>, fallback: A): A => {
-    if (!Object.hasOwn(fields, key)) return fallback;
+    if (!Object.hasOwn(fields, key)) {
+      return fallback;
+    }
     const decoded = decode(fields[key]);
     if (Option.isNone(decoded)) {
       warnings.push(`${key} is out of range, using ${String(fallback)}`);
@@ -150,8 +152,12 @@ export const loadSettings = Effect.fn("Settings.load")(function* (path: string) 
     ),
   );
 
-  if (read.kind === "missing") return { settings: DEFAULT_SETTINGS, warnings: [] };
-  if (read.kind === "failed") return { settings: DEFAULT_SETTINGS, warnings: [read.warning] };
+  if (read.kind === "missing") {
+    return { settings: DEFAULT_SETTINGS, warnings: [] };
+  }
+  if (read.kind === "failed") {
+    return { settings: DEFAULT_SETTINGS, warnings: [read.warning] };
+  }
 
   const parsed = yield* Effect.try({
     try: (): ParseOutcome => ({ kind: "parsed", value: JSON.parse(read.text) as unknown }),
@@ -165,7 +171,9 @@ export const loadSettings = Effect.fn("Settings.load")(function* (path: string) 
     ),
   );
 
-  if (parsed.kind === "failed") return { settings: DEFAULT_SETTINGS, warnings: [parsed.warning] };
+  if (parsed.kind === "failed") {
+    return { settings: DEFAULT_SETTINGS, warnings: [parsed.warning] };
+  }
 
   return decodeSettings(parsed.value);
 });

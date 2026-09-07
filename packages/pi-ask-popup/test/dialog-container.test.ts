@@ -332,7 +332,9 @@ describe("dialog chrome — width safety", () => {
           },
           width,
         );
-        for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+        for (const line of lines) {
+          expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+        }
       }
     }
   });

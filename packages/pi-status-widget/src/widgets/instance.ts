@@ -90,11 +90,17 @@ function renderWidgetValue(
   renderOptions: WidgetRenderOptions = {},
 ): string | undefined {
   const options = entry.options;
-  if (!entry.enabled) return undefined;
+  if (!entry.enabled) {
+    return undefined;
+  }
 
   const rawValue = value ?? "";
-  if (rawValue.length === 0 && options.hideWhenEmpty) return undefined;
-  if (rawValue === "0" && options.hideWhenZero) return undefined;
+  if (rawValue.length === 0 && options.hideWhenEmpty) {
+    return undefined;
+  }
+  if (rawValue === "0" && options.hideWhenZero) {
+    return undefined;
+  }
 
   const fallbackValue = rawValue.length === 0 ? (options.text ?? "-") : rawValue;
   const displayValue = renderOptions.stripIncomingStyles ? stripAnsi(fallbackValue) : fallbackValue;
