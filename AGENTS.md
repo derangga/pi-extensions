@@ -3,34 +3,18 @@
 A monorepo of independently published [Pi Coding Agent](https://pi.dev)
 extensions. Each package under `packages/` is its own npm package with its own
 version, README and LICENSE. Someone installs one without installing the others.
+Nothing here is an app: every package is logic loaded into somebody else's
+process, which is why portability and dependency count get their own rules.
 
-## Rules
+## Classify the problem before you start
 
-**Never mention issue tracker IDs anywhere in this project.** Not in code
-comments, commit messages, READMEs, docs, test names or TODOs. Issue IDs are
-tracking metadata; they rot, they mean nothing to someone reading the published
-source, and they leak internal process into a package other people install.
-Write what the reader needs to know instead: "arrives once the layers it depends
-on exist" beats a bare ID that answers nothing.
-
-**Never add `Co-Authored-By` trailers to commits.** No AI attribution, no
-generated-with footer. Commit messages describe the change and stop.
-
-## Layout
-
-```
-package.json           private, workspaces: packages/*
-tsconfig.base.json     shared compiler options, extended per package
-vitest.config.ts       one config, globs packages/*/test/**
-.oxlintrc.json         lint rules
-.oxfmtrc.json          format rules
-packages/<name>/       one npm package each
-  package.json  tsconfig.json  LICENSE  README.md  src/  test/
-```
-
-Root `devDependencies` pin the Pi packages at one exact version so everything
-typechecks against the same thing. Individual packages declare Pi as a
-`peerDependency` at a wider range.
+- **Changing code, designing a feature, or altering a flow** goes through the
+  `design-thinking` skill first. Name the shapes, draw the call graph, then
+  implement. For an Effect workflow use `anak-intern:design-thinking` instead.
+- **Effect code** additionally loads `docs/agents/effect.md`, and
+  `anak-intern:effect-best-practices` when useful.
+- **A question, a bug hunt, or a read of existing behaviour** needs neither.
+  Answer it.
 
 ## Commands
 
@@ -44,125 +28,27 @@ npm run lint:fix
 
 `npm run check` is the gate. Run it before you call anything done.
 
-npm is the package manager, matching every Pi extension repo in the ecosystem.
-Do not introduce a second lockfile.
+## Rules
 
-## The code must run on two runtimes
+**Never mention issue tracker IDs anywhere in this project.** Not in code
+comments, commit messages, READMEs, docs, test names or TODOs. Issue IDs are
+tracking metadata; they rot, they mean nothing to someone reading the published
+source, and they leak internal process into a package other people install.
+Write what the reader needs to know instead: "arrives once the layers it depends
+on exist" beats a bare ID that answers nothing.
 
-Pi ships as **both** a Bun-compiled binary and a Node CLI (`engines: node
->=22.19`), and an extension is loaded into whichever one the user installed. The
-dev toolchain is Node and npm, but the published code does not get to assume
-that.
+**Never add `Co-Authored-By` trailers to commits.** No AI attribution, no
+generated-with footer. Commit messages describe the change and stop.
 
-Three standing rules follow:
+**Commits follow Conventional Commits.** `feat:`, `fix:`, `chore:`, `docs:`,
+`refactor:`, scoped by package where it helps: `fix(broodmother): …`.
 
-- Import Node builtins with the `node:` prefix. Bun implements that surface, so
-  `node:fs`, `node:path` and `node:url` work on both.
-- Never call a `bun:` API, and never reach for a Node internal that Bun does not
-  implement.
-- Type against `@types/node`, not `@types/bun`. It describes the surface we
-  actually use. `@types/bun` would type globals we are not allowed to call.
+## Deeper detail, read on demand
 
-Portability is verified at publish time by installing the built package into Pi
-under each package manager, not by running the unit suite twice. Extensions are
-pure logic until they touch the host, and the places that actually diverge are
-`process.stdout.isTTY`, filesystem paths and dynamic `import()`. Take extra care
-reviewing those three.
-
-## Every script is scoped to `packages/`
-
-`oxlint packages`, `oxfmt packages`, vitest globbing `packages/*/test/**`. This
-is load-bearing, not tidiness.
-
-The repo root also holds vendored clones of other people's Pi extension repos,
-kept on disk purely to read: `pi-extensions/`, `pi-footer/`, `rpiv-mono/`. They
-carry thousands of their own source and test files. An unscoped glob would lint
-them, format them, and run their test suites.
-
-Those clones are excluded through `.git/info/exclude`, deliberately **not**
-`.gitignore`. That file is local to the checkout and is never itself tracked, so
-the exclusion cannot reach anyone else. Do not move these entries into
-`.gitignore`, and do not commit the clones.
-
-## Writing a Pi extension package
-
-Extensions ship **raw TypeScript**. Pi resolves `"pi": { "extensions":
-["./src/index.ts"] }` and loads it through jiti. There is no build step and no
-`dist/`. A published extension that ships compiled output is doing it wrong.
-
-The entry point default-exports a function taking `ExtensionAPI`:
-
-```ts
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-
-export default function myExtension(pi: ExtensionAPI): void {
-  pi.registerTool({ /* … */ });
-}
-```
-
-Conventions that apply to every package here:
-
-- **Fewest runtime dependencies.** Peer-depend on Pi and reach for forty lines
-  before a package: most things that look like they need a dependency need code
-  instead. One earns its place only by carrying a capability the package is
-  built *on* rather than merely uses, and the package's README says which one
-  and why. The count is pinned by that package's manifest test, so changing it
-  is a deliberate edit rather than a drift.
-- **Peer `typebox`, never `@sinclair/typebox`.** Pi depends on the renamed v1
-  package. The old name is a different package that Pi never loads, so peering
-  it silently resolves to something unused.
-- **Tool schemas are typebox.** That is what `registerTool` takes.
-- Node 22+, ESM, `"type": "module"`.
-- `files` ships `src/`, docs, README and LICENSE. Never `test/`, never configs.
-- Check `npm pack --dry-run` before publishing and read the file list.
-
-## Adding a package
-
-Create `packages/<name>/` with a `package.json`, a `tsconfig.json` extending
-`../../tsconfig.base.json`, `src/` and `test/`. The workspace glob, linter,
-formatter and test runner pick it up with no further wiring.
-
-Add a manifest test. `packages/pi-ask-popup/test/manifest.test.ts` is the
-template: it pins the package's exact runtime dependency count, the correct peer
-names, that every `exports` and `pi.extensions` target exists on disk, and that
-the tarball excludes tests. Those are the mistakes that are cheap to prevent and
-expensive to find after publishing.
-
-## Learning more about Effect
-
-Some packages here use the Effect TypeScript library.
-
-Before writing any Effect code, first read `node_modules/effect/AGENTS.md`
-**completely**, and follow the links in the file when required.
-
-If you need to learn more about particular Effect apis and concepts that the
-guide doesn't cover, search through the source code in `node_modules/effect/src`.
-
-That is not a formality. The installed version is a release candidate and its
-API moves, so anything written from memory or from a third-party guide is a
-guess. `Schema` has no `regex`, the string-pattern check is
-`Schema.isPattern`, and `Context.Service` takes its interface as a second type
-parameter. Each of those was found by hitting it. Root pins `effect` as a
-devDependency at the exact installed version, which is what keeps
-`node_modules/effect/src` readable and every package typechecking against one
-version.
-
-## Forked code
-
-Some packages derive from other MIT-licensed work. Where they do, the package
-LICENSE carries **every** copyright holder, the original first, and the README
-credits the origin. This is the license's condition, not a courtesy. Deleting an
-upstream copyright line makes the package unlicensed.
-
-## Testing
-
-Vitest. Tests live in `packages/<name>/test/` and end in `.test.ts`.
-
-A test that cannot fail is not a test. When you write a guard around something
-important, prove it: break the thing on purpose, watch the right test go red and
-the others stay green, then revert. Especially for manifest and config tests,
-where a typo in the assertion passes forever without ever checking anything.
-
-Silence from a linter looks the same as a linter that scanned nothing. If a tool
-reports no findings on a fresh setup, verify it is actually reading your files
-before you trust it.
+- `docs/agents/repo-layout.md` covers files, workspaces, why every glob is
+  scoped to `packages/`, the vendored clones at the root, and licensing of
+  forked code.
+- `docs/agents/extension-packages.md` covers writing and adding a package, the
+  two runtimes it must survive, and the dependency and manifest conventions.
+- `docs/agents/effect.md` says where the authoritative Effect docs are and why.
+- `docs/agents/testing.md` covers Vitest and proving a test can fail.
