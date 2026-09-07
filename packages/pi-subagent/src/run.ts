@@ -74,7 +74,10 @@ export interface TaskView {
   readonly sessionFile: string | undefined;
   readonly turns: number;
   readonly toolCalls: number;
+  /** The work done. See UsageTotals for why there are two of these. */
   readonly tokens: number;
+  readonly billedTokens: number;
+  readonly cost: number;
   /** The last tool the child called, as a short phrase. */
   readonly activity: string | undefined;
   /** Undefined until the task starts. Elapsed is the caller's to compute. */
@@ -92,6 +95,70 @@ export interface RunView {
   readonly cancelled: boolean;
   readonly tasks: readonly TaskView[];
 }
+
+/**
+ * Two totals, because they answer different questions and neither can be
+ * recovered from the other. `tokens` is input plus output plus cache writes,
+ * the work a run did. `billedTokens` adds cacheRead, the bill it ran up.
+ * `cost` is Pi's own per-message figure summed; nothing is priced here, so a
+ * model Pi has no rates for contributes zero.
+ */
+export interface UsageTotals {
+  readonly tokens: number;
+  readonly billedTokens: number;
+  readonly cost: number;
+}
+
+export function usageOf(task: TaskView): UsageTotals {
+  return { tokens: task.tokens, billedTokens: task.billedTokens, cost: task.cost };
+}
+
+export function aggregateUsage(tasks: readonly TaskView[]): UsageTotals {
+  return tasks.reduce<UsageTotals>(
+    (total, task) => ({
+      tokens: total.tokens + task.tokens,
+      billedTokens: total.billedTokens + task.billedTokens,
+      cost: total.cost + task.cost,
+    }),
+    { tokens: 0, billedTokens: 0, cost: 0 },
+  );
+}
+
+/** The three channels. Enough to render run state without importing this package. */
+export const EVENT_RUN_STARTED = "pi-subagent:run-started";
+export const EVENT_TASK_SETTLED = "pi-subagent:task-settled";
+export const EVENT_RUN_SETTLED = "pi-subagent:run-settled";
+
+/** One task, as an outsider sees it. Ids and status, no prompts and no output. */
+export interface TaskEventSummary {
+  readonly id: string;
+  readonly agent: string;
+  readonly task: string;
+  readonly wave: number;
+  readonly status: TaskStatus;
+  readonly outcome: ChildOutcome | undefined;
+}
+
+export type SubagentEvent =
+  | {
+      readonly channel: typeof EVENT_RUN_STARTED;
+      readonly runId: string;
+      readonly tasks: readonly TaskEventSummary[];
+    }
+  | {
+      readonly channel: typeof EVENT_TASK_SETTLED;
+      readonly runId: string;
+      readonly task: TaskEventSummary;
+      readonly turns: number;
+      readonly usage: UsageTotals;
+    }
+  | {
+      readonly channel: typeof EVENT_RUN_SETTLED;
+      readonly runId: string;
+      readonly cancelled: boolean;
+      readonly tasks: readonly TaskEventSummary[];
+      readonly usage: UsageTotals;
+    };
 
 /**
  * What a wait returns. Traffic comes back inside the same tool result rather
@@ -124,6 +191,7 @@ export class UnknownTask extends Schema.TaggedError<UnknownTask>()("UnknownTask"
 /** How the manager tells a surface that something moved. */
 export interface ManagerOptions {
   readonly onChange?: (runs: readonly RunView[]) => void;
+  readonly onEvent?: (event: SubagentEvent) => void;
 }
 
 export type StartError = GraphError | ResolveError | AgentFileUnreadable;
@@ -205,11 +273,24 @@ function viewTask(state: TaskState): TaskView {
     turns: state.result?.turns ?? 0,
     toolCalls: state.progress.toolCalls,
     tokens: state.progress.tokens,
+    billedTokens: state.progress.billedTokens,
+    cost: state.progress.cost,
     activity: state.progress.activity,
     startedAt: state.startedAt,
     endedAt: state.endedAt,
     missing: state.missing,
     notes: state.notes,
+  };
+}
+
+function summarize(task: TaskView): TaskEventSummary {
+  return {
+    id: task.id,
+    agent: task.agent,
+    task: task.task,
+    wave: task.wave,
+    status: task.status,
+    outcome: task.outcome,
   };
 }
 
@@ -318,6 +399,16 @@ export class Manager extends Context.Service<
           }
         };
 
+        /** Three events, fire and forget. A subscriber is not part of the run. */
+        const publish = (event: SubagentEvent): void => {
+          if (!options.onEvent) return;
+          try {
+            options.onEvent(event);
+          } catch {
+            // Same reasoning as `changed`: a listener cannot fail a run.
+          }
+        };
+
         const lookup = Effect.fn("Manager.lookup")(function* (
           runId: string | undefined,
         ): Effect.fn.Return<RunState, UnknownRun> {
@@ -345,6 +436,7 @@ export class Manager extends Context.Service<
         });
 
         const settleTask = Effect.fn("Manager.settleTask")(function* (
+          runId: string,
           state: TaskState,
           result: ChildRunResult,
         ) {
@@ -353,7 +445,17 @@ export class Manager extends Context.Service<
           state.endedAt = Date.now();
           state.notes = [...state.notes, ...result.notes];
           yield* Deferred.succeed(state.settled, undefined);
-          yield* Effect.sync(changed);
+          yield* Effect.sync(() => {
+            const view = viewTask(state);
+            publish({
+              channel: EVENT_TASK_SETTLED,
+              runId,
+              task: summarize(view),
+              turns: view.turns,
+              usage: usageOf(view),
+            });
+            changed();
+          });
         });
 
         const runOneTask = (run: RunState, request: StartRequest): RunTask =>
@@ -362,7 +464,7 @@ export class Manager extends Context.Service<
             if (!state) return undefined;
 
             if (run.controller.signal.aborted) {
-              yield* settleTask(state, stoppedBeforeStart());
+              yield* settleTask(run.id, state, stoppedBeforeStart());
               return undefined;
             }
 
@@ -396,7 +498,7 @@ export class Manager extends Context.Service<
               }),
             );
 
-            yield* settleTask(state, result);
+            yield* settleTask(run.id, state, result);
             yield* intercom.settle(address, result);
             // Only real output flows down an edge. A child that died without
             // saying anything leaves its dependents to skip rather than run
@@ -426,7 +528,17 @@ export class Manager extends Context.Service<
           });
           yield* Deferred.succeed(run.done, undefined);
           yield* intercom.finishRun(run.id);
-          yield* Effect.sync(changed);
+          yield* Effect.sync(() => {
+            const view = viewRun(run);
+            publish({
+              channel: EVENT_RUN_SETTLED,
+              runId: run.id,
+              cancelled: run.cancelled,
+              tasks: view.tasks.map(summarize),
+              usage: aggregateUsage(view.tasks),
+            });
+            changed();
+          });
         });
 
         const execute = Effect.fn("Manager.execute")(
@@ -503,6 +615,11 @@ export class Manager extends Context.Service<
           };
           runs.set(run.id, run);
           order.push(run.id);
+          publish({
+            channel: EVENT_RUN_STARTED,
+            runId: run.id,
+            tasks: viewRun(run).tasks.map(summarize),
+          });
           changed();
 
           yield* Effect.forkIn(

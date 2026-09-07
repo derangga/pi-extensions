@@ -33,10 +33,14 @@ function toolStart(toolName: string, args: unknown): AgentSessionEvent {
   } as AgentSessionEvent;
 }
 
-function messageEnd(usage: Record<string, number>): AgentSessionEvent {
+function messageEnd(usage: Record<string, number>, cost?: number): AgentSessionEvent {
   return {
     type: "message_end",
-    message: { role: "assistant", content: [], usage },
+    message: {
+      role: "assistant",
+      content: [],
+      usage: { ...usage, ...(cost === undefined ? {} : { cost: { total: cost } }) },
+    },
   } as unknown as AgentSessionEvent;
 }
 
@@ -303,11 +307,11 @@ describe("progress reporting", () => {
     expect(seen.at(-1)).toMatchObject({ toolCalls: 2, activity: "Read src/index.ts" });
   });
 
-  it("sums work done across turns and leaves cacheRead out of it", async () => {
+  it("keeps the work total and the bill apart across turns", async () => {
     const seen: TaskProgress[] = [];
     const fake = fakeChild(({ emit, messages }) => {
-      emit(messageEnd({ input: 100, output: 20, cacheWrite: 5, cacheRead: 9_000 }));
-      emit(messageEnd({ input: 10, output: 2, cacheWrite: 0, cacheRead: 9_000 }));
+      emit(messageEnd({ input: 100, output: 20, cacheWrite: 5, cacheRead: 9_000 }, 0.01));
+      emit(messageEnd({ input: 10, output: 2, cacheWrite: 0, cacheRead: 9_000 }, 0.002));
       messages.push(assistant("done"));
     });
 
@@ -315,7 +319,25 @@ describe("progress reporting", () => {
       runChildLifecycle(options(fake.created, { onProgress: (p) => seen.push(p) })),
     );
 
-    expect(seen.at(-1)?.tokens).toBe(137);
+    // Each turn's cacheRead is the whole cached prefix re-read on that call.
+    // Summing it states the bill (18137) and overstates the work (137).
+    expect(seen.at(-1)).toMatchObject({ tokens: 137, billedTokens: 18_137 });
+  });
+
+  it("sums the cost Pi priced and never prices anything itself", async () => {
+    const seen: TaskProgress[] = [];
+    const fake = fakeChild(({ emit, messages }) => {
+      emit(messageEnd({ input: 100, output: 20, cacheWrite: 0, cacheRead: 0 }, 0.01));
+      // A model Pi has no rates for reports usage with no cost at all.
+      emit(messageEnd({ input: 10, output: 2, cacheWrite: 0, cacheRead: 0 }));
+      messages.push(assistant("done"));
+    });
+
+    await Effect.runPromise(
+      runChildLifecycle(options(fake.created, { onProgress: (p) => seen.push(p) })),
+    );
+
+    expect(seen.at(-1)).toMatchObject({ tokens: 132, cost: 0.01 });
   });
 
   it("does not let a throwing listener strand the child", async () => {

@@ -29,6 +29,8 @@ function taskView(fields: Partial<TaskView> = {}): TaskView {
     turns: 3,
     toolCalls: 4,
     tokens: 1200,
+    billedTokens: 7200,
+    cost: 0.0042,
     activity: "Grep useEffect",
     startedAt: 1000,
     endedAt: 4000,
@@ -163,6 +165,18 @@ describe("formatRun", () => {
     expect(text).toContain("model: anthropic/claude-opus-5");
     expect(text).toContain("turns: 3");
     expect(text).toContain("note: fell back to the session model");
+  });
+
+  it("names both token totals rather than printing one ambiguous number", () => {
+    const text = formatRun(runView([taskView()]), { verbose: true });
+    expect(text).toContain("tokens: 1200 worked, 7200 billed");
+    expect(text).toContain("cost: $0.0042");
+  });
+
+  it("says nothing about cost when nothing priced the run", () => {
+    const text = formatRun(runView([taskView({ cost: 0 })]), { verbose: true });
+    expect(text).toContain("tokens: 1200 worked");
+    expect(text).not.toContain("cost:");
   });
 
   it("names the needs that failed when a task was skipped", () => {

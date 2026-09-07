@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   callLines,
   createWidgetHost,
+  formatCost,
   formatElapsed,
   formatTokens,
   resultLines,
@@ -40,6 +41,8 @@ function taskView(fields: Partial<TaskView> = {}): TaskView {
     turns: 1,
     toolCalls: 3,
     tokens: 1500,
+    billedTokens: 9500,
+    cost: 0.0123,
     activity: "Grep useEffect",
     startedAt: NOW - 12_000,
     endedAt: undefined,
@@ -71,6 +74,26 @@ describe("formatting", () => {
     expect(formatTokens(128_400)).toBe("128k");
   });
 
+  it("prints nothing for a cost that was never measured", () => {
+    // Zero is not a measurement: a model Pi has no rates for contributes
+    // nothing, and $0.0000 would claim the run was measured and found free.
+    expect(formatCost(0)).toBeUndefined();
+    expect(formatCost(Number.NaN)).toBeUndefined();
+    expect(formatCost(-1)).toBeUndefined();
+  });
+
+  it("says a real cost is small rather than rounding it to nothing", () => {
+    expect(formatCost(0.000_02)).toBe("<$0.0001");
+    expect(formatCost(0.0001)).toBe("$0.0001");
+    expect(formatCost(1.5)).toBe("$1.5000");
+  });
+
+  it("leaves the cost out of a line when there is none", () => {
+    const [, line] = widgetLines([runView([taskView({ cost: 0 })])], theme, NOW);
+    expect(line).toContain("1.5k tok · 12s");
+    expect(line).not.toContain("$");
+  });
+
   it("counts elapsed to the end of a finished task and to now for a live one", () => {
     expect(formatElapsed(taskView(), NOW)).toBe("12s");
     expect(formatElapsed(taskView({ startedAt: NOW - 95_000 }), NOW)).toBe("1m35s");
@@ -94,7 +117,7 @@ describe("widgetLines", () => {
   it("shows what a running child is doing, and drops it once settled", () => {
     const [, running] = widgetLines([runView([taskView()])], theme, NOW);
     expect(running).toContain("→ Grep useEffect");
-    expect(running).toContain("3 tools · 1.5k tok · 12s");
+    expect(running).toContain("3 tools · 1.5k tok · $0.0123 · 12s");
 
     const [, done] = widgetLines([runView([settled()])], theme, NOW);
     expect(done).not.toContain("→ Grep useEffect");
@@ -267,7 +290,7 @@ describe("resultLines", () => {
       theme,
       false,
     );
-    expect(lines).toEqual(["2/2 done settled · 3.0k tok"]);
+    expect(lines).toEqual(["2/2 done settled · 3.0k tok · $0.0246"]);
   });
 
   it("counts what did not finish cleanly", () => {

@@ -22,11 +22,21 @@ export interface TaskProgress {
   readonly toolCalls: number;
   /** Input plus output plus cache writes: the work done, not the bill. */
   readonly tokens: number;
+  /** The same plus cacheRead: the bill, not the work. */
+  readonly billedTokens: number;
+  /** Priced by Pi, never here. A model Pi has no rates for contributes zero. */
+  readonly cost: number;
   /** The last tool call, as a short phrase. */
   readonly activity: string | undefined;
 }
 
-export const NO_PROGRESS: TaskProgress = { toolCalls: 0, tokens: 0, activity: undefined };
+export const NO_PROGRESS: TaskProgress = {
+  toolCalls: 0,
+  tokens: 0,
+  billedTokens: 0,
+  cost: 0,
+  activity: undefined,
+};
 
 /**
  * The arguments most worth showing, in the order a reader wants them. Falls
@@ -224,14 +234,21 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
     if (event.type === "message_end") {
       // Accumulated here rather than from getSessionStats, which derives from
       // the message array compaction replaces and so resets when a child
-      // compacts. cacheRead is left out: it is the cached prefix re-read on
-      // this one call, so summing it overstates the work done.
+      // compacts.
+      //
+      // Two totals off one accumulator, because they answer different
+      // questions. Each turn's cacheRead is the cached prefix re-read on that
+      // one call, so summing it across turns states the bill correctly and
+      // overstates the work done. Neither figure is derivable from the other
+      // afterwards, so both are kept as they arrive.
       const usage = event.message.role === "assistant" ? event.message.usage : undefined;
       if (usage) {
+        const work = (usage.input ?? 0) + (usage.output ?? 0) + (usage.cacheWrite ?? 0);
         report({
           ...progress,
-          tokens:
-            progress.tokens + (usage.input ?? 0) + (usage.output ?? 0) + (usage.cacheWrite ?? 0),
+          tokens: progress.tokens + work,
+          billedTokens: progress.billedTokens + work + (usage.cacheRead ?? 0),
+          cost: progress.cost + (usage.cost?.total ?? 0),
         });
       }
       return;

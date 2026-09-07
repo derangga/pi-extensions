@@ -2,7 +2,7 @@ import type { ExtensionContext, Theme, ThemeColor } from "@earendil-works/pi-cod
 import { type Component, truncateToWidth, type TUI } from "@earendil-works/pi-tui";
 import { Predicate } from "effect";
 
-import type { RunView, TaskStatus, TaskView } from "./run.js";
+import { aggregateUsage, type RunView, type TaskStatus, type TaskView } from "./run.js";
 
 /**
  * Roughly one render per 150ms. A child streaming tokens fires the change hook
@@ -51,6 +51,17 @@ export function formatTokens(tokens: number): string {
   return thousands < 100 ? `${thousands.toFixed(1)}k` : `${Math.round(thousands)}k`;
 }
 
+/**
+ * Zero prints nothing rather than a zero-dollar figure, which would claim the
+ * run was measured and found free: a model Pi has no rates for contributes
+ * nothing, and that is not the same as being free. A real cost too small to
+ * render says so instead of rounding away to nothing.
+ */
+export function formatCost(cost: number): string | undefined {
+  if (!(cost > 0)) return undefined;
+  return cost >= 0.0001 ? `$${cost.toFixed(4)}` : "<$0.0001";
+}
+
 export function formatElapsed(task: TaskView, now: number): string {
   if (task.startedAt === undefined) return "–";
   const seconds = Math.max(0, Math.round(((task.endedAt ?? now) - task.startedAt) / 1000));
@@ -71,9 +82,10 @@ function isDone(task: TaskView): boolean {
 export function widgetLine(task: TaskView, theme: Theme, now: number): string {
   const icon = theme.fg(statusColor(task), statusIcon(task));
   const name = theme.fg(isDone(task) ? "dim" : "accent", task.agent);
+  const cost = formatCost(task.cost);
   const stats = theme.fg(
     "dim",
-    `${task.toolCalls} tools · ${formatTokens(task.tokens)} tok · ${formatElapsed(task, now)}`,
+    `${task.toolCalls} tools · ${formatTokens(task.tokens)} tok · ${cost ? `${cost} · ` : ""}${formatElapsed(task, now)}`,
   );
   const activity =
     !isDone(task) && task.activity ? `${theme.fg("muted", `→ ${task.activity}`)} · ` : "";
@@ -259,10 +271,11 @@ function summaryLine(run: RunView, theme: Theme): string {
       task.status === "skipped" || (task.outcome !== undefined && task.outcome !== "completed"),
   ).length;
   const state = run.cancelled ? "cancelled" : run.finished ? "settled" : "running";
-  const tokens = run.tasks.reduce((total, task) => total + task.tokens, 0);
+  const usage = aggregateUsage(run.tasks);
+  const cost = formatCost(usage.cost);
   const tail = theme.fg(
     "dim",
-    `${failed > 0 ? `${failed} not clean · ` : ""}${formatTokens(tokens)} tok`,
+    `${failed > 0 ? `${failed} not clean · ` : ""}${formatTokens(usage.tokens)} tok${cost ? ` · ${cost}` : ""}`,
   );
   return `${theme.fg(failed > 0 ? "warning" : "success", `${done}/${run.tasks.length} done`)} ${theme.fg("muted", state)} · ${tail}`;
 }

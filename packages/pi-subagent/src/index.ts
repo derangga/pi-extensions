@@ -41,6 +41,10 @@ export default function subagentExtension(pi: ExtensionAPI): void {
         runs = next;
         widget.update(uiContext);
       },
+      // Three channels on Pi's own bus, so pi-statusbar or anything else can
+      // render run state without importing this package. No RPC, and no
+      // spawn-from-outside surface, until something asks for one.
+      onEvent: (event) => pi.events.emit(event.channel, event),
     }).pipe(
       Layer.provideMerge(
         Layer.mergeAll(

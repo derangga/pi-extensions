@@ -7,10 +7,15 @@ import { Intercom, type ParentDeliveryMode } from "../src/intercom.js";
 import type { ChildFactory } from "../src/lifecycle.js";
 import type { ModelSource } from "../src/resolve.js";
 import {
+  aggregateUsage,
+  EVENT_RUN_SETTLED,
+  EVENT_RUN_STARTED,
+  EVENT_TASK_SETTLED,
   formatManagerError,
   Manager,
   type RunView,
   type StartRequest,
+  type SubagentEvent,
   type TaskRequest,
 } from "../src/run.js";
 import { DEFAULT_SETTINGS, Settings, type SubagentSettings } from "../src/settings.js";
@@ -54,8 +59,9 @@ function layers(
   sent: Sent[],
   overrides: Partial<SubagentSettings> = {},
   onChange?: (runs: readonly RunView[]) => void,
+  onEvent?: (event: SubagentEvent) => void,
 ) {
-  return Manager.layer(onChange ? { onChange } : {}).pipe(
+  return Manager.layer({ ...(onChange ? { onChange } : {}), ...(onEvent ? { onEvent } : {}) }).pipe(
     Layer.provideMerge(
       Layer.mergeAll(
         settingsLayer(overrides),
@@ -96,7 +102,13 @@ function childFactory(answer: Answer): ChildFactory {
             message: {
               role: "assistant",
               content: [],
-              usage: { input: 90, output: 10, cacheWrite: 0, cacheRead: 5_000 },
+              usage: {
+                input: 90,
+                output: 10,
+                cacheWrite: 0,
+                cacheRead: 5_000,
+                cost: { total: 0.002 },
+              },
             },
           } as unknown as AgentSessionEvent);
         }
@@ -147,12 +159,13 @@ function withManager<A, E>(
   program: (manager: Manager["Service"]) => Effect.Effect<A, E>,
   overrides: Partial<SubagentSettings> = {},
   onChange?: (runs: readonly RunView[]) => void,
+  onEvent?: (event: SubagentEvent) => void,
 ): Promise<A> {
   return Effect.runPromise(
     Effect.gen(function* () {
       const manager = yield* Manager;
       return yield* program(manager);
-    }).pipe(Effect.provide(layers(sent, overrides, onChange))),
+    }).pipe(Effect.provide(layers(sent, overrides, onChange, onEvent))),
   );
 }
 
@@ -508,6 +521,107 @@ describe("live progress", () => {
       {},
       () => {
         throw new Error("the widget blew up");
+      },
+    );
+
+    expect(outputs(run).a).toBe("done");
+  });
+});
+
+describe("accounting", () => {
+  it("keeps the work total and the bill apart on the view and in the aggregate", async () => {
+    const run = await withManager([], (manager) =>
+      Effect.gen(function* () {
+        const started = yield* manager.start(
+          request(
+            [task({ id: "a" }), task({ id: "b" })],
+            childFactory(() => "done"),
+          ),
+        );
+        yield* manager.wait(started.id, undefined);
+        return yield* manager.view(started.id);
+      }),
+    );
+
+    expect(run.tasks[0]).toMatchObject({ tokens: 100, billedTokens: 5_100, cost: 0.002 });
+    expect(aggregateUsage(run.tasks)).toEqual({
+      tokens: 200,
+      billedTokens: 10_200,
+      cost: 0.004,
+    });
+  });
+});
+
+describe("the event bus", () => {
+  async function collect(tasks: readonly TaskRequest[]) {
+    const events: SubagentEvent[] = [];
+    await withManager(
+      [],
+      (manager) =>
+        Effect.gen(function* () {
+          const started = yield* manager.start(
+            request(
+              tasks,
+              childFactory(() => "done"),
+            ),
+          );
+          yield* manager.wait(started.id, undefined);
+        }),
+      {},
+      undefined,
+      (event) => events.push(event),
+    );
+    return events;
+  }
+
+  it("emits started, one settled per task, then run settled", async () => {
+    const events = await collect([task({ id: "a" }), task({ id: "b" })]);
+
+    expect(events.map((event) => event.channel)).toEqual([
+      EVENT_RUN_STARTED,
+      EVENT_TASK_SETTLED,
+      EVENT_TASK_SETTLED,
+      EVENT_RUN_SETTLED,
+    ]);
+  });
+
+  it("carries ids, status and usage, and no prompts or output", async () => {
+    const events = await collect([task({ id: "a" })]);
+
+    const settled = events.find((event) => event.channel === EVENT_TASK_SETTLED)!;
+    expect(settled).toMatchObject({
+      runId: "run_1",
+      task: { id: "a", agent: "a reader", status: "settled", outcome: "completed" },
+      usage: { tokens: 100, billedTokens: 5_100, cost: 0.002 },
+    });
+    expect(JSON.stringify(settled)).not.toContain("read the thing");
+
+    const finished = events.at(-1)!;
+    expect(finished).toMatchObject({
+      channel: EVENT_RUN_SETTLED,
+      cancelled: false,
+      usage: { tokens: 100 },
+    });
+  });
+
+  it("keeps running when a subscriber throws", async () => {
+    const run = await withManager(
+      [],
+      (manager) =>
+        Effect.gen(function* () {
+          const started = yield* manager.start(
+            request(
+              [task({ id: "a" })],
+              childFactory(() => "done"),
+            ),
+          );
+          yield* manager.wait(started.id, undefined);
+          return yield* manager.view(started.id);
+        }),
+      {},
+      undefined,
+      () => {
+        throw new Error("the subscriber blew up");
       },
     );
 

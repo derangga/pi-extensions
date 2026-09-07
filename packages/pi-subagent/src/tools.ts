@@ -11,7 +11,7 @@ import { MAX_TASKS } from "./graph.js";
 import type { ParentTraffic } from "./intercom.js";
 import type { ReplyOutcome } from "./intercom.js";
 import type { RunView, TaskRequest, TaskView, WaitOutcome } from "./run.js";
-import { callLines, resultLines } from "./render.js";
+import { callLines, formatCost, resultLines } from "./render.js";
 import { MAX_TURNS, MIN_TURNS } from "./settings.js";
 import { THINKING_LEVELS } from "./thinking.js";
 
@@ -156,6 +156,12 @@ function detailLines(task: TaskView, verbose: boolean): string[] {
   if (task.sessionFile) lines.push(`transcript: ${task.sessionFile}`);
   if (!verbose) return lines;
   lines.push(`model: ${task.model}  thinking: ${task.thinking}  turns: ${task.turns}`);
+  // Both totals, named. One number labelled "tokens" would be a guess at which
+  // question the reader is asking.
+  const cost = formatCost(task.cost);
+  lines.push(
+    `tokens: ${task.tokens} worked, ${task.billedTokens} billed${cost ? `  cost: ${cost}` : ""}`,
+  );
   for (const note of task.notes) lines.push(`note: ${note}`);
   return lines;
 }
