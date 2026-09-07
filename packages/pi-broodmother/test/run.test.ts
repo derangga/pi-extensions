@@ -233,6 +233,33 @@ describe("Manager.start", () => {
     expect(seen[1]).toContain("## Output of up");
     expect(seen[1]).toContain("use THE FACT");
     expect(outputs(run).down).toBe("synthesised");
+    // The view reports what the child was sent, not the template it came from.
+    const down = run.tasks.find((entry) => entry.id === "down")!;
+    // `task` stays the short label; `prompt` is the instruction as sent.
+    expect(down.task).toBe("read");
+    expect(down.prompt).toBe(seen[1]);
+    expect(down.prompt).toContain("use THE FACT");
+  });
+
+  it("reports no prompt for a task that never dispatched", async () => {
+    const run = await withManager([], (manager) =>
+      Effect.gen(function* () {
+        const started = yield* manager.start(
+          request(
+            [task({ id: "up", prompt: "gather" }), task({ id: "down", needs: ["up"] })],
+            childFactory((prompt) => (prompt.startsWith("gather") ? "" : "should not run")),
+          ),
+        );
+        yield* manager.wait(started.id, undefined);
+        return yield* manager.view(started.id);
+      }),
+    );
+
+    const byId = (id: string) => run.tasks.find((entry) => entry.id === id)!;
+    expect(byId("down").status).toBe("skipped");
+    expect(byId("down").prompt).toBeUndefined();
+    expect(byId("up").prompt).toBe("gather");
+    expect(byId("up").task).toBe("read");
   });
 
   it("skips a dependent when its upstream produced nothing", async () => {

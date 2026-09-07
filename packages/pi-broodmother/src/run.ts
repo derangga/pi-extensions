@@ -69,6 +69,12 @@ export interface TaskView {
   readonly model: string;
   readonly thinking: ThinkingLevel;
   readonly status: TaskStatus;
+  /**
+   * What the child was sent, which is `task` with every `{previous}` filled in
+   * from upstream output. Undefined until the task dispatches, so a pending or
+   * skipped task has none. Read `task` for the template the orchestrator wrote.
+   */
+  readonly prompt: string | undefined;
   readonly outcome: ChildOutcome | undefined;
   readonly output: string | undefined;
   readonly sessionFile: string | undefined;
@@ -233,6 +239,8 @@ interface TaskState {
   /** Completed once, when the task reaches a terminal status. */
   readonly settled: Deferred.Deferred<void>;
   status: TaskStatus;
+  /** The composed prompt, set at dispatch. See `TaskView.prompt`. */
+  prompt: string | undefined;
   result: ChildRunResult | undefined;
   progress: TaskProgress;
   startedAt: number | undefined;
@@ -267,6 +275,7 @@ function viewTask(state: TaskState): TaskView {
     model: state.model,
     thinking: state.thinking,
     status: state.status,
+    prompt: state.prompt,
     outcome: state.result?.outcome,
     output: state.result?.output,
     sessionFile: state.result?.sessionFile ?? state.progress.sessionFile,
@@ -482,6 +491,7 @@ export class Manager extends Context.Service<
 
             const address: TaskAddress = { runId: run.id, taskId: state.id, task: state.task };
             state.status = "running";
+            state.prompt = prompt;
             state.startedAt = Date.now();
             yield* Effect.sync(changed);
 
@@ -605,6 +615,7 @@ export class Manager extends Context.Service<
               maxTurns: request_.maxTurns ?? current.maxTurns,
               settled: yield* Deferred.make<void>(),
               status: "pending",
+              prompt: undefined,
               result: undefined,
               progress: NO_PROGRESS,
               startedAt: undefined,

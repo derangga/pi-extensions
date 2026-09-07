@@ -456,6 +456,12 @@ export function resultLines(
       );
       continue;
     }
+    // What the child was actually sent, upstream output spliced in. Labelled,
+    // because an unlabelled block above the output reads as more output.
+    const prompt = promptBlock(task.prompt, theme, "      ");
+    if (prompt.length > 0) {
+      lines.push(`    ${theme.fg("muted", "prompt:")}`, ...prompt);
+    }
     const body = text(task.output);
     if (body) {
       lines.push(`    ${theme.fg("dim", truncate(body, 120))}`);

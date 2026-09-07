@@ -38,6 +38,7 @@ function taskView(fields: Partial<TaskView> = {}): TaskView {
     model: "anthropic/claude-opus-5",
     thinking: "off",
     status: "running",
+    prompt: undefined,
     outcome: undefined,
     output: undefined,
     sessionFile: undefined,
@@ -395,6 +396,58 @@ describe("resultLines", () => {
       NOW,
     );
     expect(lines.join("\n")).toContain("skipped: up produced nothing");
+  });
+
+  it("prints the prompt the child was sent, not the template", () => {
+    const lines = resultLines(
+      runView(
+        [settled({ task: "Review {previous}", prompt: "Review\n## up\nthe upstream text" })],
+        {
+          finished: true,
+        },
+      ),
+      theme,
+      true,
+      NOW,
+    );
+    const body = lines.join("\n");
+    expect(body).toContain("prompt:");
+    expect(body).toContain("## up");
+    expect(body).toContain("the upstream text");
+    expect(body).not.toContain("{previous}");
+  });
+
+  it("caps the prompt it prints and points at what it kept back", () => {
+    const prompt = Array.from({ length: 23 }, (_, index) => `line ${index + 1}`).join("\n");
+    const body = resultLines(
+      runView([settled({ prompt })], { finished: true }),
+      theme,
+      true,
+      NOW,
+    ).join("\n");
+    expect(body).toContain("line 20");
+    expect(body).not.toContain("line 21");
+    expect(body).toContain("+3 lines");
+  });
+
+  it("omits the prompt block for a task that never dispatched", () => {
+    const body = resultLines(
+      runView([taskView({ status: "skipped", missing: ["up"], endedAt: NOW })], { finished: true }),
+      theme,
+      true,
+      NOW,
+    ).join("\n");
+    expect(body).not.toContain("prompt:");
+  });
+
+  it("keeps the prompt out of the collapsed summary", () => {
+    const lines = resultLines(
+      runView([settled({ prompt: "the whole prompt" })], { finished: true }),
+      theme,
+      false,
+    );
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).not.toContain("the whole prompt");
   });
 });
 
