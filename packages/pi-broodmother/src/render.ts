@@ -9,7 +9,7 @@ import { aggregateUsage, type RunView, type TaskStatus, type TaskView } from "./
  * far faster than a terminal can usefully repaint.
  */
 export const WIDGET_THROTTLE_MS = 150;
-export const WIDGET_KEY = "pi-subagent";
+export const WIDGET_KEY = "pi-broodmother";
 /** Header plus tasks. Past this the widget is eating the transcript. */
 export const WIDGET_MAX_LINES = 9;
 const GOAL_MAX = 64;

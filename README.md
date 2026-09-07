@@ -13,6 +13,7 @@ its own README. Install one without installing the others.
 | [`pi-status-widget`](packages/pi-status-widget) | A footer with three presets, emoji or nerd icons, twelve color schemes, and a thinking level that colors itself | Published |
 | [`pi-catppuccin-themes`](packages/pi-catppuccin-themes) | The four Catppuccin flavors (latte, frappe, macchiato, mocha) vendored in-house | Published |
 | [`pi-unslop-rules`](packages/pi-unslop-rules) | Appends the pstack unslop writing rules to the system prompt every turn, so the prose stays free of AI tells | In progress |
+| [`pi-broodmother`](packages/pi-broodmother) | Hands research to read-only child agents in one batched call, with dependency edges between the tasks and a model and thinking effort you pick | In progress |
 
 ## Working in this repo
 

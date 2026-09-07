@@ -31,11 +31,11 @@ export const MAX_TURNS = 200;
 export const MIN_TASKS = 1;
 
 /**
- * The ceiling on the batch cap, and the tool schema's `maxItems`. Sixteen
- * matches pi-core-subagent, and there is no reason to differ: past that the
- * orchestrator is describing a program rather than delegating, and every task
- * costs a session. The `maxTasks` setting tightens it further; nothing widens
- * it, because the schema is fixed at load and cannot be rewritten per call.
+ * The ceiling on the batch cap, and the tool schema's `maxItems`. Past sixteen
+ * the orchestrator is describing a program rather than delegating, and every
+ * task costs a session. The `maxTasks` setting tightens it further; nothing
+ * widens it, because the schema is fixed at load and cannot be rewritten per
+ * call.
  */
 export const MAX_TASKS = 16;
 
@@ -47,10 +47,10 @@ export const DEFAULT_SETTINGS: SubagentSettings = {
   maxTasks: MAX_TASKS,
 };
 
-const CONFIG_ENV = "PI_SUBAGENT_CONFIG";
+const CONFIG_ENV = "PI_BROODMOTHER_CONFIG";
 
 export function getSettingsPath(): string {
-  return process.env[CONFIG_ENV] ?? join(getAgentDir(), "extensions", "pi-subagent.json");
+  return process.env[CONFIG_ENV] ?? join(getAgentDir(), "extensions", "pi-broodmother.json");
 }
 
 export class SettingsWriteError extends Schema.TaggedError<SettingsWriteError>()(
@@ -132,11 +132,6 @@ export function decodeSettings(raw: unknown): LoadedSettings {
  * or parsed falls back to defaults and says why, rather than failing: an
  * unreadable settings file is not worth taking the extension load with it.
  */
-/**
- * A missing file is the normal first run. A file that exists but cannot be read
- * or parsed falls back to defaults and says why, rather than failing: an
- * unreadable settings file is not worth taking the extension load with it.
- */
 export const loadSettings = Effect.fn("Settings.load")(function* (path: string) {
   const read = yield* Effect.tryPromise({
     try: async (): Promise<ReadOutcome> => ({ kind: "read", text: await readFile(path, "utf8") }),
@@ -199,7 +194,7 @@ export class Settings extends Context.Service<
     readonly path: string;
     update(next: SubagentSettings): Effect.Effect<void, SettingsWriteError>;
   }
->()("pi-subagent/Settings") {
+>()("pi-broodmother/Settings") {
   static readonly layer = Layer.effect(
     Settings,
     Effect.gen(function* () {

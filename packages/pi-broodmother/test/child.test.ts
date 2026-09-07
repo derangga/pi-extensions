@@ -59,8 +59,8 @@ describe("child session", () => {
   });
 
   it("binds a lazy extension into a persisted read-only child", async () => {
-    const cwd = temporaryRoot("pi-subagent-child-");
-    const sessionDir = temporaryRoot("pi-subagent-sessions-");
+    const cwd = temporaryRoot("pi-broodmother-child-");
+    const sessionDir = temporaryRoot("pi-broodmother-sessions-");
     writeFileSync(join(cwd, "AGENTS.md"), "PARENT CONVENTIONS MUST NOT LOAD", "utf8");
 
     const modelRuntime = await ModelRuntime.create({ refreshOnCreate: false });
@@ -115,8 +115,8 @@ describe("child session", () => {
   });
 
   it("creates a usable built-in-only child when fff is absent", async () => {
-    const cwd = temporaryRoot("pi-subagent-child-");
-    const sessionDir = temporaryRoot("pi-subagent-sessions-");
+    const cwd = temporaryRoot("pi-broodmother-child-");
+    const sessionDir = temporaryRoot("pi-broodmother-sessions-");
     const modelRuntime = await ModelRuntime.create({ refreshOnCreate: false });
     const model = modelRuntime.getModels()[0] as PiModel;
 

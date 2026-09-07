@@ -131,8 +131,9 @@ function collectParked(state: IntercomState, traffic: ParentTraffic): ParkedDeli
     if (traffic.kind !== "ask") continue;
 
     const drop = waiter.messages.findIndex((message) => message.kind !== "ask");
-    // A valid run has at most 16 outstanding asks, below the cap. The fallback
-    // mirrors the reference implementation if that invariant is ever broken.
+    // A valid run has at most 16 outstanding asks, below the cap, so a queue of
+    // nothing but asks cannot happen. If it ever does, overwrite the newest
+    // rather than drop the question that arrived.
     if (drop === -1) waiter.messages[waiter.messages.length - 1] = traffic;
     else {
       waiter.messages.splice(drop, 1);
@@ -162,7 +163,7 @@ export class Intercom extends Context.Service<
     finishRun(runId: string): Effect.Effect<void>;
     settle(address: TaskAddress, result: ChildRunResult): Effect.Effect<void>;
   }
->()("pi-subagent/Intercom") {
+>()("pi-broodmother/Intercom") {
   static layer(delivery: ParentDelivery, replyTimeoutMs = PARENT_REPLY_TIMEOUT_MS) {
     return Layer.effect(
       Intercom,

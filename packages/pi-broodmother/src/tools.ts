@@ -63,7 +63,7 @@ const TASK = Type.Object(
       Type.Integer({
         minimum: MIN_TURNS,
         maximum: MAX_TURNS,
-        description: "Turn limit for this child. Defaults to the /subagent setting.",
+        description: "Turn limit for this child. Defaults to the /broodmother setting.",
       }),
     ),
   },

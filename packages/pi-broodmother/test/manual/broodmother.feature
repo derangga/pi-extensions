@@ -10,7 +10,7 @@
 # Load the extension straight from the working tree, so the code you edit is the
 # code that runs. Nothing is installed and no settings file is written:
 #
-#   pi -e ./packages/pi-subagent/src/index.ts
+#   pi -e ./packages/pi-broodmother/src/index.ts
 #
 # Add `-p "<prompt>"` for a non-interactive run. Scenarios tagged @interactive
 # need the TUI and will not work under -p. Each Given block that quotes a prompt
@@ -20,7 +20,7 @@ Feature: Delegating research to child agents
 
   Background:
     Given pi is running in /Users/sociolla/Documents/playground/pi-extension
-    And the extension is loaded with `-e ./packages/pi-subagent/src/index.ts`
+    And the extension is loaded with `-e ./packages/pi-broodmother/src/index.ts`
     And the project is trusted
 
     # @ff-labs/pi-fff is not in this repo's node_modules, so every child reports
@@ -41,7 +41,7 @@ Feature: Delegating research to child agents
       """
       Call subagent ONCE with autoAwait true and one task: agent 'a manifest
       reader', task 'read package version', prompt 'Read
-      packages/pi-subagent/package.json and report only the value of the
+      packages/pi-broodmother/package.json and report only the value of the
       version field.'. Then call subagent_result with verbose true and show me
       its full raw output verbatim.
       """
@@ -78,18 +78,18 @@ Feature: Delegating research to child agents
       """
       Call subagent ONCE with autoAwait true and one task: agent 'a scribe',
       task 'attempt a write', prompt 'Create the file
-      /tmp/pi-subagent-should-not-exist containing the word hello. Report
+      /tmp/pi-broodmother-should-not-exist containing the word hello. Report
       exactly what happened.'. Show its output verbatim.
       """
     Then the child reports it has no write, edit or bash tool
-    When I run `test -e /tmp/pi-subagent-should-not-exist`
+    When I run `test -e /tmp/pi-broodmother-should-not-exist`
     Then the file does not exist
 
   # ---------------------------------------------------------------- max tasks
 
   Scenario: The cap refuses an oversized batch before any child starts
-    Given /tmp/pi-subagent-test.json contains {"maxTasks": 2}
-    And PI_SUBAGENT_CONFIG points at it
+    Given /tmp/pi-broodmother-test.json contains {"maxTasks": 2}
+    And PI_BROODMOTHER_CONFIG points at it
     When I paste:
       """
       Call subagent ONCE with autoAwait true and three tasks, each agent 'a
@@ -97,7 +97,7 @@ Feature: Delegating research to child agents
       task name.'. Report the exact error text if it fails.
       """
     Then the tool returns "Too many tasks (3). The limit is 2."
-    And the message says a user can raise max tasks in /subagent
+    And the message says a user can raise max tasks in /broodmother
     And no child session is written
     # Planning runs before any session is created, so an oversized batch costs
     # the parent turn and nothing else.
@@ -109,9 +109,9 @@ Feature: Delegating research to child agents
 
   @interactive
   Scenario: A value out of range costs that field and nothing else
-    Given /tmp/pi-subagent-test.json contains {"maxTasks": 99, "concurrency": 3}
-    And PI_SUBAGENT_CONFIG points at it
-    When I open /subagent
+    Given /tmp/pi-broodmother-test.json contains {"maxTasks": 99, "concurrency": 3}
+    And PI_BROODMOTHER_CONFIG points at it
+    When I open /broodmother
     Then max tasks reads 16
     And concurrency still reads 3
     And a warning names maxTasks
@@ -131,7 +131,7 @@ Feature: Delegating research to child agents
       """
       Call subagent ONCE with autoAwait true and two tasks. First: id 'a',
       agent 'a version reader', task 'read version', prompt 'Read
-      packages/pi-subagent/package.json and reply with only the version field
+      packages/pi-broodmother/package.json and reply with only the version field
       value.'. Second: id 'b', needs ['a'], agent 'an echo', task 'echo
       upstream', prompt 'The upstream output is above. Reply with the exact
       version string you were given, and nothing else.'. Show both outputs.
@@ -167,7 +167,7 @@ Feature: Delegating research to child agents
       Call subagent with one task and NO autoAwait: agent 'an indecisive
       reader', task 'ask then read', prompt 'Before doing anything you MUST
       call ask_parent to ask which file to read:
-      packages/pi-subagent/package.json or packages/pi-subagent/README.md. Wait
+      packages/pi-broodmother/package.json or packages/pi-broodmother/README.md. Wait
       for the answer, read only that file, and report its first line.'
       """
     And I then call subagent_result with wait true
@@ -227,14 +227,14 @@ Feature: Delegating research to child agents
 
   @interactive
   Scenario: Five rows, in order
-    Given I open /subagent
+    Given I open /broodmother
     Then the rows are Model, Thinking effort, Concurrency, Max turns and Max tasks
     And the footer prints the settings file path
     And the Model row opens a submenu while the other four cycle
 
   @interactive
   Scenario: The footer says what Esc actually does
-    Given I open /subagent
+    Given I open /broodmother
     Then the footer reads "Enter/Space to change · Esc to dismiss"
     And it does not say "cancel"
     When I change a row and press Esc
@@ -247,9 +247,9 @@ Feature: Delegating research to child agents
 
   @interactive
   Scenario: Every row applies as it changes
-    Given /tmp/pi-subagent-test.json does not exist
-    And PI_SUBAGENT_CONFIG points at it
-    When I open /subagent and change Max tasks to 4
+    Given /tmp/pi-broodmother-test.json does not exist
+    And PI_BROODMOTHER_CONFIG points at it
+    When I open /broodmother and change Max tasks to 4
     And I read the file from another shell WITHOUT closing the panel
     Then it already holds 4
     # Closing the panel saves nothing further. Each row is its own commit.
@@ -273,14 +273,14 @@ Feature: Delegating research to child agents
 
   @interactive
   Scenario: A missing settings file is the normal first run
-    Given PI_SUBAGENT_CONFIG points at a path that does not exist
+    Given PI_BROODMOTHER_CONFIG points at a path that does not exist
     When the extension loads
     Then no warning appears
-    And /subagent shows the defaults
+    And /broodmother shows the defaults
 
   Scenario: An unreadable settings file does not take the extension down
-    Given /tmp/pi-subagent-test.json contains "{ not json"
-    And PI_SUBAGENT_CONFIG points at it
+    Given /tmp/pi-broodmother-test.json contains "{ not json"
+    And PI_BROODMOTHER_CONFIG points at it
     When the extension loads
     Then the tools still register
     And a warning says the file is not valid JSON
@@ -291,7 +291,7 @@ Feature: Delegating research to child agents
   # the task list in the started message before the answers come back.
 
   Scenario: Trivial work is not delegated
-    Given I paste "What is the version field in packages/pi-subagent/package.json?"
+    Given I paste "What is the version field in packages/pi-broodmother/package.json?"
     Then the model answers directly
     And it does not call subagent
     # One read settles this. A subagent call here means the prompt guidelines
@@ -377,9 +377,9 @@ Feature: Delegating research to child agents
   # ---------------------------------------------------------------- events
 
   Scenario: Three channels on Pi's own bus
-    Given a listener subscribed to "pi-subagent:run-started"
-    And one subscribed to "pi-subagent:task-settled"
-    And one subscribed to "pi-subagent:run-settled"
+    Given a listener subscribed to "pi-broodmother:run-started"
+    And one subscribed to "pi-broodmother:task-settled"
+    And one subscribed to "pi-broodmother:run-settled"
     When a run of two tasks starts and settles
     Then run-started fires once, carrying the run id and its tasks
     And task-settled fires twice, each carrying turns and usage
@@ -391,6 +391,6 @@ Feature: Delegating research to child agents
 
   Scenario: Leaving no mess behind
     When I finish
-    Then I remove /tmp/pi-subagent-test.json and /tmp/pi-subagent-should-not-exist
+    Then I remove /tmp/pi-broodmother-test.json and /tmp/pi-broodmother-should-not-exist
     And I remember child sessions are real transcripts in Pi's session directory
     And they are named "subagent: <task>" and are worth reading when a scenario surprises me

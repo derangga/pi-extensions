@@ -125,9 +125,9 @@ export function aggregateUsage(tasks: readonly TaskView[]): UsageTotals {
 }
 
 /** The three channels. Enough to render run state without importing this package. */
-export const EVENT_RUN_STARTED = "pi-subagent:run-started";
-export const EVENT_TASK_SETTLED = "pi-subagent:task-settled";
-export const EVENT_RUN_SETTLED = "pi-subagent:run-settled";
+export const EVENT_RUN_STARTED = "pi-broodmother:run-started";
+export const EVENT_TASK_SETTLED = "pi-broodmother:task-settled";
+export const EVENT_RUN_SETTLED = "pi-broodmother:run-settled";
 
 /** One task, as an outsider sees it. Ids and status, no prompts and no output. */
 export interface TaskEventSummary {
@@ -362,7 +362,7 @@ export class Manager extends Context.Service<
     ): Effect.Effect<ReplyOutcome, UnknownRun | UnknownTask>;
     cancel(runId: string | undefined): Effect.Effect<RunView, UnknownRun>;
   }
->()("pi-subagent/Manager") {
+>()("pi-broodmother/Manager") {
   static layer(options: ManagerOptions = {}) {
     return Layer.effect(
       Manager,

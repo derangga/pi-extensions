@@ -173,11 +173,11 @@ describe("describeSettings", () => {
   it("names every setting and the file to hand-edit", () => {
     const text = describeSettings(
       settings({ concurrency: 4, maxTasks: 6 }),
-      "/tmp/pi-subagent.json",
+      "/tmp/pi-broodmother.json",
     );
     expect(text).toContain("concurrency 4");
     expect(text).toContain("max tasks 6");
-    expect(text).toContain("/tmp/pi-subagent.json");
+    expect(text).toContain("/tmp/pi-broodmother.json");
   });
 });
 

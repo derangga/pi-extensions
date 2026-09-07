@@ -13,8 +13,8 @@ import {
   type SubagentSettings,
 } from "../src/settings.js";
 
-async function tempFile(name = "pi-subagent.json"): Promise<string> {
-  return join(await mkdtemp(join(tmpdir(), "pi-subagent-")), name);
+async function tempFile(name = "pi-broodmother.json"): Promise<string> {
+  return join(await mkdtemp(join(tmpdir(), "pi-broodmother-")), name);
 }
 
 describe("decodeSettings", () => {
@@ -109,7 +109,7 @@ describe("loadSettings", () => {
   });
 
   it("creates the directory it writes into", async () => {
-    const path = join(await mkdtemp(join(tmpdir(), "pi-subagent-")), "nested", "deep.json");
+    const path = join(await mkdtemp(join(tmpdir(), "pi-broodmother-")), "nested", "deep.json");
     await Effect.runPromise(saveSettings(DEFAULT_SETTINGS, path));
     expect((await Effect.runPromise(loadSettings(path))).settings).toEqual(DEFAULT_SETTINGS);
   });

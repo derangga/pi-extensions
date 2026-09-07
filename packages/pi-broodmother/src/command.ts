@@ -16,15 +16,15 @@ import {
 import { INHERIT, type SubagentSettings } from "./settings.js";
 import type { PiModel } from "./thinking.js";
 
-export const COMMAND_NAME = "subagent";
+export const COMMAND_NAME = "broodmother";
 
 export const USAGE = [
   "Usage:",
-  "  /subagent            open the settings panel",
-  "  /subagent settings   the same panel, spelled out",
+  "  /broodmother            open the settings panel",
+  "  /broodmother settings   the same panel, spelled out",
 ].join("\n");
 
-export const PANEL_TITLE = "pi-subagent";
+export const PANEL_TITLE = "pi-broodmother";
 
 /**
  * What the panel cannot say for itself. The file path earns its line because
@@ -203,7 +203,7 @@ function indexOfChoice(available: readonly PiModel[], choice: string): number {
 
 export function registerSubagentCommand(pi: ExtensionAPI, host: SubagentCommandHost): void {
   pi.registerCommand(COMMAND_NAME, {
-    description: "Show or change pi-subagent settings",
+    description: "Show or change pi-broodmother settings",
     handler: async (args, ctx) => {
       const argument = args.trim().toLowerCase();
 
@@ -213,7 +213,7 @@ export function registerSubagentCommand(pi: ExtensionAPI, host: SubagentCommandH
       }
 
       for (const warning of host.takeWarnings()) {
-        ctx.ui.notify(`pi-subagent: ${warning}`, "warning");
+        ctx.ui.notify(`pi-broodmother: ${warning}`, "warning");
       }
 
       // No terminal to draw in falls back to the text the panel would show.

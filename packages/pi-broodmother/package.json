@@ -1,5 +1,5 @@
 {
-  "name": "pi-subagent",
+  "name": "pi-broodmother",
   "version": "0.1.0",
   "description": "Pi extension. Delegate a batch of read-only research tasks to child agents, with dependency edges between them, a model and thinking effort you pick, and a two-way channel back to the parent.",
   "type": "module",

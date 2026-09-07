@@ -28,8 +28,8 @@ afterEach(() => {
 
 describe("loadAgentFile", () => {
   it("loads only the exact safe name", () => {
-    const cwd = temporaryRoot("pi-subagent-project-");
-    const agentDir = temporaryRoot("pi-subagent-global-");
+    const cwd = temporaryRoot("pi-broodmother-project-");
+    const agentDir = temporaryRoot("pi-broodmother-global-");
     writeAgent(cwd, ".pi/agents", "researcher", "Project prompt");
 
     expect(loadAgentFile("research", cwd, agentDir)).toBeUndefined();
@@ -38,8 +38,8 @@ describe("loadAgentFile", () => {
   });
 
   it("uses project, shared workspace, then global precedence", () => {
-    const cwd = temporaryRoot("pi-subagent-project-");
-    const agentDir = temporaryRoot("pi-subagent-global-");
+    const cwd = temporaryRoot("pi-broodmother-project-");
+    const agentDir = temporaryRoot("pi-broodmother-global-");
     writeAgent(agentDir, "agents", "reviewer", "Global");
     writeAgent(cwd, ".agents/agents", "reviewer", "Shared");
     const project = writeAgent(cwd, ".pi/agents", "reviewer", "Project");
@@ -51,8 +51,8 @@ describe("loadAgentFile", () => {
   });
 
   it("returns model and supported thinking frontmatter", () => {
-    const cwd = temporaryRoot("pi-subagent-project-");
-    const agentDir = temporaryRoot("pi-subagent-global-");
+    const cwd = temporaryRoot("pi-broodmother-project-");
+    const agentDir = temporaryRoot("pi-broodmother-global-");
     writeAgent(
       cwd,
       ".pi/agents",
@@ -67,8 +67,8 @@ describe("loadAgentFile", () => {
   });
 
   it("drops an unknown thinking value without discarding the file", () => {
-    const cwd = temporaryRoot("pi-subagent-project-");
-    const agentDir = temporaryRoot("pi-subagent-global-");
+    const cwd = temporaryRoot("pi-broodmother-project-");
+    const agentDir = temporaryRoot("pi-broodmother-global-");
     writeAgent(cwd, ".pi/agents", "reader", "---\nthinking: enormous\n---\nRead.");
 
     expect(loadAgentFile("reader", cwd, agentDir)).toMatchObject({

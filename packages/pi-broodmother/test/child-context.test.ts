@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { inChildSessionContext, runInChildSessionContext } from "../src/child-context.js";
-import subagentExtension from "../src/index.js";
+import broodmotherExtension from "../src/index.js";
 
 describe("child session context", () => {
   it("is scoped to the child async branch", async () => {
@@ -26,7 +26,7 @@ describe("child session context", () => {
 
     await expect(
       runInChildSessionContext(async () => {
-        subagentExtension(unusablePi as never);
+        broodmotherExtension(unusablePi as never);
       }),
     ).resolves.toBeUndefined();
   });
@@ -42,7 +42,7 @@ describe("child session context", () => {
       }),
     };
 
-    subagentExtension(pi as never);
+    broodmotherExtension(pi as never);
     const disposal = shutdown?.();
 
     expect(disposal).toBeInstanceOf(Promise);

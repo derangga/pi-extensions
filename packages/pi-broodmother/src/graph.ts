@@ -79,7 +79,7 @@ export function formatGraphError(error: GraphError): string {
     case "EmptyTaskList":
       return "No tasks were given. Pass at least one.";
     case "TooManyTasks":
-      return `Too many tasks (${error.count}). The limit is ${error.limit}. Split the work, or ask the user to raise max tasks in /subagent.`;
+      return `Too many tasks (${error.count}). The limit is ${error.limit}. Split the work, or ask the user to raise max tasks in /broodmother.`;
     case "InvalidTaskId":
       return `Task ${error.position} has the id "${error.id}". Ids may only contain letters, digits, underscore and hyphen.`;
     case "DuplicateTaskId":

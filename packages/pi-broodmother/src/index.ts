@@ -22,7 +22,7 @@ import { registerSubagentTools } from "./tools.js";
  * boundary: the runtime is built once here and every Pi callback bridges into
  * it with `runPromise`, because Pi's own surface is callbacks and promises.
  */
-export default function subagentExtension(pi: ExtensionAPI): void {
+export default function broodmotherExtension(pi: ExtensionAPI): void {
   if (inChildSessionContext()) return;
 
   /**
@@ -144,7 +144,7 @@ export default function subagentExtension(pi: ExtensionAPI): void {
           }),
         )
         .catch((cause: unknown) => {
-          ctx.ui.notify(`pi-subagent: could not save settings: ${String(cause)}`, "error");
+          ctx.ui.notify(`pi-broodmother: could not save settings: ${String(cause)}`, "error");
         });
     },
   });

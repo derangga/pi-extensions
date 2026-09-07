@@ -28,7 +28,7 @@ function readManifest(): Manifest {
   return JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8")) as Manifest;
 }
 
-describe("pi-subagent manifest", () => {
+describe("pi-broodmother manifest", () => {
   it("ships exactly one runtime dependency, and it is effect", () => {
     // The repo rule is fewest dependencies, not zero, and this package spends
     // its one on Effect. An exact count is the point: a second dependency has
@@ -88,17 +88,16 @@ describe("pi-subagent manifest", () => {
 
   it("is public, MIT, and starts at 0.1.0", () => {
     const manifest = readManifest();
-    expect(manifest.name).toBe("pi-subagent");
+    expect(manifest.name).toBe("pi-broodmother");
     expect(manifest.version).toBe("0.1.0");
     expect(manifest.license).toBe("MIT");
     expect(manifest.publishConfig?.access).toBe("public");
   });
 
   it("carries one copyright holder, because this is not a fork", () => {
-    // Written against the two existing subagent extensions, not derived from
-    // either. Adding an upstream line here would claim a lineage that does not
-    // exist; if code is ever lifted from one, this assertion is the reminder
-    // that the line has to go in.
+    // Nothing here is forked. Adding an upstream line would claim a lineage
+    // that does not exist; if code is ever lifted from another project, this
+    // assertion is the reminder that the line has to go in.
     const license = readFileSync(join(packageRoot, "LICENSE"), "utf8");
     const holders = license.match(/^Copyright \(c\) .+$/gm) ?? [];
     expect(holders).toEqual(["Copyright (c) 2026 derangga"]);
