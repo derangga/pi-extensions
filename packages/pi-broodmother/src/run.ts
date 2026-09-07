@@ -269,7 +269,7 @@ function viewTask(state: TaskState): TaskView {
     status: state.status,
     outcome: state.result?.outcome,
     output: state.result?.output,
-    sessionFile: state.result?.sessionFile,
+    sessionFile: state.result?.sessionFile ?? state.progress.sessionFile,
     turns: state.result?.turns ?? 0,
     toolCalls: state.progress.toolCalls,
     tokens: state.progress.tokens,

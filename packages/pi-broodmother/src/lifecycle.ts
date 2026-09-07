@@ -28,6 +28,7 @@ export interface TaskProgress {
   readonly cost: number;
   /** The last tool call, as a short phrase. */
   readonly activity: string | undefined;
+  readonly sessionFile: string | undefined;
 }
 
 export const NO_PROGRESS: TaskProgress = {
@@ -36,6 +37,7 @@ export const NO_PROGRESS: TaskProgress = {
   billedTokens: 0,
   cost: 0,
   activity: undefined,
+  sessionFile: undefined,
 };
 
 /**
@@ -235,6 +237,8 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
       // A widget that throws must not strand the child that was feeding it.
     }
   };
+
+  report({ ...progress, sessionFile: child.sessionFile });
 
   const unsubscribe = session.subscribe((event: AgentSessionEvent) => {
     if (event.type === "message_start" && event.message.role === "assistant") {
