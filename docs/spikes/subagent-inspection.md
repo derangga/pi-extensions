@@ -1,7 +1,8 @@
 # Spike: Subagent process inspection (Claude Code / OpenCode parity)
 
-> Status: settled by a design review. Three changes open, two were already fixed.
-> Date: 2026-09-07
+> Status: five changes settled and shipped. The pane stays deferred, refused
+> twice now for different reasons.
+> Date: 2026-09-07, extended 2026-09-08 with C4, C5 and the correction to D
 > Package: `pi-broodmother` (`packages/pi-broodmother`)
 > Pi pin: `0.84.4` (`@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`)
 
@@ -17,11 +18,26 @@ by one truncation constant.
 Three changes deliver it, each a single field or a conditional. The pane is
 deferred until they have been lived with.
 
+A later round added two more and refused the pane a second time. The reason it
+came up again was a different one, worth writing down: watching a child in order
+to tune the prompt the orchestrator sends it. That turned out to be served by
+what the expanded row already prints, once C5 stopped throwing away the answer.
+The pattern across all five is the same, and it is the thing to check first next
+time someone asks for a surface here: the data was already in memory, and a
+constant was hiding it.
+
 | # | Change | Where | Cost |
 | --- | --- | --- | --- |
 | C1 | The expanded call row prints each task's full prompt, capped at 20 lines | `render.ts:callLines` | a parameter, a conditional, a non-flattening path |
 | C2 | The composed prompt is kept and shown in the expanded result row | `run.ts`, `render.ts:resultLines` | one field on `TaskState` and `TaskView` |
 | C3 | A child blocked on `ask_parent` shows as `⏸ … asks … 8m41s` | `intercom.ts`, `run.ts`, `render.ts:widgetLine` | one field, one widened hook |
+| C4 | A child that has gone silent shows as `quiet 3m12s` | `lifecycle.ts`, `run.ts`, `render.ts:widgetLine` | one hook, one field, one constant |
+| C5 | The expanded result row prints the child's answer as lines, not a flattened slice | `render.ts:resultLines` | one call swapped for `promptBlock` |
+
+C4 and C5 were settled by a later round, after the first three had shipped. They
+are recorded here rather than in a second document because they came out of the
+same conversation and answer the same question: what a person watching a run can
+actually see. C5 in particular is C1's defect one line down.
 
 Two further changes this review proposed were already in the tree when it ran: a
 running child already reports its `sessionFile`, and the widget already repaints
@@ -164,6 +180,65 @@ whole value of the field.
 No fourth event channel. `waiting` rides every `onChange` snapshot, so anything
 in-process can already see it, and no out-of-process consumer has asked.
 
+### C4. A child that goes silent says so
+
+`widgetLine` grows one segment, `quiet 3m12s`, sitting beside the activity and
+ahead of the stats so the narrow-terminal truncation eats the numbers first.
+
+It is not a stuck detector, and the wording carries that. Every threshold that
+judges "stuck" has to separate a wedged child from a four minute build, and
+nothing on the line can tell those apart. So the code judges nothing: it prints
+how long the child has been silent and the reader decides. `quiet` rather than
+`idle` because a child mid-build is not idle, and rather than `stuck` because
+that is a claim the data does not support.
+
+What resets the clock is every sign of life: `tool_execution_start`,
+`tool_execution_update`, `message_update` and `message_end`. The two `_update`
+cases are why this is a separate `onActivity` hook rather than a field on
+`TaskProgress`. `report()` calls `onProgress`, whose observer in `run.ts` calls
+`changed()`, which rebuilds every `RunView` of every run. That is affordable
+once per tool call and ruinous once per token. `onActivity` writes
+`TaskState.lastActivityAt` and notifies nobody, which works because
+`SubagentWidget.render` calls its `runs()` thunk fresh on every repaint and
+`createWidgetHost` already ticks once a second while a run is unsettled.
+
+Only `bash` and `powershell` ever emit `tool_execution_update`; every other
+built-in tool declares the callback and never calls it. That is the right
+coverage anyway, since nothing else runs long enough to reach the floor.
+
+The floor is 30 seconds and hardcoded. It is a render threshold, not a verdict:
+with everything above resetting the clock, an ordinary child sits near zero, and
+printing that on every row would be noise. A command that writes nothing until it
+exits will cross the floor while being perfectly healthy, and showing `quiet 3m`
+there is correct rather than a false positive, because that is exactly what is
+happening.
+
+Skipped for a blocked child, which already carries the ask elapsed measured
+against the parent reply timeout: two durations a few segments apart, differing
+by a second, only invite the reader to work out why. Skipped for a pending task,
+because waiting on an upstream edge is the graph working. Gone once the child
+settles. No icon or colour change, because `warning` is scarce on nine lines and
+C3 spends it on a child that needs an answer from the user specifically.
+
+An absent `lastActivityAt` falls back to `startedAt`. A child that has said
+nothing at all since dispatch is the case most worth surfacing, not the one to
+stay silent about.
+
+### C5. The answer is readable next to the prompt
+
+`resultLines` printed the child's output through `text()` and then
+`truncate(body, 120)`. `text()` flattens every newline, so a structured answer
+arrived as one squashed line, 120 characters of the 24KB `RESULT_CAP_BYTES` had
+already kept. It now goes through `promptBlock`, the function three lines above
+it, labelled `output:` for the reason the prompt block is labelled.
+
+This is C1 repeating one line down: data already retained, already behind an
+expand keypress, hidden by a constant. Reading a prompt against the answer it
+produced is the whole reason to expand this row, and it is the loop that makes
+the orchestrator's own instructions improvable.
+
+`detailLines` is untouched, so the orchestrator pays nothing, for C2's reason.
+
 ## Explicitly not doing
 
 **No activity history.** `TaskProgress.activity` stays one string, the last tool
@@ -218,6 +293,27 @@ ticking. Useful as the fallback when `hasUI` is false.
 **D. Tail `sessionFile` directly.** Couples to Pi's on-disk session format and
 races compaction. Belongs as a key inside B, not as the whole view.
 
+**Correction to D, found later.** D was answering a question nobody had to ask.
+Children are not subprocesses: `child.ts` builds them with `createAgentSession`
+in the parent extension's own process, so the parent holds the child's
+`AgentSession` object. `lifecycle.ts` already calls `session.subscribe` on it,
+and that listener receives every tool call, every tool result and every
+assistant text delta as it happens. It handles five event types and discards the
+rest. So a live view of a child was never a plumbing problem and never needed the
+on-disk format: it is a discarding problem, entirely inside this package. What a
+pane would actually need is a bounded buffer where `TaskProgress.activity` keeps
+one 60 character phrase, and a decision about how that reaches a surface without
+pushing a snapshot rebuild per token, which is the same trap C4 documents.
+
+Two more facts for whoever builds it. `pi.registerShortcut` takes a raw `KeyId`,
+not a rebindable namespaced id, so a user cannot rebind it; and a key bound to a
+reserved action is dropped with a warning rather than an error, which takes
+`ctrl+x`, `ctrl+g`, `ctrl+k` and `shift+tab` off the table silently. `KeyId` has
+no chord support, so a leader sequence has no shipped path. None of that matters
+much, because a picker does not need one: one key opens a component, and the
+component owns the arrows while it has focus. Every `ctx.ui.custom` call site in
+Pi's own examples is reached from a command handler, none from a shortcut.
+
 ### One correction to the option analysis
 
 The A-versus-B trade-off was framed as a false pair. `OverlayHandle` carries
@@ -247,6 +343,13 @@ Planned checks for the five changes:
 | C1 | `render.test.ts` golden strings: collapsed row unchanged, expanded row prints a multi-line prompt as multiple lines, the `+N lines` pointer |
 | C2 | `run.test.ts` asserts `prompt` holds the substituted string for a task with `needs`, and stays undefined for a skipped one |
 | C3 | `intercom.test.ts` asserts the hook fires with the question and clears on release; `render.test.ts` golden string for the blocked line |
+| C4 | `lifecycle.test.ts` counts pings across all four events and asserts a tool update pings without adding a progress report; `render.test.ts` golden strings for below the floor, above it, the `startedAt` fallback, and the blocked and pending cases |
+| C5 | `render.test.ts` asserts a multi-line answer stays on multiple lines, the cap and pointer apply, and a task with no output prints no block |
+
+Each of those was checked by breaking the source and watching it fail, not by
+watching it pass: dropping the `tool_execution_update` ping, raising the floor
+out of reach, and reverting C5 to the old flattening cut each took two tests down
+and nothing else.
 
 Unit tests prove the shape of the data. They cannot prove it ever arrives, so one
 scenario goes in `test/manual/broodmother.feature`: a real child blocks on
