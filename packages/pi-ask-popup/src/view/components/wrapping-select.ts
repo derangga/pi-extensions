@@ -44,6 +44,12 @@ export class WrappingSelect implements Component {
   private static readonly NUMBER_SEPARATOR = ". ";
   private static readonly CONFIRMED_MARK = " ✔";
   private static readonly MIN_CONTENT_WIDTH = 1;
+  /**
+   * Widths kept in the render memo before it is dropped wholesale. A frame asks
+   * for two or three (full pane, side-by-side left column, height probes); the
+   * rest of the entries are old terminal sizes from a resize drag.
+   */
+  private static readonly RENDER_CACHE_MAX_WIDTHS = 8;
 
   private readonly items: readonly WrappingSelectItem[];
   private readonly maxVisible: number;
@@ -68,6 +74,17 @@ export class WrappingSelect implements Component {
    * prior answer was custom text, we render that text instead (e.g. `4. Hello ✔`).
    */
   private confirmedLabelOverride: string | undefined = undefined;
+  /**
+   * Rendered rows per width, valid while `renderStateSignature()` holds.
+   *
+   * One frame calls `render` two or three times at different widths — the
+   * option list, the height probes in `PreviewPane`, the side-by-side left
+   * column — and every call re-wrapped every visible row. The signature covers
+   * all the mutable state a row can read, so the props write that happens each
+   * tick with unchanged values keeps the memo warm instead of dropping it.
+   */
+  private readonly renderCache = new Map<number, string[]>();
+  private renderCacheSignature: string | undefined = undefined;
 
   constructor(
     items: readonly WrappingSelectItem[],
@@ -127,9 +144,49 @@ export class WrappingSelect implements Component {
   /** Intentionally empty — input is routed at the container level. */
   handleInput(_data: string): void {}
 
-  invalidate(): void {}
+  invalidate(): void {
+    this.renderCache.clear();
+  }
 
   render(width: number): string[] {
+    const signature = this.renderStateSignature();
+    if (signature !== this.renderCacheSignature) {
+      this.renderCache.clear();
+      this.renderCacheSignature = signature;
+    }
+    const cached = this.renderCache.get(width);
+    if (cached !== undefined) {
+      // A copy, because callers own what they get back: `PreviewPane` hands
+      // this array straight up to the dialog, which decorates rows in place.
+      return [...cached];
+    }
+    const lines = this.renderRows(width);
+    if (this.renderCache.size >= WrappingSelect.RENDER_CACHE_MAX_WIDTHS) {
+      this.renderCache.clear();
+    }
+    this.renderCache.set(width, lines);
+    return [...lines];
+  }
+
+  /**
+   * Every mutable input a rendered row reads. `items`, `maxVisible` and `theme`
+   * are constructor-fixed, so they stay out. A NUL separator keeps a buffer
+   * containing the separator from colliding with the next field.
+   */
+  private renderStateSignature(): string {
+    return [
+      this.selectedIndex,
+      this.focused,
+      this.confirmedIndex ?? -1,
+      this.confirmedLabelOverride ?? "",
+      this.inputCursorOffset ?? -1,
+      this.numberStartOffset,
+      this.totalItemsForNumbering,
+      this.inputBuffer,
+    ].join("\u0000");
+  }
+
+  private renderRows(width: number): string[] {
     if (this.items.length === 0) {
       return [];
     }
