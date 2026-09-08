@@ -35,6 +35,23 @@ describe("decodeSettings", () => {
     expect(warnings[0]).toContain("concurrency");
   });
 
+  it("takes either permission and defaults a missing one to read-only", () => {
+    expect(decodeSettings({ permissions: "read-write" }).settings.permissions).toBe("read-write");
+    expect(decodeSettings({ permissions: "read-only" }).settings.permissions).toBe("read-only");
+    // The safe side is what an older file, written before the field existed, gets.
+    expect(decodeSettings({ model: "claude-opus-5" }).settings.permissions).toBe("read-only");
+    expect(decodeSettings({ permissions: "read-write" }).warnings).toEqual([]);
+  });
+
+  it("falls back to read-only on a permission it does not recognise", () => {
+    for (const raw of ["readwrite", "write", "rw", true, 1, null]) {
+      const { settings, warnings } = decodeSettings({ permissions: raw });
+      expect(settings.permissions).toBe("read-only");
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0]).toContain("permissions");
+    }
+  });
+
   it("rejects a thinking level that is not one of pi's", () => {
     const { settings, warnings } = decodeSettings({ thinking: "banana" });
     expect(settings.thinking).toBe(DEFAULT_SETTINGS.thinking);
@@ -92,6 +109,7 @@ describe("loadSettings", () => {
   it("round-trips through save", async () => {
     const path = await tempFile();
     const settings: SubagentSettings = {
+      permissions: "read-write",
       model: "claude-sonnet-5",
       thinking: "low",
       concurrency: 5,
@@ -106,6 +124,7 @@ describe("loadSettings", () => {
     expect(loaded.warnings).toEqual([]);
     // Written where a person can find and edit it.
     expect(await readFile(path, "utf8")).toContain('"model": "claude-sonnet-5"');
+    expect(await readFile(path, "utf8")).toContain('"permissions": "read-write"');
   });
 
   it("creates the directory it writes into", async () => {
