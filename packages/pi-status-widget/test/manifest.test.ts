@@ -95,10 +95,10 @@ describe("pi-statusbar manifest", () => {
     expect(files).not.toContain("test/");
   });
 
-  it("is public, MIT, and starts at 0.1.0", () => {
+  it("is public, MIT, and starts at 0.1.1", () => {
     const manifest = readManifest();
     expect(manifest.name).toBe("pi-status-widget");
-    expect(manifest.version).toBe("0.1.0");
+    expect(manifest.version).toBe("0.1.1");
     expect(manifest.license).toBe("MIT");
     expect(manifest.publishConfig?.access).toBe("public");
   });
