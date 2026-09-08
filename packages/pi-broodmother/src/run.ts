@@ -1,4 +1,4 @@
-import { Context, Deferred, Effect, Layer, Schema } from "effect";
+import { Clock, Context, Deferred, Effect, Layer, Schema } from "effect";
 
 import { loadAgentFile, type AgentFile } from "./agent-file.js";
 import {
@@ -421,6 +421,12 @@ export class Manager extends Context.Service<
          * in its own signature. Closing it interrupts every run in flight.
          */
         const scope = yield* Effect.scope;
+        /**
+         * The one Clock instance, kept for the two places that stamp time from
+         * a plain callback rather than a generator. Every generator reads
+         * Clock.currentTimeMillis directly instead.
+         */
+        const clock = yield* Clock.Clock;
 
         const runs = new Map<string, RunState>();
         const order: string[] = [];
@@ -497,7 +503,7 @@ export class Manager extends Context.Service<
         ) {
           state.status = "settled";
           state.result = result;
-          state.endedAt = Date.now();
+          state.endedAt = yield* Clock.currentTimeMillis;
           state.notes = [...state.notes, ...result.notes];
           yield* Deferred.succeed(state.settled, undefined);
           yield* Effect.sync(() => {
@@ -528,7 +534,7 @@ export class Manager extends Context.Service<
             const address: TaskAddress = { runId: run.id, taskId: state.id, task: state.task };
             state.status = "running";
             state.prompt = prompt;
-            state.startedAt = Date.now();
+            state.startedAt = yield* Clock.currentTimeMillis;
             yield* Effect.sync(changed);
 
             const result = yield* Effect.scoped(
@@ -561,8 +567,11 @@ export class Manager extends Context.Service<
                   // No changed(): this fires per token, and changed() rebuilds
                   // every view of every run. The widget pulls a fresh view on
                   // each repaint, so the next heartbeat sees this anyway.
+                  // The unsafe read is the price of living in a plain callback:
+                  // a generator could not be here, and the captured Clock makes
+                  // the stamp testable along with every other timestamp.
                   onActivity: () => {
-                    state.lastActivityAt = Date.now();
+                    state.lastActivityAt = clock.currentTimeMillisUnsafe();
                   },
                   ...(request.create ? { create: request.create } : {}),
                 });
@@ -584,7 +593,7 @@ export class Manager extends Context.Service<
               const state = run.byId.get(settlement.id)!;
               state.status = "skipped";
               state.missing = settlement.missing;
-              state.endedAt = Date.now();
+              state.endedAt = yield* Clock.currentTimeMillis;
               yield* Deferred.succeed(state.settled, undefined);
             }),
             { discard: true },
@@ -679,7 +688,7 @@ export class Manager extends Context.Service<
           counter += 1;
           const run: RunState = {
             id: `run_${counter}`,
-            startedAt: Date.now(),
+            startedAt: yield* Clock.currentTimeMillis,
             tasks: states,
             permissions: current.permissions,
             byId: new Map(states.map((state) => [state.id, state])),

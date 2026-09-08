@@ -1,5 +1,5 @@
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
-import { Context, Deferred, Effect, Layer, type Scope } from "effect";
+import { Clock, Context, Deferred, Effect, Layer, type Scope } from "effect";
 import { Type } from "typebox";
 
 import type { ChildRunResult } from "./lifecycle.js";
@@ -264,6 +264,11 @@ export class Intercom extends Context.Service<
               return yield* Effect.scoped(
                 Effect.gen(function* () {
                   const reply = yield* Deferred.make<string>();
+                  // The waiting readout measures from this stamp, so it comes
+                  // from the Clock like every other timestamp the package
+                  // records: under a test clock it is virtual time, and a
+                  // direct Date.now here would disagree with all of them.
+                  const since = yield* Clock.currentTimeMillis;
                   const registration = yield* Effect.acquireRelease(
                     Effect.sync(() => {
                       if (channel.closed) {
@@ -274,7 +279,7 @@ export class Intercom extends Context.Service<
                       }
                       const pending: PendingAsk = { channel, reply };
                       state.pending.set(key, pending);
-                      safelyNotify(channel, { question, since: Date.now() });
+                      safelyNotify(channel, { question, since });
                       return "registered" as const;
                     }),
                     (registered) =>

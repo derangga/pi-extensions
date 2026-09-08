@@ -1,5 +1,6 @@
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
-import { Effect, Fiber, type Scope } from "effect";
+import { Clock, Effect, Fiber, type Scope } from "effect";
+import { TestClock } from "effect/testing";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -310,6 +311,35 @@ describe("Intercom", () => {
 
     expect(transitions[0]?.question).toBe("Continue?");
     expect(transitions.at(-1)).toBeUndefined();
+  });
+
+  it("stamps an ask with the Clock's current time", async () => {
+    const transitions: (AskWaiting | undefined)[] = [];
+    const deliveries: Delivery[] = [];
+    const stamped = await Effect.runPromise(
+      Effect.gen(function* () {
+        const intercom = yield* Intercom;
+        yield* TestClock.adjust("10 minutes");
+        const expected = yield* Clock.currentTimeMillis;
+        const channel = yield* intercom.openTask(address, {
+          onWaitingChange: (ask) => transitions.push(ask),
+        });
+        const pending = yield* channel.ask("Continue?").pipe(Effect.forkChild);
+        yield* Effect.yieldNow;
+        yield* intercom.reply(address.runId, address.taskId, "yes");
+        return yield* Fiber.join(pending).pipe(Effect.as(expected));
+      }).pipe(
+        Effect.scoped,
+        Effect.provide(
+          Intercom.layer({ send: (message, mode) => deliveries.push({ message, mode }) }, 100),
+        ),
+        Effect.provide(TestClock.layer()),
+      ),
+    );
+
+    // Virtual time, not the wall clock: on a direct Date.now this would be
+    // a real epoch and could never equal the test clock's reading.
+    expect(transitions[0]?.since).toBe(stamped);
   });
 });
 
