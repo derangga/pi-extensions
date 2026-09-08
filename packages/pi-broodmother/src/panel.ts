@@ -8,6 +8,8 @@ import {
   MIN_CONCURRENCY,
   MIN_TASKS,
   MIN_TURNS,
+  PERMISSIONS,
+  type Permissions,
   type SubagentSettings,
   type ThinkingChoice,
 } from "./settings.js";
@@ -38,6 +40,16 @@ export const ROW_THINKING = "thinking";
 export const ROW_CONCURRENCY = "concurrency";
 export const ROW_MAX_TURNS = "maxTurns";
 export const ROW_MAX_TASKS = "maxTasks";
+export const ROW_PERMISSIONS = "permissions";
+
+/**
+ * Last, not first. The panel opens with the cursor on the top row and left or
+ * right commits that row as it moves, so a permission gate in first position
+ * would hand out edit, write and bash to anyone who opened the panel and
+ * bumped an arrow key. Down here it takes a deliberate keypress to reach, and
+ * the row still behaves like every other row once you are on it.
+ */
+export const PERMISSION_VALUES = [...PERMISSIONS];
 
 /**
  * The numbers cycle through a fixed list rather than opening an input.
@@ -134,6 +146,13 @@ export function buildSettingItems(
       currentValue: String(settings.maxTasks),
       values: MAX_TASKS_VALUES,
     },
+    {
+      id: ROW_PERMISSIONS,
+      label: "Permissions",
+      description: permissionDescription(settings.permissions),
+      currentValue: settings.permissions,
+      values: PERMISSION_VALUES,
+    },
   ];
 }
 
@@ -172,6 +191,9 @@ export function settingsWithRowChange(
       return withNumber(settings, "maxTurns", value, MIN_TURNS, MAX_TURNS);
     case ROW_MAX_TASKS:
       return withNumber(settings, "maxTasks", value, MIN_TASKS, MAX_TASKS);
+    case ROW_PERMISSIONS:
+      // SAFETY: value is validated against PERMISSIONS above; the cast preserves the validated type.
+      return isPermissions(value) ? { ...settings, permissions: value } : settings;
     default:
       return settings;
   }
@@ -180,7 +202,7 @@ export function settingsWithRowChange(
 /** The bare command's reply, and what the panel falls back to with no terminal. */
 export function describeSettings(settings: SubagentSettings, path: string): string {
   return [
-    `model ${settings.model} · thinking ${settings.thinking} · concurrency ${settings.concurrency} · max turns ${settings.maxTurns} · max tasks ${settings.maxTasks}`,
+    `model ${settings.model} · thinking ${settings.thinking} · concurrency ${settings.concurrency} · max turns ${settings.maxTurns} · max tasks ${settings.maxTasks} · permissions ${settings.permissions}`,
     path,
   ].join("\n");
 }
@@ -192,6 +214,20 @@ export function cycleValue(values: readonly string[], current: string, step: num
   const index = values.indexOf(current);
   const next = ((index === -1 ? 0 : index) + step + values.length) % values.length;
   return values[next] ?? current;
+}
+
+function isPermissions(value: string): value is Permissions {
+  return (PERMISSIONS as readonly string[]).includes(value);
+}
+
+/**
+ * The ceiling, phrased as what a child gets rather than what the flag is
+ * called. Someone reading this row is deciding whether to hand out a shell.
+ */
+function permissionDescription(permissions: Permissions): string {
+  return permissions === "read-write"
+    ? "Children may edit, write and run commands, anywhere you could. Nothing asks first; review with git diff."
+    : "The most a child may do. read-only is files in and nothing out.";
 }
 
 function modelDescription(settings: SubagentSettings, parent: PiModel | undefined): string {

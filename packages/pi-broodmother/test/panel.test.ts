@@ -16,6 +16,7 @@ import {
   ROW_MAX_TASKS,
   ROW_MAX_TURNS,
   ROW_MODEL,
+  ROW_PERMISSIONS,
   ROW_THINKING,
   settingsWithRowChange,
   thinkingValues,
@@ -82,9 +83,19 @@ describe("clampThinking", () => {
 });
 
 describe("buildSettingItems", () => {
-  it("builds the five rows in order", () => {
+  it("builds the six rows in order, permissions last", () => {
     const ids = buildSettingItems(settings(), AVAILABLE, OPUS).map((item) => item.id);
-    expect(ids).toEqual([ROW_MODEL, ROW_THINKING, ROW_CONCURRENCY, ROW_MAX_TURNS, ROW_MAX_TASKS]);
+    expect(ids).toEqual([
+      ROW_MODEL,
+      ROW_THINKING,
+      ROW_CONCURRENCY,
+      ROW_MAX_TURNS,
+      ROW_MAX_TASKS,
+      // Last on purpose: the cursor opens on the first row, and every row
+      // commits as it moves, so a gate up there would be one stray arrow key
+      // away from handing a child a shell.
+      ROW_PERMISSIONS,
+    ]);
   });
 
   it("gives the model row no values, because its list opens a submenu", () => {
@@ -149,6 +160,26 @@ describe("settingsWithRowChange", () => {
     expect(settingsWithRowChange(base, ROW_MAX_TASKS, "17", AVAILABLE, OPUS)).toEqual(base);
   });
 
+  it("takes either permission and refuses anything else", () => {
+    const base = settings();
+    expect(
+      settingsWithRowChange(base, ROW_PERMISSIONS, "read-write", AVAILABLE, OPUS).permissions,
+    ).toBe("read-write");
+    expect(
+      settingsWithRowChange(base, ROW_PERMISSIONS, "read-only", AVAILABLE, OPUS).permissions,
+    ).toBe("read-only");
+    for (const bad of ["readwrite", "write", "rw", ""]) {
+      expect(settingsWithRowChange(base, ROW_PERMISSIONS, bad, AVAILABLE, OPUS)).toEqual(base);
+    }
+  });
+
+  it("says what read-write costs, on the row that grants it", () => {
+    const rows = buildSettingItems(settings({ permissions: "read-write" }), AVAILABLE, OPUS);
+    const row = rows.find((item) => item.id === ROW_PERMISSIONS);
+    expect(row?.description).toContain("git diff");
+    expect(row?.values).toEqual(["read-only", "read-write"]);
+  });
+
   it("ignores a row it does not know", () => {
     const base = settings();
     expect(settingsWithRowChange(base, "nope", "1", AVAILABLE, OPUS)).toEqual(base);
@@ -174,11 +205,13 @@ describe("cycleValue", () => {
 describe("describeSettings", () => {
   it("names every setting and the file to hand-edit", () => {
     const text = describeSettings(
-      settings({ concurrency: 4, maxTasks: 6 }),
+      settings({ concurrency: 4, maxTasks: 6, permissions: "read-write" }),
       "/tmp/pi-broodmother.json",
     );
     expect(text).toContain("concurrency 4");
     expect(text).toContain("max tasks 6");
+    // The one line a headless session gets, so the mode has to be on it.
+    expect(text).toContain("permissions read-write");
     expect(text).toContain("/tmp/pi-broodmother.json");
   });
 });

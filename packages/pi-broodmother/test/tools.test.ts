@@ -49,6 +49,7 @@ function runView(tasks: readonly TaskView[], fields: Partial<RunView> = {}): Run
     startedAt: 0,
     finished: true,
     cancelled: false,
+    permissions: "read-only",
     tasks,
     ...fields,
   };
@@ -151,6 +152,16 @@ describe("formatStart", () => {
     const text = formatStart(runView([taskView({ id: "a" }), taskView({ id: "b", index: 1 })]));
     expect(text).toContain("Started run_1 with 2 tasks.");
     expect(text).not.toContain("wave");
+  });
+
+  it("names the mode, because the tool description cannot", () => {
+    const reader = formatStart(runView([taskView({ id: "a" })]));
+    expect(reader).toContain("read-only");
+    expect(reader).not.toContain("read-write");
+
+    const writer = formatStart(runView([taskView({ id: "a" })], { permissions: "read-write" }));
+    expect(writer).toContain("read-write");
+    expect(writer).toContain("edit, write and run commands");
   });
 
   it("shows waves and edges once a task has needs", () => {

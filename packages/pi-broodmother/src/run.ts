@@ -36,7 +36,7 @@ import {
   type ResolveError,
   type TaskChoice,
 } from "./resolve.js";
-import { Settings } from "./settings.js";
+import { type Permissions, Settings } from "./settings.js";
 import type { PiModel, ThinkingLevel } from "./thinking.js";
 
 /** A task as the tool schema decodes it: the graph's fields plus the choices. */
@@ -54,6 +54,8 @@ export interface StartRequest {
   readonly parent: ParentChoice;
   readonly parentSession: string | undefined;
   readonly source: ModelSource;
+  /** The parent's project-trust answer, carried so a child honours it too. */
+  readonly projectTrusted: boolean;
   /** Test seam. Production callers leave this undefined and get a real session. */
   readonly create?: ChildFactory;
 }
@@ -112,6 +114,12 @@ export interface RunView {
   readonly startedAt: number;
   readonly finished: boolean;
   readonly cancelled: boolean;
+  /**
+   * What this run's children were allowed to do. Carried so the text the
+   * orchestrator reads can name it: the tool description is fixed at load and
+   * cannot say which side of the switch the user is on right now.
+   */
+  readonly permissions: Permissions;
   readonly tasks: readonly TaskView[];
 }
 
@@ -270,6 +278,13 @@ interface TaskState {
 interface RunState {
   readonly id: string;
   readonly startedAt: number;
+  /**
+   * Captured when the run starts, not read when each child spawns. Flipping
+   * the setting mid-session leaves runs already in flight exactly as they were
+   * and applies to the next one, which is the only reading that lets a user
+   * answer "what could that run do?" after the fact.
+   */
+  readonly permissions: Permissions;
   readonly tasks: readonly TaskState[];
   readonly byId: ReadonlyMap<string, TaskState>;
   /**
@@ -329,6 +344,7 @@ function viewRun(run: RunState): RunView {
     startedAt: run.startedAt,
     finished: run.finished,
     cancelled: run.cancelled,
+    permissions: run.permissions,
     tasks: run.tasks.map(viewTask),
   };
 }
@@ -531,6 +547,8 @@ export class Manager extends Context.Service<
                     model: state.resolvedModel,
                     thinking: state.thinking,
                     ...(request.parentSession ? { parentSession: request.parentSession } : {}),
+                    permissions: run.permissions,
+                    projectTrusted: request.projectTrusted,
                     customTools: createIntercomTools(channel),
                   },
                   task: prompt,
@@ -663,6 +681,7 @@ export class Manager extends Context.Service<
             id: `run_${counter}`,
             startedAt: Date.now(),
             tasks: states,
+            permissions: current.permissions,
             byId: new Map(states.map((state) => [state.id, state])),
             controller: new AbortController(),
             done: yield* Deferred.make<void>(),

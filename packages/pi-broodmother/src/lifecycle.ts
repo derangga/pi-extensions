@@ -423,6 +423,18 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
 
   const partial = outcome !== "completed" && outcome !== "wrapped_up";
   const labeled = partial && raw ? `Partial output before termination:\n${raw}` : raw;
+  /**
+   * A reader cut short costs nothing. A writer cut short can have applied half
+   * an edit set, and nothing rolls that back, so the result says so rather
+   * than leaving it to be discovered later.
+   */
+  const notes =
+    partial && options.child.permissions === "read-write"
+      ? [
+          ...child.notes,
+          "stopped before finishing with write access: changes may be half applied, check git diff",
+        ]
+      : child.notes;
   const result: ChildRunResult = {
     outcome,
     output: truncateResult(labeled, child.sessionFile, RESULT_CAP_BYTES, statusFor(outcome, error)),
@@ -431,7 +443,7 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
     producedOutput: raw.length > 0,
     turns,
     sessionFile: child.sessionFile,
-    notes: child.notes,
+    notes,
   };
   return result;
 });

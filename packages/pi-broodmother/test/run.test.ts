@@ -158,6 +158,7 @@ function request(
     parent: { model, thinking: "off" },
     parentSession: "/sessions/parent.jsonl",
     source: source(),
+    projectTrusted: true,
     create,
     ...overrides,
   };
@@ -312,6 +313,60 @@ describe("Manager.start", () => {
     );
 
     expect(message).toContain("not supported");
+  });
+
+  it("keeps each run on the mode that was set when it started", async () => {
+    const sent: Sent[] = [];
+    /** A settings file someone edits between the two starts. */
+    let value: SubagentSettings = { ...DEFAULT_SETTINGS, permissions: "read-only" };
+    const mutableSettings = Layer.succeed(
+      Settings,
+      Settings.of({
+        current: Effect.sync(() => value),
+        warnings: [],
+        path: "/dev/null",
+        update: () => Effect.void,
+      }),
+    );
+
+    /** What each child was actually handed, in spawn order. */
+    const granted: string[] = [];
+    const create: ChildFactory = (options) => {
+      granted.push(options.permissions);
+      return childFactory(() => "done")(options);
+    };
+
+    const views = await Effect.runPromise(
+      Effect.gen(function* () {
+        const manager = yield* Manager;
+        const first = yield* manager.start(request([task({ id: "a" })], create));
+        yield* manager.wait(first.id, undefined);
+
+        // The flip lands between the two runs.
+        value = { ...value, permissions: "read-write" };
+
+        const second = yield* manager.start(request([task({ id: "b" })], create));
+        yield* manager.wait(second.id, undefined);
+
+        return [yield* manager.view(first.id), yield* manager.view(second.id)] as const;
+      }).pipe(
+        Effect.provide(
+          Manager.layer({}).pipe(
+            Layer.provideMerge(
+              Layer.mergeAll(
+                mutableSettings,
+                Intercom.layer({ send: (message, mode) => sent.push({ message, mode }) }, 200),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(granted).toEqual(["read-only", "read-write"]);
+    // The earlier run is not rewritten by a later flip.
+    expect(views[0].permissions).toBe("read-only");
+    expect(views[1].permissions).toBe("read-write");
   });
 });
 

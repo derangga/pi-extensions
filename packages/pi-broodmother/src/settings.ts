@@ -15,7 +15,16 @@ export type ModelChoice = string;
 /** A concrete level, or INHERIT to leave the per-task field in charge. */
 export type ThinkingChoice = typeof INHERIT | ThinkingLevel;
 
+/**
+ * The most a child may ever do. Not a mode a task can choose: a later per-task
+ * or agent-file override may narrow this, never widen it, which is what keeps
+ * the only widening switch the one the user presses in `/broodmother`.
+ */
+export const PERMISSIONS = ["read-only", "read-write"] as const;
+export type Permissions = (typeof PERMISSIONS)[number];
+
 export interface SubagentSettings {
+  readonly permissions: Permissions;
   readonly model: ModelChoice;
   readonly thinking: ThinkingChoice;
   readonly concurrency: number;
@@ -40,6 +49,7 @@ export const MIN_TASKS = 1;
 export const MAX_TASKS = 16;
 
 export const DEFAULT_SETTINGS: SubagentSettings = {
+  permissions: "read-only",
   model: INHERIT,
   thinking: INHERIT,
   concurrency: 3,
@@ -64,6 +74,7 @@ export class SettingsWriteError extends Schema.TaggedError<SettingsWriteError>()
  * in two places would let the two answers disagree. Resolution owns it.
  */
 const decodeRecord = Schema.decodeUnknownOption(Schema.Record(Schema.String, Schema.Unknown));
+const decodePermissions = Schema.decodeUnknownOption(Schema.Literals(PERMISSIONS));
 const decodeModel = Schema.decodeUnknownOption(Schema.String);
 const decodeThinking = Schema.decodeUnknownOption(Schema.Literals([INHERIT, ...THINKING_LEVELS]));
 const decodeConcurrency = Schema.decodeUnknownOption(
@@ -138,6 +149,7 @@ export function decodeSettings(input: unknown): LoadedSettings {
 
   return {
     settings: {
+      permissions: take("permissions", decodePermissions, DEFAULT_SETTINGS.permissions),
       model: take("model", decodeModel, DEFAULT_SETTINGS.model),
       thinking: take("thinking", decodeThinking, DEFAULT_SETTINGS.thinking),
       concurrency: take("concurrency", decodeConcurrency, DEFAULT_SETTINGS.concurrency),
