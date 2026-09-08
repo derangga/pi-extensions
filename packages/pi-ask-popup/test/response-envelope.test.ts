@@ -6,6 +6,7 @@ import {
   DECLINE_MESSAGE,
   ENVELOPE_PREFIX,
   ENVELOPE_SUFFIX,
+  HOST_ERROR_MESSAGE,
 } from "../src/tool/response-envelope.js";
 import type { QuestionAnswer, QuestionParams } from "../src/tool/types.js";
 
@@ -172,5 +173,46 @@ describe("buildQuestionnaireResponse", () => {
       params("First?"),
     );
     expect("globalNote" in r.details).toBe(false);
+  });
+});
+
+describe("a host that answers with something it was never offered", () => {
+  it("says so instead of reporting a decline", () => {
+    const out = buildQuestionnaireResponse(
+      {
+        answers: [],
+        cancelled: true,
+        error: "host_error",
+        hostErrorDetail: 'selection not in the offered list: "Redis"',
+      },
+      params("First?"),
+    );
+    expect(out.content[0]?.text).toContain(HOST_ERROR_MESSAGE);
+    expect(out.content[0]?.text).toContain("Redis");
+    expect(out.content[0]?.text).not.toContain(DECLINE_MESSAGE);
+    expect(out.details.error).toBe("host_error");
+    expect(out.details.cancelled).toBe(true);
+  });
+
+  it("keeps the answers collected before the host misbehaved", () => {
+    const out = buildQuestionnaireResponse(
+      {
+        answers: [answer({ questionIndex: 0 })],
+        cancelled: true,
+        error: "host_error",
+        hostErrorDetail: 'selection not in the offered list: "???"',
+      },
+      params("First?", "Second?"),
+    );
+    expect(out.details.answers).toHaveLength(1);
+  });
+
+  it("still reads as a host error with no detail to quote", () => {
+    const out = buildQuestionnaireResponse(
+      { answers: [], cancelled: true, error: "host_error" },
+      params("First?"),
+    );
+    expect(out.content[0]?.text).toBe(HOST_ERROR_MESSAGE);
+    expect(out.details.hostErrorDetail).toBeUndefined();
   });
 });

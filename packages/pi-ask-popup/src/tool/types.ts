@@ -162,7 +162,8 @@ export type QuestionnaireError =
   | "reserved_label"
   | "session_load_failed"
   | "stale_module_cache"
-  | "timed_out";
+  | "timed_out"
+  | "host_error";
 
 export interface QuestionnaireResult {
   answers: QuestionAnswer[];
@@ -192,6 +193,15 @@ export interface QuestionnaireResult {
    */
   unansweredNotes?: UnansweredNote[];
   error?: QuestionnaireError;
+  /**
+   * What the host actually sent, on a `host_error` result. Quoted into the
+   * envelope so whoever reads the transcript can see which value was rejected
+   * rather than guessing at the malfunction.
+   *
+   * Same conditional-spread contract as `globalNote`: present only alongside
+   * `error: "host_error"`, never assigned `undefined`.
+   */
+  hostErrorDetail?: string;
 }
 
 export function isQuestionnaireResult(value: unknown): value is QuestionnaireResult {

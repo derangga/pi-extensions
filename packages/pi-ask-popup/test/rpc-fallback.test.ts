@@ -323,12 +323,28 @@ describe("dismissal", () => {
     expect(result.answers).toHaveLength(1);
   });
 
-  it("cancels rather than inventing an answer when the host returns something off-list", async () => {
-    // A host that hands back a string it was never offered is indistinguishable
-    // from one that was dismissed, and fabricating a choice would put words in
-    // the user's mouth.
+  it("reports a host error, not a decline, when the host returns something off-list", async () => {
+    // A host that hands back a string it was never offered is broken, or is
+    // rewriting the option text. Fabricating a choice would put words in the
+    // user's mouth; calling it a decline would put a decision there instead.
     const result = await runRpcQuestionnaire(makeUI(["Redis"]), params(PICK_ONE));
+    expect(result.answers).toEqual([]);
+    expect(result.cancelled).toBe(true);
+    expect(result.error).toBe("host_error");
+    expect(result.hostErrorDetail).toContain("Redis");
+  });
+
+  it("keeps a plain dismissal free of any error", async () => {
+    const result = await runRpcQuestionnaire(makeUI([undefined]), params(PICK_ONE));
     expect(result).toEqual({ answers: [], cancelled: true });
+  });
+
+  it("keeps typed multi-select text out of the host-error path", async () => {
+    // "13" on a three-option question came from the user's keyboard, so it is a
+    // typed answer however out of range it looks.
+    const result = await runRpcQuestionnaire(makeUI(["13"]), params(PICK_MANY));
+    expect(result.error).toBeUndefined();
+    expect(result.answers[0]).toMatchObject({ kind: "custom", answer: "13" });
   });
 });
 

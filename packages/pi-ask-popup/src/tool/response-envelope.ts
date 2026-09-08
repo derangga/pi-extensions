@@ -9,6 +9,8 @@ import type {
 export const DECLINE_MESSAGE = "User declined to answer questions";
 export const TIMED_OUT_MESSAGE =
   "Questionnaire timed out — the user did not respond within the configured timeout. The user never saw a decline; do NOT treat this as a rejection. Ask the questions as plain chat text instead or retry.";
+export const HOST_ERROR_MESSAGE =
+  "The host replied with a value that was never offered, so the questionnaire could not be completed. Nobody declined and nobody answered — do NOT treat this as a rejection. Ask the questions as plain chat text instead.";
 export const ENVELOPE_PREFIX = "User has answered your questions:";
 export const ENVELOPE_SUFFIX = "You can now continue with the user's answers in mind.";
 /** Opens the segment for a note whose question was never answered. */
@@ -50,6 +52,23 @@ export function buildQuestionnaireResponse(
         result.unansweredNotes;
     }
     return buildToolResult(TIMED_OUT_MESSAGE, details);
+  }
+  if (result?.error === "host_error") {
+    // A broken host is not a decision. Sharing the decline text would tell the
+    // model the user said no, when the user was never shown a working dialog.
+    const details: QuestionnaireResult = {
+      answers: result.answers,
+      cancelled: true,
+      error: "host_error",
+    };
+    if (result.hostErrorDetail && result.hostErrorDetail.length > 0) {
+      (details as { hostErrorDetail: string }).hostErrorDetail = result.hostErrorDetail;
+      return buildToolResult(
+        `${HOST_ERROR_MESSAGE} (host sent: ${result.hostErrorDetail})`,
+        details,
+      );
+    }
+    return buildToolResult(HOST_ERROR_MESSAGE, details);
   }
   if (!result || result.cancelled) {
     // The decline text stays canonical even when a global note rides a
