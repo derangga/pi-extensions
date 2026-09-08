@@ -482,6 +482,50 @@ describe("resultLines", () => {
     expect(lines[0]).toContain("1 not clean");
   });
 
+  it("keeps a multi-line answer on multiple lines", () => {
+    // It used to run through `text`, which flattens every newline, and then a
+    // 120 character cut: 24k retained, one squashed line readable. Reading a
+    // prompt against the answer it produced is why this row expands at all.
+    const answer = ["## Findings", "", "1. The first thing", "2. The second thing"].join("\n");
+    const lines = resultLines(
+      runView([settled({ output: answer })], { finished: true }),
+      theme,
+      true,
+      NOW,
+    );
+    const text = lines.join("\n");
+    expect(text).toContain("output:");
+    expect(text).toContain("## Findings");
+    expect(text).toContain("2. The second thing");
+    // Four separate rows, not one joined line.
+    expect(lines.filter((line) => line.includes("The first thing"))).toHaveLength(1);
+    expect(text).not.toContain("## Findings 1. The first thing");
+  });
+
+  it("caps a long answer and says how much it held back", () => {
+    const answer = Array.from({ length: 26 }, (_, index) => `line ${index + 1}`).join("\n");
+    const lines = resultLines(
+      runView([settled({ output: answer })], { finished: true }),
+      theme,
+      true,
+      NOW,
+    );
+    const text = lines.join("\n");
+    expect(text).toContain("line 20");
+    expect(text).not.toContain("line 21");
+    expect(text).toContain("… +6 lines");
+  });
+
+  it("prints no output block for a task that produced nothing", () => {
+    const lines = resultLines(
+      runView([settled({ output: undefined })], { finished: true }),
+      theme,
+      true,
+      NOW,
+    );
+    expect(lines.join("\n")).not.toContain("output:");
+  });
+
   it("expands to per-task rows carrying output and the transcript path", () => {
     const lines = resultLines(runView([settled()], { finished: true }), theme, true, NOW);
     expect(lines.join("\n")).toContain("the answer");

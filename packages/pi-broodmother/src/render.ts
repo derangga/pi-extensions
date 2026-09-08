@@ -523,9 +523,14 @@ export function resultLines(
     if (prompt.length > 0) {
       lines.push(`    ${theme.fg("muted", "prompt:")}`, ...prompt);
     }
-    const body = text(task.output);
-    if (body) {
-      lines.push(`    ${theme.fg("dim", truncate(body, 120))}`);
+    // The answer gets the same treatment as the prompt above it. It used to go
+    // through `text`, which flattens every newline, and then a 120 character
+    // cut, so a multi-line answer arrived as one squashed line: 24k retained by
+    // RESULT_CAP_BYTES, 120 of it readable. Reading a prompt against the answer
+    // it produced is the whole reason to expand this row.
+    const answer = promptBlock(task.output, theme, "      ");
+    if (answer.length > 0) {
+      lines.push(`    ${theme.fg("muted", "output:")}`, ...answer);
     }
     if (task.sessionFile) {
       lines.push(`    ${theme.fg("muted", task.sessionFile)}`);
