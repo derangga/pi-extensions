@@ -1,5 +1,5 @@
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
-import { Clock, Effect, Fiber, type Scope } from "effect";
+import { Clock, Effect, Fiber, Layer, type Scope } from "effect";
 import { TestClock } from "effect/testing";
 import { describe, expect, it, vi } from "vitest";
 
@@ -9,6 +9,7 @@ import {
   Intercom,
   PARKED_MESSAGE_CAP,
   PARENT_REPLY_TIMEOUT,
+  ParentDelivery,
   TASK_ENDED_REPLY,
   type AskWaiting,
   type ParentDeliveryMode,
@@ -33,9 +34,16 @@ function runIntercom<A>(
   return Effect.runPromise(
     Effect.scoped(body).pipe(
       Effect.provide(
-        Intercom.layer(
-          { send: (message, mode) => deliveries.push({ message, mode }) },
-          replyTimeoutMs,
+        Intercom.layer().pipe(
+          Layer.provide(
+            Layer.succeed(
+              ParentDelivery,
+              ParentDelivery.of({
+                send: (message, mode) => deliveries.push({ message, mode }),
+                replyTimeoutMs,
+              }),
+            ),
+          ),
         ),
       ),
     ),
@@ -59,15 +67,22 @@ describe("Intercom", () => {
   it("makes an ask replyable before invoking parent delivery", async () => {
     let service: Intercom["Service"] | undefined;
     let reply: Promise<"delivered" | "not_waiting"> | undefined;
-    const layer = Intercom.layer(
-      {
-        send: () => {
-          if (service) {
-            reply = Effect.runPromise(service.reply(address.runId, address.taskId, "immediate"));
-          }
-        },
-      },
-      5,
+    const layer = Intercom.layer().pipe(
+      Layer.provide(
+        Layer.succeed(
+          ParentDelivery,
+          ParentDelivery.of({
+            send: () => {
+              if (service) {
+                reply = Effect.runPromise(
+                  service.reply(address.runId, address.taskId, "immediate"),
+                );
+              }
+            },
+            replyTimeoutMs: 5,
+          }),
+        ),
+      ),
     );
 
     const answer = await Effect.runPromise(
@@ -331,7 +346,17 @@ describe("Intercom", () => {
       }).pipe(
         Effect.scoped,
         Effect.provide(
-          Intercom.layer({ send: (message, mode) => deliveries.push({ message, mode }) }, 100),
+          Intercom.layer().pipe(
+            Layer.provide(
+              Layer.succeed(
+                ParentDelivery,
+                ParentDelivery.of({
+                  send: (message, mode) => deliveries.push({ message, mode }),
+                  replyTimeoutMs: 100,
+                }),
+              ),
+            ),
+          ),
         ),
         Effect.provide(TestClock.layer()),
       ),

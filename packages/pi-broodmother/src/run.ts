@@ -215,11 +215,21 @@ export class UnknownTask extends Schema.TaggedError<UnknownTask>()("UnknownTask"
   known: Schema.Array(Schema.String),
 }) {}
 
-/** How the manager tells a surface that something moved. */
-export interface ManagerOptions {
-  readonly onChange?: (runs: readonly RunView[]) => void;
-  readonly onEvent?: (event: SubagentEvent) => void;
-}
+/**
+ * The surfaces a manager pushes to, injected by the runtime that hosts the
+ * extension. A bare key is the right shape here: the widget push and the event
+ * bus are Pi callbacks, nothing constructs them, and every embedding provides
+ * its own.
+ */
+export class ManagerSurfaces extends Context.Service<
+  ManagerSurfaces,
+  {
+    /** Everything a surface renders, pushed rather than polled. */
+    readonly onChange: (runs: readonly RunView[]) => void;
+    /** Three events, fire and forget. A subscriber is not part of the run. */
+    readonly onEvent: (event: SubagentEvent) => void;
+  }
+>()("pi-broodmother/ManagerSurfaces") {}
 
 export type StartError = GraphError | ResolveError | AgentFileUnreadable;
 export type ManagerError = StartError | UnknownRun | UnknownTask;
@@ -410,12 +420,13 @@ export class Manager extends Context.Service<
     cancel(runId: string | undefined): Effect.Effect<RunView, UnknownRun>;
   }
 >()("pi-broodmother/Manager") {
-  static layer(options: ManagerOptions = {}) {
+  static layer() {
     return Layer.effect(
       Manager,
       Effect.gen(function* () {
         const settings = yield* Settings;
         const intercom = yield* Intercom;
+        const surfaces = yield* ManagerSurfaces;
         /**
          * Captured once so `start` can fork into it later without carrying Scope
          * in its own signature. Closing it interrupts every run in flight.
@@ -446,11 +457,8 @@ export class Manager extends Context.Service<
          * is drawing rather than here.
          */
         const changed = (): void => {
-          if (!options.onChange) {
-            return;
-          }
           try {
-            options.onChange(order.map((id) => viewRun(runs.get(id)!)));
+            surfaces.onChange(order.map((id) => viewRun(runs.get(id)!)));
           } catch {
             // A surface that throws must not take a run down with it.
           }
@@ -458,11 +466,8 @@ export class Manager extends Context.Service<
 
         /** Three events, fire and forget. A subscriber is not part of the run. */
         const publish = (event: SubagentEvent): void => {
-          if (!options.onEvent) {
-            return;
-          }
           try {
-            options.onEvent(event);
+            surfaces.onEvent(event);
           } catch {
             // Same reasoning as `changed`: a listener cannot fail a run.
           }

@@ -7,10 +7,10 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 
 import { inChildSessionContext } from "./child-context.js";
 import { registerSubagentCommand } from "./command.js";
-import { Intercom } from "./intercom.js";
+import { Intercom, PARENT_REPLY_TIMEOUT_MS, ParentDelivery } from "./intercom.js";
 import { createWidgetHost, createWidgetRuns } from "./render.js";
 import { modelSourceFrom } from "./resolve.js";
-import { formatManagerError, Manager, type ManagerError } from "./run.js";
+import { formatManagerError, Manager, ManagerSurfaces, type ManagerError } from "./run.js";
 import { DEFAULT_SETTINGS, getSettingsPath, Settings, type SubagentSettings } from "./settings.js";
 import { registerSubagentTools } from "./tools.js";
 
@@ -37,23 +37,33 @@ export default function broodmotherExtension(pi: ExtensionAPI): void {
   let uiContext: ExtensionContext | undefined;
   const widget = createWidgetHost(drawn.current);
 
-  const runtime = ManagedRuntime.make(
-    Manager.layer({
+  const parentDelivery = Layer.succeed(
+    ParentDelivery,
+    ParentDelivery.of({
+      send: (message, mode) => pi.sendUserMessage(message, { deliverAs: mode }),
+      replyTimeoutMs: PARENT_REPLY_TIMEOUT_MS,
+    }),
+  );
+  // Three channels on Pi's own bus, so pi-statusbar or anything else can render
+  // run state without importing this package, plus the widget push.
+  const surfaces = Layer.succeed(
+    ManagerSurfaces,
+    ManagerSurfaces.of({
       onChange: (next) => {
         drawn.replace(next);
         widget.update(uiContext);
       },
-      // Three channels on Pi's own bus, so pi-statusbar or anything else can
-      // render run state without importing this package. No RPC, and no
-      // spawn-from-outside surface, until something asks for one.
       onEvent: (event) => pi.events.emit(event.channel, event),
-    }).pipe(
+    }),
+  );
+
+  const runtime = ManagedRuntime.make(
+    Manager.layer().pipe(
       Layer.provideMerge(
         Layer.mergeAll(
           Settings.layer,
-          Intercom.layer({
-            send: (message, mode) => pi.sendUserMessage(message, { deliverAs: mode }),
-          }),
+          surfaces,
+          Intercom.layer().pipe(Layer.provide(parentDelivery)),
         ),
       ),
     ),

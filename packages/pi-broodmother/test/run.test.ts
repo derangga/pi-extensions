@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { loadAgentFile } from "../src/agent-file.js";
 import type * as agentFileModule from "../src/agent-file.js";
 import type { ChildSessionOptions } from "../src/child.js";
-import { Intercom, type ParentDeliveryMode } from "../src/intercom.js";
+import { Intercom, type ParentDeliveryMode, ParentDelivery } from "../src/intercom.js";
 import type { ChildFactory } from "../src/lifecycle.js";
 import type { ModelSource } from "../src/resolve.js";
 import {
@@ -15,6 +15,7 @@ import {
   EVENT_TASK_SETTLED,
   formatManagerError,
   Manager,
+  ManagerSurfaces,
   type RunView,
   type StartRequest,
   type SubagentEvent,
@@ -71,14 +72,28 @@ function layers(
   onChange?: (runs: readonly RunView[]) => void,
   onEvent?: (event: SubagentEvent) => void,
 ) {
-  return Manager.layer({ ...(onChange ? { onChange } : {}), ...(onEvent ? { onEvent } : {}) }).pipe(
+  return Manager.layer().pipe(
     Layer.provideMerge(
       Layer.mergeAll(
         settingsLayer(overrides),
-        Intercom.layer(
-          { send: (message, mode) => sent.push({ message, mode }) },
-          // Short enough that a forgotten reply cannot hang the suite.
-          200,
+        Intercom.layer().pipe(
+          Layer.provide(
+            Layer.succeed(
+              ParentDelivery,
+              ParentDelivery.of({
+                send: (message, mode) => sent.push({ message, mode }),
+                // Short enough that a forgotten reply cannot hang the suite.
+                replyTimeoutMs: 200,
+              }),
+            ),
+          ),
+        ),
+        Layer.succeed(
+          ManagerSurfaces,
+          ManagerSurfaces.of({
+            onChange: onChange ?? (() => undefined),
+            onEvent: onEvent ?? (() => undefined),
+          }),
         ),
       ),
     ),
@@ -383,11 +398,28 @@ describe("Manager.start", () => {
         return [yield* manager.view(first.id), yield* manager.view(second.id)] as const;
       }).pipe(
         Effect.provide(
-          Manager.layer({}).pipe(
+          Manager.layer().pipe(
             Layer.provideMerge(
               Layer.mergeAll(
                 mutableSettings,
-                Intercom.layer({ send: (message, mode) => sent.push({ message, mode }) }, 200),
+                Intercom.layer().pipe(
+                  Layer.provide(
+                    Layer.succeed(
+                      ParentDelivery,
+                      ParentDelivery.of({
+                        send: (message, mode) => sent.push({ message, mode }),
+                        replyTimeoutMs: 200,
+                      }),
+                    ),
+                  ),
+                ),
+                Layer.succeed(
+                  ManagerSurfaces,
+                  ManagerSurfaces.of({
+                    onChange: () => undefined,
+                    onEvent: () => undefined,
+                  }),
+                ),
               ),
             ),
           ),

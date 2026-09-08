@@ -67,9 +67,20 @@ export interface ParkedWaiter {
   readonly wait: Effect.Effect<readonly ParentTraffic[]>;
 }
 
-export interface ParentDelivery {
-  send(message: string, mode: ParentDeliveryMode): void;
-}
+/**
+ * The parent side of the channel, injected by the runtime that hosts the
+ * extension. A bare key is the right shape here: Pi hands over the send
+ * callback, nothing constructs it, and every embedding provides its own.
+ */
+export class ParentDelivery extends Context.Service<
+  ParentDelivery,
+  {
+    /** Push a message into the parent's conversation. */
+    readonly send: (message: string, mode: ParentDeliveryMode) => void;
+    /** How long a child waits for an answer before proceeding without one. */
+    readonly replyTimeoutMs: number;
+  }
+>()("pi-broodmother/ParentDelivery") {}
 
 interface PendingAsk {
   readonly channel: TaskChannelState;
@@ -179,235 +190,238 @@ export class Intercom extends Context.Service<
     settle(address: TaskAddress, result: ChildRunResult): Effect.Effect<void>;
   }
 >()("pi-broodmother/Intercom") {
-  static layer(delivery: ParentDelivery, replyTimeoutMs = PARENT_REPLY_TIMEOUT_MS) {
+  static layer() {
     return Layer.effect(
       Intercom,
-      Effect.acquireRelease(
-        Effect.sync((): IntercomState => ({
-          channels: new Map(),
-          pending: new Map(),
-          parked: new Map(),
-        })),
-        (state) =>
-          Effect.gen(function* () {
-            const replies = [...state.pending.values()].map((pending) => pending.reply);
-            const wakes = [...state.parked.values()].flatMap((waiters) =>
-              [...waiters].map((waiter) => waiter.wake),
-            );
-            for (const channel of state.channels.values()) {
-              channel.closed = true;
-            }
-            for (const pending of state.pending.values()) {
-              safelyNotify(pending.channel, undefined);
-            }
-            state.channels.clear();
-            state.pending.clear();
-            state.parked.clear();
-            yield* completeAll(replies, TASK_ENDED_REPLY);
-            yield* completeAll(wakes, undefined);
-          }),
-      ).pipe(
-        Effect.map((state) => {
-          const publish = Effect.fn("Intercom.publish")(function* (
-            traffic: ParentTraffic,
-            mode: ParentDeliveryMode = "followUp",
-            directText = formatTraffic(traffic),
-          ) {
-            const parked = yield* Effect.sync(() => collectParked(state, traffic));
-            yield* completeAll(parked.wakes, undefined);
-            if (parked.parked) {
-              return;
-            }
-            yield* Effect.try({
-              try: () => delivery.send(directText, mode),
-              catch: () => undefined,
-            }).pipe(Effect.ignore);
-          });
+      Effect.gen(function* () {
+        const delivery = yield* ParentDelivery;
+        return yield* Effect.acquireRelease(
+          Effect.sync((): IntercomState => ({
+            channels: new Map(),
+            pending: new Map(),
+            parked: new Map(),
+          })),
+          (state) =>
+            Effect.gen(function* () {
+              const replies = [...state.pending.values()].map((pending) => pending.reply);
+              const wakes = [...state.parked.values()].flatMap((waiters) =>
+                [...waiters].map((waiter) => waiter.wake),
+              );
+              for (const channel of state.channels.values()) {
+                channel.closed = true;
+              }
+              for (const pending of state.pending.values()) {
+                safelyNotify(pending.channel, undefined);
+              }
+              state.channels.clear();
+              state.pending.clear();
+              state.parked.clear();
+              yield* completeAll(replies, TASK_ENDED_REPLY);
+              yield* completeAll(wakes, undefined);
+            }),
+        ).pipe(
+          Effect.map((state) => {
+            const publish = Effect.fn("Intercom.publish")(function* (
+              traffic: ParentTraffic,
+              mode: ParentDeliveryMode = "followUp",
+              directText = formatTraffic(traffic),
+            ) {
+              const parked = yield* Effect.sync(() => collectParked(state, traffic));
+              yield* completeAll(parked.wakes, undefined);
+              if (parked.parked) {
+                return;
+              }
+              yield* Effect.try({
+                try: () => delivery.send(directText, mode),
+                catch: () => undefined,
+              }).pipe(Effect.ignore);
+            });
 
-          const openTask = Effect.fn("Intercom.openTask")(function* (
-            address: TaskAddress,
-            options: TaskChannelOptions = {},
-          ) {
-            const key = addressKey(address);
-            const channel = yield* Effect.acquireRelease(
-              Effect.sync(() => {
-                const opened: TaskChannelState = {
-                  address,
-                  onWaitingChange: options.onWaitingChange,
-                  closed: false,
-                };
-                state.channels.set(key, opened);
-                return opened;
-              }),
-              (opened) =>
-                Effect.gen(function* () {
-                  const pending = yield* Effect.sync(() => {
-                    opened.closed = true;
-                    if (state.channels.get(key) === opened) {
-                      state.channels.delete(key);
-                    }
-                    const current = state.pending.get(key);
-                    if (current?.channel !== opened) {
-                      return undefined;
-                    }
-                    state.pending.delete(key);
-                    safelyNotify(opened, undefined);
-                    return current.reply;
-                  });
-                  if (pending) {
-                    yield* Deferred.succeed(pending, TASK_ENDED_REPLY);
-                  }
+            const openTask = Effect.fn("Intercom.openTask")(function* (
+              address: TaskAddress,
+              options: TaskChannelOptions = {},
+            ) {
+              const key = addressKey(address);
+              const channel = yield* Effect.acquireRelease(
+                Effect.sync(() => {
+                  const opened: TaskChannelState = {
+                    address,
+                    onWaitingChange: options.onWaitingChange,
+                    closed: false,
+                  };
+                  state.channels.set(key, opened);
+                  return opened;
                 }),
-            );
+                (opened) =>
+                  Effect.gen(function* () {
+                    const pending = yield* Effect.sync(() => {
+                      opened.closed = true;
+                      if (state.channels.get(key) === opened) {
+                        state.channels.delete(key);
+                      }
+                      const current = state.pending.get(key);
+                      if (current?.channel !== opened) {
+                        return undefined;
+                      }
+                      state.pending.delete(key);
+                      safelyNotify(opened, undefined);
+                      return current.reply;
+                    });
+                    if (pending) {
+                      yield* Deferred.succeed(pending, TASK_ENDED_REPLY);
+                    }
+                  }),
+              );
 
-            const ask = Effect.fn("Intercom.ask")(function* (question: string) {
-              return yield* Effect.scoped(
-                Effect.gen(function* () {
-                  const reply = yield* Deferred.make<string>();
-                  // The waiting readout measures from this stamp, so it comes
-                  // from the Clock like every other timestamp the package
-                  // records: under a test clock it is virtual time, and a
-                  // direct Date.now here would disagree with all of them.
-                  const since = yield* Clock.currentTimeMillis;
-                  const registration = yield* Effect.acquireRelease(
-                    Effect.sync(() => {
-                      if (channel.closed) {
-                        return "closed" as const;
-                      }
-                      if (state.pending.has(key)) {
-                        return "duplicate" as const;
-                      }
-                      const pending: PendingAsk = { channel, reply };
-                      state.pending.set(key, pending);
-                      safelyNotify(channel, { question, since });
-                      return "registered" as const;
-                    }),
-                    (registered) =>
+              const ask = Effect.fn("Intercom.ask")(function* (question: string) {
+                return yield* Effect.scoped(
+                  Effect.gen(function* () {
+                    const reply = yield* Deferred.make<string>();
+                    // The waiting readout measures from this stamp, so it comes
+                    // from the Clock like every other timestamp the package
+                    // records: under a test clock it is virtual time, and a
+                    // direct Date.now here would disagree with all of them.
+                    const since = yield* Clock.currentTimeMillis;
+                    const registration = yield* Effect.acquireRelease(
                       Effect.sync(() => {
-                        if (registered !== "registered") {
-                          return;
+                        if (channel.closed) {
+                          return "closed" as const;
                         }
-                        const current = state.pending.get(key);
-                        if (current?.reply === reply) {
-                          state.pending.delete(key);
+                        if (state.pending.has(key)) {
+                          return "duplicate" as const;
                         }
-                        if (!channel.closed) {
-                          safelyNotify(channel, undefined);
-                        }
+                        const pending: PendingAsk = { channel, reply };
+                        state.pending.set(key, pending);
+                        safelyNotify(channel, { question, since });
+                        return "registered" as const;
                       }),
-                  );
+                      (registered) =>
+                        Effect.sync(() => {
+                          if (registered !== "registered") {
+                            return;
+                          }
+                          const current = state.pending.get(key);
+                          if (current?.reply === reply) {
+                            state.pending.delete(key);
+                          }
+                          if (!channel.closed) {
+                            safelyNotify(channel, undefined);
+                          }
+                        }),
+                    );
 
-                  if (registration === "closed") {
-                    return TASK_ENDED_REPLY;
-                  }
-                  if (registration === "duplicate") {
-                    return DUPLICATE_ASK_REPLY;
-                  }
+                    if (registration === "closed") {
+                      return TASK_ENDED_REPLY;
+                    }
+                    if (registration === "duplicate") {
+                      return DUPLICATE_ASK_REPLY;
+                    }
 
-                  yield* publish({ kind: "ask", address, text: question });
-                  const answer = yield* Deferred.await(reply).pipe(
-                    Effect.timeoutOrElse({
-                      duration: replyTimeoutMs,
-                      orElse: () => Effect.succeed(PARENT_REPLY_TIMEOUT),
-                    }),
-                  );
-                  return channel.closed ? TASK_ENDED_REPLY : answer;
+                    yield* publish({ kind: "ask", address, text: question });
+                    const answer = yield* Deferred.await(reply).pipe(
+                      Effect.timeoutOrElse({
+                        duration: delivery.replyTimeoutMs,
+                        orElse: () => Effect.succeed(PARENT_REPLY_TIMEOUT),
+                      }),
+                    );
+                    return channel.closed ? TASK_ENDED_REPLY : answer;
+                  }),
+                );
+              });
+
+              const notify = Effect.fn("Intercom.notify")(function* (
+                message: string,
+                level: NotificationLevel,
+              ) {
+                if (channel.closed) {
+                  return;
+                }
+                yield* publish({ kind: "notify", address, text: message, level });
+              });
+
+              return { ask, notify } satisfies TaskChannel;
+            });
+
+            const park = Effect.fn("Intercom.park")(function* (runId: string) {
+              const waiter = yield* Effect.acquireRelease(
+                Effect.gen(function* () {
+                  const wake = yield* Deferred.make<void>();
+                  return yield* Effect.sync(() => {
+                    const opened: ParkedState = { messages: [], wake };
+                    const waiters = state.parked.get(runId) ?? new Set<ParkedState>();
+                    waiters.add(opened);
+                    state.parked.set(runId, waiters);
+                    return opened;
+                  });
                 }),
+                (opened) =>
+                  Effect.sync(() => {
+                    const waiters = state.parked.get(runId);
+                    waiters?.delete(opened);
+                    if (waiters?.size === 0) {
+                      state.parked.delete(runId);
+                    }
+                  }),
+              );
+              return {
+                wait: Deferred.await(waiter.wake).pipe(
+                  Effect.andThen(Effect.sync(() => [...waiter.messages])),
+                ),
+              } satisfies ParkedWaiter;
+            });
+
+            const reply = Effect.fn("Intercom.reply")(function* (
+              runId: string,
+              taskId: string,
+              message: string,
+            ) {
+              const pending = yield* Effect.sync(() => {
+                const key = addressKey({ runId, taskId });
+                const current = state.pending.get(key);
+                if (!current || current.channel.closed) {
+                  return undefined;
+                }
+                state.pending.delete(key);
+                return current.reply;
+              });
+              if (!pending) {
+                return "not_waiting" as const;
+              }
+              yield* Deferred.succeed(pending, message);
+              return "delivered" as const;
+            });
+
+            const finishRun = Effect.fn("Intercom.finishRun")(function* (runId: string) {
+              const wakes = yield* Effect.sync(() => {
+                const waiters = state.parked.get(runId);
+                state.parked.delete(runId);
+                return waiters ? [...waiters].map((waiter) => waiter.wake) : [];
+              });
+              yield* completeAll(wakes, undefined);
+            });
+
+            const settle = Effect.fn("Intercom.settle")(function* (
+              address: TaskAddress,
+              result: ChildRunResult,
+            ) {
+              const traffic: ParentTraffic = {
+                kind: "settled",
+                address,
+                text: result.output,
+                outcome: result.outcome,
+              };
+              const startupFailure = result.outcome === "failed" && !result.producedOutput;
+              yield* publish(
+                traffic,
+                startupFailure ? "steer" : "followUp",
+                startupFailure ? formatStartupFailure(address, result) : formatTraffic(traffic),
               );
             });
 
-            const notify = Effect.fn("Intercom.notify")(function* (
-              message: string,
-              level: NotificationLevel,
-            ) {
-              if (channel.closed) {
-                return;
-              }
-              yield* publish({ kind: "notify", address, text: message, level });
-            });
-
-            return { ask, notify } satisfies TaskChannel;
-          });
-
-          const park = Effect.fn("Intercom.park")(function* (runId: string) {
-            const waiter = yield* Effect.acquireRelease(
-              Effect.gen(function* () {
-                const wake = yield* Deferred.make<void>();
-                return yield* Effect.sync(() => {
-                  const opened: ParkedState = { messages: [], wake };
-                  const waiters = state.parked.get(runId) ?? new Set<ParkedState>();
-                  waiters.add(opened);
-                  state.parked.set(runId, waiters);
-                  return opened;
-                });
-              }),
-              (opened) =>
-                Effect.sync(() => {
-                  const waiters = state.parked.get(runId);
-                  waiters?.delete(opened);
-                  if (waiters?.size === 0) {
-                    state.parked.delete(runId);
-                  }
-                }),
-            );
-            return {
-              wait: Deferred.await(waiter.wake).pipe(
-                Effect.andThen(Effect.sync(() => [...waiter.messages])),
-              ),
-            } satisfies ParkedWaiter;
-          });
-
-          const reply = Effect.fn("Intercom.reply")(function* (
-            runId: string,
-            taskId: string,
-            message: string,
-          ) {
-            const pending = yield* Effect.sync(() => {
-              const key = addressKey({ runId, taskId });
-              const current = state.pending.get(key);
-              if (!current || current.channel.closed) {
-                return undefined;
-              }
-              state.pending.delete(key);
-              return current.reply;
-            });
-            if (!pending) {
-              return "not_waiting" as const;
-            }
-            yield* Deferred.succeed(pending, message);
-            return "delivered" as const;
-          });
-
-          const finishRun = Effect.fn("Intercom.finishRun")(function* (runId: string) {
-            const wakes = yield* Effect.sync(() => {
-              const waiters = state.parked.get(runId);
-              state.parked.delete(runId);
-              return waiters ? [...waiters].map((waiter) => waiter.wake) : [];
-            });
-            yield* completeAll(wakes, undefined);
-          });
-
-          const settle = Effect.fn("Intercom.settle")(function* (
-            address: TaskAddress,
-            result: ChildRunResult,
-          ) {
-            const traffic: ParentTraffic = {
-              kind: "settled",
-              address,
-              text: result.output,
-              outcome: result.outcome,
-            };
-            const startupFailure = result.outcome === "failed" && !result.producedOutput;
-            yield* publish(
-              traffic,
-              startupFailure ? "steer" : "followUp",
-              startupFailure ? formatStartupFailure(address, result) : formatTraffic(traffic),
-            );
-          });
-
-          return Intercom.of({ openTask, park, reply, finishRun, settle });
-        }),
-      ),
+            return Intercom.of({ openTask, park, reply, finishRun, settle });
+          }),
+        );
+      }),
     );
   }
 }
