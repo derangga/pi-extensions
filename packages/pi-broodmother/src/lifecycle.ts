@@ -234,8 +234,16 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
   const wrapRequestedRef = yield* Ref.make(false);
   const abortedAfterGraceRef = yield* Ref.make(false);
   const stoppedByUserRef = yield* Ref.make(options.signal?.aborted === true);
-  const streamedRef = yield* Ref.make("");
   const progressRef = yield* Ref.make(NO_PROGRESS);
+  /**
+   * The partial text of the message still streaming. Unlike the refs above,
+   * nothing observes it live: it is read exactly once, after the terminal race
+   * below settles, by the same generator that owns this scope. A value with
+   * one reader after the callbacks stop never crosses a fiber boundary, so a
+   * plain closure is the whole cost: one string append per delta, no runSync
+   * fiber setup per token.
+   */
+  let streamedText = "";
 
   const report = (next: TaskProgress): void => {
     // The subscribe callback is synchronous and outside the Effect fiber, so
@@ -269,7 +277,7 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
 
   const unsubscribe = session.subscribe((event: AgentSessionEvent) => {
     if (event.type === "message_start" && event.message.role === "assistant") {
-      Effect.runSync(Ref.set(streamedRef, ""));
+      streamedText = "";
     }
     if (event.type === "message_update") {
       // Any delta counts, not just text. A child deep in a reasoning block is
@@ -277,8 +285,7 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
       // to avoid.
       touch();
       if (event.assistantMessageEvent.type === "text_delta") {
-        const delta = event.assistantMessageEvent.delta;
-        Effect.runSync(Ref.update(streamedRef, (current) => current + delta));
+        streamedText += event.assistantMessageEvent.delta;
       }
     }
     if (event.type === "tool_execution_update") {
@@ -384,8 +391,7 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
 
   const final = lastAssistant(session.messages, start);
   const finalText = final ? assistantText(final) : "";
-  const streamed = yield* Ref.get(streamedRef);
-  const raw = finalText || streamed.trim();
+  const raw = finalText || streamedText.trim();
 
   const turns = yield* Ref.get(turnsRef);
   const wrapRequested = yield* Ref.get(wrapRequestedRef);

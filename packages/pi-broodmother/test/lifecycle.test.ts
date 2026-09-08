@@ -53,6 +53,15 @@ function toolUpdate(toolName: string): AgentSessionEvent {
   return raw as AgentSessionEvent;
 }
 
+function messageStart(): AgentSessionEvent {
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+  const raw: unknown = {
+    type: "message_start",
+    message: { role: "assistant", content: [] },
+  };
+  return raw as AgentSessionEvent;
+}
+
 function textDelta(delta: string): AgentSessionEvent {
   // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   const raw: unknown = {
@@ -343,6 +352,35 @@ describe("child lifecycle", () => {
 
     expect(result).toMatchObject({ outcome: "failed", error: "request failed", partial: true });
     expect(result.output).toContain("Partial output before termination:\nwork before failure");
+  });
+
+  it("salvages every streamed delta when the child dies mid-message", async () => {
+    const fake = fakeChild(({ emit }) => {
+      for (let index = 0; index < 500; index++) {
+        emit(textDelta("streamed answer "));
+      }
+      throw new Error("request failed");
+    });
+
+    const result = await Effect.runPromise(runChildLifecycle(options(fake.created)));
+
+    expect(result).toMatchObject({ outcome: "failed", producedOutput: true, partial: true });
+    expect(result.output).toContain("Partial output before termination:");
+    expect(result.output).toContain(`streamed answer ${"streamed answer ".repeat(499).trim()}`);
+  });
+
+  it("keeps only the newest message's streamed text", async () => {
+    const fake = fakeChild(({ emit }) => {
+      emit(textDelta("first attempt "));
+      emit(messageStart());
+      emit(textDelta("second attempt "));
+      throw new Error("request failed");
+    });
+
+    const result = await Effect.runPromise(runChildLifecycle(options(fake.created)));
+
+    expect(result.output).toContain("second attempt");
+    expect(result.output).not.toContain("first attempt");
   });
 
   it("turns creation failures into failed values", async () => {
