@@ -85,7 +85,11 @@ function makeFixture(overQuestions?: QuestionData[]) {
       predicate: isActiveTab,
       select: selectPreviewPaneProps,
     }),
-    perTabBinding({ resolve: (tab) => tab.multiSelect, select: selectMultiSelectProps }),
+    perTabBinding({
+      resolve: (tab) => tab.multiSelect,
+      predicate: isActiveTab,
+      select: selectMultiSelectProps,
+    }),
   ];
 
   const adapter = new QuestionnairePropsAdapter({
@@ -190,9 +194,7 @@ describe("QuestionnairePropsAdapter.apply", () => {
     expect(tui.requestRender).toHaveBeenCalledTimes(1);
   });
 
-  it("writes to every multi-select view, active tab or not", () => {
-    // Unlike the option list and preview, these have no active-tab predicate:
-    // the chrome may render a multi-select body for a tab the user is not on.
+  it("writes to the active tab's multi-select view", () => {
     const questions = [makeQuestion({ multiSelect: true }), makeQuestion()];
     const { adapter, tabsByIndex } = makeFixture(questions);
     adapter.apply(makeState());
@@ -201,6 +203,35 @@ describe("QuestionnairePropsAdapter.apply", () => {
     const props = lastProps(multiSelect);
     expect(props.nextLabel).toBe("Next");
     expect(props.rows[0]).toMatchObject({ active: true, checked: false });
+  });
+
+  it("leaves an inactive tab's multi-select view alone", () => {
+    // Each write throws away the layout that view had cached, and nothing was
+    // going to read the result: an inactive tab's props only change while it is
+    // the active one.
+    const questions = [makeQuestion(), makeQuestion({ multiSelect: true })];
+    const { adapter, tabsByIndex } = makeFixture(questions);
+    adapter.apply(makeState({ currentTab: 0 }));
+    expect(propsCalls(multiSelectAt(tabsByIndex, 1))).toHaveLength(0);
+
+    adapter.apply(makeState({ currentTab: 1 }));
+    expect(propsCalls(multiSelectAt(tabsByIndex, 1))).toHaveLength(1);
+  });
+
+  it("skips the per-tab loop entirely while collapsed", () => {
+    // Collapsed, the overlay is one dim row: no tab is on screen to read any of
+    // it. The chrome still gets its props, because expanding paints from them.
+    const questions = [makeQuestion({ multiSelect: true }), makeQuestion()];
+    const { adapter, tabsByIndex, dialog, tui } = makeFixture(questions);
+    adapter.apply(makeState({ collapsed: true }));
+
+    expect(propsCalls(multiSelectAt(tabsByIndex, 0))).toHaveLength(0);
+    expect(propsCalls(tabAt(tabsByIndex, 0).optionList)).toHaveLength(0);
+    expect(propsCalls(dialog)).toHaveLength(1);
+    expect(tui.requestRender).toHaveBeenCalledTimes(1);
+
+    adapter.apply(makeState({ collapsed: false }));
+    expect(propsCalls(tabAt(tabsByIndex, 0).optionList)).toHaveLength(1);
   });
 
   it("labels the commit row Submit on the last question and Next before it", () => {

@@ -339,6 +339,10 @@ class QuestionnaireBuilder {
       }),
       perTabBinding({
         resolve: (tab) => tab.multiSelect,
+        // Gated like the other two. A write to an inactive tab's view clears the
+        // layout it cached, and nothing was going to read the result: the props
+        // for an inactive tab only change while that tab is the active one.
+        predicate: isActiveTab,
         select: selectMultiSelectProps,
       }),
     ];
