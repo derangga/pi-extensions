@@ -221,3 +221,77 @@ describe("refusing to build something unrenderable", () => {
     expect(() => build([])).toThrow("at least one question");
   });
 });
+
+describe("the terminal size a frame paints against", () => {
+  /** Counts every read, so the test can see who is asking and how often. */
+  function countingTui(size: { columns: number; rows: number }) {
+    const reads = { columns: 0, rows: 0 };
+    const tui = {
+      terminal: {
+        get columns() {
+          reads.columns++;
+          return size.columns;
+        },
+        get rows() {
+          reads.rows++;
+          return size.rows;
+        },
+      },
+      requestRender: vi.fn<() => void>(),
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+    } as unknown as TUI;
+    return { tui, reads };
+  }
+
+  function buildWith(tui: TUI, questions: readonly QuestionData[]) {
+    return buildQuestionnaire({
+      tui,
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+      theme: makeTheme() as unknown as Theme,
+      questions,
+      itemsByTab: itemsFor(questions),
+      isMulti: questions.length > 1,
+      initialState: makeQuestionnaireState(),
+      getCurrentTab: () => 0,
+      collapseKey: "ctrl+]",
+    });
+  }
+
+  // Previews are what make a pane consult the terminal: below PREVIEW_MIN_WIDTH
+  // it stacks the block instead of splitting the row.
+  const WITH_PREVIEW: QuestionData = {
+    question: "Which cache?",
+    header: "Cache",
+    options: [
+      { label: "Redis", description: "shared", preview: "## Redis\n\nshared, networked" },
+      { label: "In-process", description: "simple", preview: "## In-process\n\nno network" },
+    ],
+  };
+
+  it("reads the terminal once per frame, however many components want it", () => {
+    const size = { columns: 120, rows: 40 };
+    const { tui, reads } = countingTui(size);
+    const built = buildWith(tui, [WITH_PREVIEW, { ...WITH_PREVIEW, question: "Which store?" }]);
+    built.adapter.apply(makeQuestionnaireState());
+
+    const afterBuild = { ...reads };
+    built.render(100);
+    expect(reads.columns - afterBuild.columns).toBe(1);
+    expect(reads.rows - afterBuild.rows).toBe(1);
+
+    built.render(100);
+    expect(reads.columns - afterBuild.columns).toBe(2);
+  });
+
+  it("picks up a resize on the next frame", () => {
+    const size = { columns: 120, rows: 40 };
+    const { tui } = countingTui(size);
+    const built = buildWith(tui, [WITH_PREVIEW]);
+    built.adapter.apply(makeQuestionnaireState());
+
+    const wide = built.render(100).join("\n");
+    size.columns = 60;
+    const narrow = built.render(100).join("\n");
+    expect(narrow).not.toBe(wide);
+  });
+});

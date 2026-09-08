@@ -59,7 +59,13 @@ export interface PreviewPaneProps {
 
 export interface PreviewPaneConfig {
   question: QuestionData;
-  getTerminalWidth: () => number;
+  /**
+   * The frame's terminal width, snapshotted by `DialogView.render` before
+   * anything paints. Not a live read of `tui.terminal.columns`: two components
+   * deciding layout from two different readings of one frame is the bug this
+   * closes.
+   */
+  getFrameTerminalWidth: () => number;
   optionListView: OptionListView;
   previewBlock: PreviewBlockRenderer;
 }
@@ -74,11 +80,13 @@ export interface PreviewPaneConfig {
  *
  * `naturalHeight` and `maxNaturalHeight` query both children's heights; `render`
  * combines them via `decideLayout` (mode threaded into both calls — never
- * re-derived).
+ * re-derived). The probes ask `OptionListView.measureHeight`, not `render`, so
+ * one frame's three passes over the option list cost one wrap at each distinct
+ * width and no discarded rows.
  */
 export class PreviewPane implements StatefulView<PreviewPaneProps>, Component {
   private readonly question: QuestionData;
-  private readonly getTerminalWidth: () => number;
+  private readonly getFrameTerminalWidth: () => number;
   private readonly optionListView: OptionListView;
   private readonly previewBlock: PreviewBlockRenderer;
   private props: PreviewPaneProps;
@@ -93,7 +101,7 @@ export class PreviewPane implements StatefulView<PreviewPaneProps>, Component {
 
   constructor(config: PreviewPaneConfig) {
     this.question = config.question;
-    this.getTerminalWidth = config.getTerminalWidth;
+    this.getFrameTerminalWidth = config.getFrameTerminalWidth;
     this.optionListView = config.optionListView;
     this.previewBlock = config.previewBlock;
     this.props = { notesVisible: false, selectedIndex: 0, focused: false, inputMode: false };
@@ -134,7 +142,7 @@ export class PreviewPane implements StatefulView<PreviewPaneProps>, Component {
       return this.optionListView.render(width);
     }
 
-    const mode = decideLayout(this.getTerminalWidth(), width);
+    const mode = decideLayout(this.getFrameTerminalWidth(), width);
     if (mode === "side-by-side") {
       return this.renderSideBySide(width, mode);
     }
@@ -165,7 +173,7 @@ export class PreviewPane implements StatefulView<PreviewPaneProps>, Component {
     if (this.props.inputMode) {
       return this.optionListView.focusedItemRowRange(width);
     }
-    const mode = decideLayout(this.getTerminalWidth(), width);
+    const mode = decideLayout(this.getFrameTerminalWidth(), width);
     if (mode === "stacked") {
       return this.optionListView.focusedItemRowRange(width);
     }
@@ -176,20 +184,20 @@ export class PreviewPane implements StatefulView<PreviewPaneProps>, Component {
 
   naturalHeight(width: number): number {
     if (this.question.multiSelect === true) {
-      return this.optionListView.render(width).length;
+      return this.optionListView.measureHeight(width);
     }
     if (!this.previewBlock.hasAnyPreview()) {
-      return this.optionListView.render(width).length;
+      return this.optionListView.measureHeight(width);
     }
     // `inputMode`: height is the full-width option list only (no preview block) — preserves
     // the `naturalHeight === render.length` parity invariant.
     if (this.props.inputMode) {
-      return this.optionListView.render(width).length;
+      return this.optionListView.measureHeight(width);
     }
-    const mode = decideLayout(this.getTerminalWidth(), width);
+    const mode = decideLayout(this.getFrameTerminalWidth(), width);
     const adaptiveLeft = this.getAdaptiveLeft(width);
     const { optionsWidth, previewWidth } = bodyWidths(width, mode, adaptiveLeft);
-    const optionsHeight = this.optionListView.render(optionsWidth).length;
+    const optionsHeight = this.optionListView.measureHeight(optionsWidth);
     const previewBlockHeight = this.previewBlock.blockHeight(
       previewWidth,
       this.props.selectedIndex,
@@ -203,20 +211,20 @@ export class PreviewPane implements StatefulView<PreviewPaneProps>, Component {
 
   maxNaturalHeight(width: number): number {
     if (this.question.multiSelect === true) {
-      return this.optionListView.render(width).length;
+      return this.optionListView.measureHeight(width);
     }
     if (!this.previewBlock.hasAnyPreview()) {
-      return this.optionListView.render(width).length;
+      return this.optionListView.measureHeight(width);
     }
     // `inputMode`: like naturalHeight — full-width option list only, so the
     // `maxNaturalHeight >= naturalHeight` parity invariant holds (both equal the list height).
     if (this.props.inputMode) {
-      return this.optionListView.render(width).length;
+      return this.optionListView.measureHeight(width);
     }
-    const mode = decideLayout(this.getTerminalWidth(), width);
+    const mode = decideLayout(this.getFrameTerminalWidth(), width);
     const adaptiveLeft = this.getAdaptiveLeft(width);
     const { optionsWidth, previewWidth } = bodyWidths(width, mode, adaptiveLeft);
-    const optionsHeight = this.optionListView.render(optionsWidth).length;
+    const optionsHeight = this.optionListView.measureHeight(optionsWidth);
     let maxPreviewBlock = 0;
     for (let i = 0; i < this.question.options.length; i++) {
       const h = this.previewBlock.blockHeight(previewWidth, i, mode);

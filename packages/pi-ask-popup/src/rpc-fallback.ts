@@ -56,12 +56,34 @@ export type DialogUI = {
   ) => Promise<string | undefined>;
 };
 
-/** Whether the host implements the select and input primitives. */
+/**
+ * Whether the host implements the select and input primitives.
+ *
+ * `typeof`, not `instanceof Function`: a method that arrives from another realm
+ * — an Electron context bridge, a VM context, a proxy around a host object — is
+ * callable but fails an `instanceof` against this realm's `Function`, and the
+ * walker would then decline a host that works.
+ */
 export function hasDialogUI(ui: unknown): ui is DialogUI {
   // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   const u = ui as Partial<DialogUI> | null | undefined;
-  return u?.select instanceof Function && u?.input instanceof Function;
+  return typeof u?.select === "function" && typeof u?.input === "function";
 }
+
+/**
+ * What one native dialog produced.
+ *
+ * `dismissed` is the user pressing Esc, which cancels the questionnaire.
+ * `host_error` is the host replying with something it was never offered —
+ * neither a decision nor an answer, and the two must not collapse into one
+ * result, because a decline tells the model the user said no.
+ */
+type AskOutcome =
+  | { kind: "answer"; answer: QuestionAnswer }
+  | { kind: "dismissed" }
+  | { kind: "host_error"; detail: string };
+
+const DISMISSED: AskOutcome = { kind: "dismissed" };
 
 type Option = QuestionData["options"][number];
 
@@ -110,37 +132,41 @@ export async function runRpcQuestionnaire(
       continue;
     }
     const header = q.header ? `[${q.header}] ` : "";
-    const answer = q.multiSelect
+    const outcome = q.multiSelect
       ? await askMultiSelect(ui, q, qi, header, dialogOpts)
       : await askSingleSelect(ui, q, qi, header, dialogOpts);
-    if (answer === undefined) {
+    if (outcome.kind === "dismissed") {
       return { answers, cancelled: true };
     }
-    answers.push(answer);
+    if (outcome.kind === "host_error") {
+      return { answers, cancelled: true, error: "host_error", hostErrorDetail: outcome.detail };
+    }
+    answers.push(outcome.answer);
   }
   return { answers, cancelled: false };
 }
 
-/** Undefined means the user dismissed the dialog, which cancels everything. */
+/** Dismissal cancels everything; a reply outside the offered list is the host's fault. */
 async function askSingleSelect(
   ui: DialogUI,
   q: QuestionData,
   questionIndex: number,
   header: string,
   opts?: { timeout?: number; signal?: AbortSignal },
-): Promise<QuestionAnswer | undefined> {
+): Promise<AskOutcome> {
   const options = q.options.map(formatOptionLine);
   options.push(`${q.options.length + 1}. ${ROW_INTENT_META.other.label}`);
   const chosen = await ui.select(`${header}${q.question}${buildPreviewBlock(q)}`, options, opts);
   if (chosen === undefined || chosen === null) {
-    return undefined;
+    return DISMISSED;
   }
   const idx = parseIndex(chosen, options.length);
-  // A host that returns something outside the list it was given is
-  // indistinguishable from a dismissal. Treating it as one beats fabricating
-  // an answer the user never gave.
+  // A host returning something outside the list it was given used to read as a
+  // dismissal, which told the model the user had declined. Nobody declined
+  // anything: the host is broken, or is rewriting the option text (a localising
+  // client will), and the model needs to hear which.
   if (idx === null) {
-    return undefined;
+    return { kind: "host_error", detail: `selection not in the offered list: "${chosen}"` };
   }
   const option = q.options[idx];
   if (option) {
@@ -154,24 +180,31 @@ async function askSingleSelect(
       // SAFETY: preview is an optional string; present only when non-empty per contract.
       (answer as QuestionAnswer & { preview: string }).preview = option.preview;
     }
-    return answer;
+    return { kind: "answer", answer };
   }
   // The "Type something." row, which is the one index past the authored options.
   const typed = await ui.input(`${header}${q.question}\n\n${CUSTOM_ANSWER_TITLE}`, "", opts);
   if (typed === undefined || typed === null) {
-    return undefined;
+    return DISMISSED;
   }
-  return { questionIndex, question: q.question, kind: "custom", answer: typed };
+  return {
+    kind: "answer",
+    answer: { questionIndex, question: q.question, kind: "custom", answer: typed },
+  };
 }
 
-/** Undefined means the user dismissed the dialog, which cancels everything. */
+/**
+ * Dismissal cancels everything. Nothing else here can be a host error: the text
+ * comes from the user's own keyboard, so an out-of-range number like "13" on a
+ * three-option question is a typed answer, not a host returning garbage.
+ */
 async function askMultiSelect(
   ui: DialogUI,
   q: QuestionData,
   questionIndex: number,
   header: string,
   opts?: { timeout?: number; signal?: AbortSignal },
-): Promise<QuestionAnswer | undefined> {
+): Promise<AskOutcome> {
   const list = q.options.map(formatOptionLine).join("\n");
   const value = await ui.input(
     `${header}${q.question}\n\n${list}\n\n${MULTI_SELECT_INSTRUCTIONS}`,
@@ -179,7 +212,7 @@ async function askMultiSelect(
     opts,
   );
   if (value === undefined || value === null) {
-    return undefined;
+    return DISMISSED;
   }
   const trimmed = value.trim();
   if (trimmed.length === 0) {
@@ -189,7 +222,10 @@ async function askMultiSelect(
     // no tokens the `every` below is vacuously true and produces an empty
     // selection anyway. Removing this would leave an important behaviour
     // resting on that, and no test could tell the two apart.
-    return { questionIndex, question: q.question, kind: "multi", answer: null, selected: [] };
+    return {
+      kind: "answer",
+      answer: { questionIndex, question: q.question, kind: "multi", answer: null, selected: [] },
+    };
   }
   const tokens = trimmed.split(/[,\s]+/).filter((tok) => tok.length > 0);
   const indices = tokens.map((tok) =>
@@ -203,11 +239,17 @@ async function askMultiSelect(
         selected.push(label);
       }
     }
-    return { questionIndex, question: q.question, kind: "multi", answer: null, selected };
+    return {
+      kind: "answer",
+      answer: { questionIndex, question: q.question, kind: "multi", answer: null, selected },
+    };
   }
   // Any token that is not an index -- a word, or a number like "13" when there
   // are three options -- means the user typed an answer rather than picking
   // from the list. Keeping it verbatim is both the honest reading and the
   // multi-select half of the "Type something." escape.
-  return { questionIndex, question: q.question, kind: "custom", answer: trimmed };
+  return {
+    kind: "answer",
+    answer: { questionIndex, question: q.question, kind: "custom", answer: trimmed },
+  };
 }

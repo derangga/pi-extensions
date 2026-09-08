@@ -71,6 +71,11 @@ export class OptionListView implements StatefulView<OptionListViewProps> {
     return this.select.render(width);
   }
 
+  /** Row count at `width`, equal to `render(width).length`, without building the rows. */
+  measureHeight(width: number): number {
+    return this.select.measureHeight(width);
+  }
+
   focusedItemRowRange(width: number): [number, number] {
     return this.select.focusedItemRowRange(width);
   }

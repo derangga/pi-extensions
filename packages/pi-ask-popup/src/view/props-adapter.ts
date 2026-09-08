@@ -102,6 +102,14 @@ export class QuestionnairePropsAdapter {
       binding.apply(state, ctx);
     }
 
+    // Collapsed, the overlay is one dim row and no tab is on screen. The
+    // per-tab writes would only clear caches for a frame nobody sees; expanding
+    // dispatches, which brings the whole loop back with current state.
+    if (state.collapsed) {
+      this.tui.requestRender();
+      return;
+    }
+
     for (let i = 0; i < this.tabsByIndex.length; i++) {
       const tab = this.tabsByIndex[i];
       if (!tab) {

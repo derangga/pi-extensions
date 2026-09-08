@@ -21,6 +21,10 @@ const markdownFactory = (text: string, _mt: MarkdownTheme) =>
 
 import type { QuestionData } from "../src/tool/types.js";
 import {
+  type MarkdownFactory as MarkdownFactoryFn,
+  PREVIEW_RENDER_FAILED_TEXT,
+} from "../src/view/components/preview/markdown-content-cache.js";
+import {
   NOTES_AFFORDANCE_TEXT,
   PreviewBlockRenderer,
 } from "../src/view/components/preview/preview-block-renderer.js";
@@ -195,5 +199,194 @@ describe("PreviewBlockRenderer — cache lifecycle", () => {
     r.invalidate();
     r.renderBlock(60, 0, "side-by-side", true, false);
     expect(markdownConstructed).toBe(1);
+  });
+});
+
+describe("PreviewBlockRenderer — untrusted preview markdown", () => {
+  class ThrowingMarkdown {
+    render(_width: number): string[] {
+      throw new Error("boom");
+    }
+    invalidate(): void {}
+  }
+  const throwingFactory = (_t: string, _mt: MarkdownTheme) =>
+    new ThrowingMarkdown() as unknown as Markdown;
+
+  it("returns a single fallback line instead of throwing when Markdown.render throws", () => {
+    const r = new PreviewBlockRenderer({
+      question: previewQuestion,
+      theme,
+      markdownTheme,
+      markdownFactory: throwingFactory,
+    });
+
+    const lines = r.renderBlock(40, 0, "side-by-side", true, false);
+    expect(lines.some((l) => l.includes(PREVIEW_RENDER_FAILED_TEXT))).toBe(true);
+    // The fallback preserves the height contract: blockHeight still equals renderBlock().length.
+    expect(r.blockHeight(40, 0, "side-by-side")).toBe(lines.length);
+  });
+
+  it("blockHeight measures the fallback line without throwing (height probes are on the crash path too)", () => {
+    const r = new PreviewBlockRenderer({
+      question: previewQuestion,
+      theme,
+      markdownTheme,
+      markdownFactory: throwingFactory,
+    });
+
+    expect(r.blockHeight(20, 1, "stacked")).toBeGreaterThan(0);
+  });
+
+  it("never throws for random preview strings through the real Markdown renderer", () => {
+    // Seeded LCG so a failure is reproducible from the seed, not a flaky roll.
+    let seed = 0x2f6e2b1;
+    const rand = () => {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      return seed / 0xffffffff;
+    };
+    const chunks = [
+      "#",
+      "##",
+      "*",
+      "**",
+      "`",
+      "```",
+      "~~~",
+      "-",
+      ">",
+      "|",
+      "[",
+      "]",
+      "(",
+      ")",
+      "_",
+      "\\",
+      "$",
+      "$$",
+      "&",
+      "<",
+      "!",
+      " \t",
+      "\n",
+      "\r",
+      "😀",
+      "中",
+      "\x1b[31m",
+      "abc",
+      "XYZ",
+      "0123",
+      " ",
+    ];
+    const randText = () => {
+      const n = 1 + Math.floor(rand() * 40);
+      let s = "";
+      for (let i = 0; i < n; i++) {
+        s += chunks[Math.floor(rand() * chunks.length)] ?? "";
+      }
+      return s;
+    };
+
+    for (let round = 0; round < 60; round++) {
+      const question: QuestionData = {
+        question: "q",
+        header: "q",
+        options: [0, 1, 2].map((i) => ({ label: `o${i}`, description: "", preview: randText() })),
+      };
+      // No markdownFactory: the real pi-tui Markdown runs, which is the surface
+      // the fuzz is meant to protect.
+      const r = new PreviewBlockRenderer({ question, theme, markdownTheme });
+      for (const width of [1, 3, 12, 40, 100]) {
+        for (let i = 0; i < question.options.length; i++) {
+          const lines = r.renderBlock(width, i, "side-by-side", true, false);
+          expect(lines.length).toBeGreaterThan(0);
+          expect(r.blockHeight(width, i, "stacked")).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
+});
+
+describe("PreviewBlockRenderer — per-option width cache", () => {
+  /** Counts every render, per option text, with no cache of its own. */
+  function countingFactory(): {
+    factory: MarkdownFactoryFn;
+    renders: () => Record<string, number>;
+  } {
+    const renders: Record<string, number> = {};
+    class CountingMarkdown {
+      constructor(private readonly text: string) {}
+      render(width: number): string[] {
+        renders[this.text] = (renders[this.text] ?? 0) + 1;
+        return [`MD[${width}]:${this.text}`];
+      }
+      invalidate(): void {}
+    }
+    return {
+      factory: (text: string, _mt: MarkdownTheme) =>
+        new CountingMarkdown(text) as unknown as Markdown,
+      renders: () => renders,
+    };
+  }
+
+  it("re-renders only the option asked for after a width flip", () => {
+    const { factory, renders } = countingFactory();
+    const r = new PreviewBlockRenderer({
+      question: previewQuestion,
+      theme,
+      markdownTheme,
+      markdownFactory: factory,
+    });
+
+    r.blockHeight(60, 0, "side-by-side");
+    r.blockHeight(50, 1, "side-by-side");
+    expect(renders()).toEqual({ "## A\n\nbody A": 1, "## B\n\nbody B": 1 });
+
+    // Option 0 was never measured at 50, so the flip must not have touched it.
+    r.blockHeight(60, 0, "side-by-side");
+    expect(renders()["## A\n\nbody A"]).toBe(1);
+
+    // A width option 0 has not seen does re-render it.
+    r.blockHeight(50, 0, "side-by-side");
+    expect(renders()["## A\n\nbody A"]).toBe(2);
+  });
+
+  it("measures and renders one option in a frame with a single markdown render", () => {
+    const { factory, renders } = countingFactory();
+    const r = new PreviewBlockRenderer({
+      question: previewQuestion,
+      theme,
+      markdownTheme,
+      markdownFactory: factory,
+    });
+    r.blockHeight(60, 0, "side-by-side");
+    r.renderBlock(60, 0, "side-by-side", true, false);
+    expect(renders()["## A\n\nbody A"]).toBe(1);
+  });
+
+  it("invalidate drops the stored rows", () => {
+    const { factory, renders } = countingFactory();
+    const r = new PreviewBlockRenderer({
+      question: previewQuestion,
+      theme,
+      markdownTheme,
+      markdownFactory: factory,
+    });
+    r.blockHeight(60, 0, "side-by-side");
+    r.invalidate();
+    r.blockHeight(60, 0, "side-by-side");
+    expect(renders()["## A\n\nbody A"]).toBe(2);
+  });
+
+  it("hands each caller its own array", () => {
+    const r = new PreviewBlockRenderer({
+      question: previewQuestion,
+      theme,
+      markdownTheme,
+      markdownFactory,
+    });
+    const first = r.renderBlock(60, 0, "side-by-side", true, false);
+    first[1] = "mutated by the caller";
+    const second = r.renderBlock(60, 0, "side-by-side", true, false);
+    expect(second[1]).not.toBe("mutated by the caller");
   });
 });

@@ -173,7 +173,8 @@ export function makeConfig(over: MakeConfigOverrides = {}): DialogParts {
         // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
         return (previewPane as unknown as Component).render(w).length;
       }),
-    getTerminalRows: over.getTerminalRows ?? (() => 24),
+    beginFrame: over.beginFrame ?? (() => {}),
+    getFrameTerminalRows: over.getFrameTerminalRows ?? (() => 24),
     collapseKey: over.collapseKey ?? "ctrl+]",
   };
   if (over.submitPicker !== undefined) {

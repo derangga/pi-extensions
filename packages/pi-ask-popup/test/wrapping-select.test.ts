@@ -673,3 +673,147 @@ describe("WrappingSelectItem.kind contract — exhaustive", () => {
     },
   );
 });
+
+describe("WrappingSelect.render — memo", () => {
+  const items: WrappingSelectItem[] = [
+    { kind: "option", label: "alpha", description: "a description long enough to wrap somewhere" },
+    { kind: "option", label: "beta" },
+    { kind: "other", label: "Type something." },
+  ];
+
+  // The theme is the only observable the renderer touches per row, so counting
+  // its calls counts the wraps. A memo hit calls it zero times.
+  function countingTheme(): { theme: WrappingSelectTheme; calls: () => number } {
+    let calls = 0;
+    const tally = (t: string) => {
+      calls++;
+      return t;
+    };
+    return {
+      theme: { selectedText: tally, description: tally, scrollInfo: tally },
+      calls: () => calls,
+    };
+  }
+
+  it("wraps once per distinct width and reuses the rows on a repeat call", () => {
+    const { theme, calls } = countingTheme();
+    const s = new WrappingSelect(items, 10, theme);
+    s.setSelectedIndex(0);
+
+    const first = s.render(40);
+    const afterFirst = calls();
+    expect(afterFirst).toBeGreaterThan(0);
+
+    expect(s.render(40)).toEqual(first);
+    expect(calls()).toBe(afterFirst);
+
+    const narrow = s.render(24);
+    expect(calls()).toBeGreaterThan(afterFirst);
+    expect(narrow).not.toEqual(first);
+    expect(s.render(40)).toEqual(first);
+  });
+
+  it("re-renders after any state write that changes a row", () => {
+    const { theme, calls } = countingTheme();
+    const s = new WrappingSelect(items, 10, theme);
+    s.setSelectedIndex(0);
+    const before = s.render(40);
+    const afterFirst = calls();
+
+    s.setSelectedIndex(1);
+    const after = s.render(40);
+    expect(calls()).toBeGreaterThan(afterFirst);
+    expect(after).not.toEqual(before);
+
+    s.setSelectedIndex(0);
+    expect(s.render(40)).toEqual(before);
+  });
+
+  it("picks up the inline draft and the confirmed mark through the memo", () => {
+    const s = new WrappingSelect(items, 10, identityTheme);
+    s.setSelectedIndex(1);
+    const plain = s.render(40);
+
+    s.setInputBuffer("draft text");
+    expect(s.render(40)).not.toEqual(plain);
+
+    s.setInputBuffer("");
+    expect(s.render(40)).toEqual(plain);
+
+    s.setConfirmedIndex(1);
+    expect(s.render(40).join("\n")).toContain("beta ✔");
+  });
+
+  it("hands each caller its own array", () => {
+    const s = new WrappingSelect(items, 10, identityTheme);
+    const first = s.render(40);
+    first[0] = "mutated by the caller";
+    expect(lineAt(s.render(40), 0)).toContain("alpha");
+  });
+
+  it("invalidate drops the memo", () => {
+    const { theme, calls } = countingTheme();
+    const s = new WrappingSelect(items, 10, theme);
+    s.render(40);
+    const afterFirst = calls();
+    s.invalidate();
+    s.render(40);
+    expect(calls()).toBeGreaterThan(afterFirst);
+  });
+});
+
+describe("WrappingSelect.focusedItemRowRange — one pass", () => {
+  const items: WrappingSelectItem[] = [
+    { kind: "option", label: "alpha", description: "a description long enough to wrap somewhere" },
+    { kind: "option", label: "beta" },
+    { kind: "option", label: "gamma", description: "another one that will wrap at this width" },
+  ];
+
+  function countingTheme(): { theme: WrappingSelectTheme; calls: () => number } {
+    let calls = 0;
+    const tally = (t: string) => {
+      calls++;
+      return t;
+    };
+    return {
+      theme: { selectedText: tally, description: tally, scrollInfo: tally },
+      calls: () => calls,
+    };
+  }
+
+  it("reads the range out of the rows it already built", () => {
+    const { theme, calls } = countingTheme();
+    const s = new WrappingSelect(items, 10, theme);
+    s.setSelectedIndex(1);
+
+    s.render(30);
+    const afterRender = calls();
+    s.focusedItemRowRange(30);
+    s.focusedItemRowRange(30);
+    expect(calls()).toBe(afterRender);
+  });
+
+  it("asks for the range first without rendering twice", () => {
+    const { theme, calls } = countingTheme();
+    const s = new WrappingSelect(items, 10, theme);
+    s.setSelectedIndex(2);
+
+    s.focusedItemRowRange(30);
+    const afterRange = calls();
+    s.render(30);
+    expect(calls()).toBe(afterRange);
+  });
+
+  it.each([0, 1, 2])("still points at item %i's own rows", (selected) => {
+    const s = new WrappingSelect(items, 10, identityTheme);
+    s.setSelectedIndex(selected);
+    const [start, end] = s.focusedItemRowRange(30);
+    const rendered = s.render(30);
+    const label = items[selected]?.label ?? "";
+
+    expect(end).toBeGreaterThan(start);
+    expect(lineAt(rendered, start)).toContain(label);
+    // The row above belongs to the previous item, or does not exist.
+    expect(rendered.slice(0, start).join("\n")).not.toContain(label);
+  });
+});

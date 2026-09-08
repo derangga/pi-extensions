@@ -251,7 +251,13 @@ describe("MultiSelectView.focusedItemRowRange", () => {
         { checked: false, active: true },
         { checked: false, active: false },
       ],
-      other: { active: false, inputMode: false, inputBuffer: "", inputCursorOffset: undefined },
+      other: {
+        active: false,
+        checked: false,
+        inputMode: false,
+        inputBuffer: "",
+        inputCursorOffset: undefined,
+      },
       nextActive: false,
       nextLabel: "Next",
     });
@@ -275,7 +281,13 @@ describe("MultiSelectView.focusedItemRowRange", () => {
         { checked: false, active: true },
         { checked: false, active: false },
       ],
-      other: { active: false, inputMode: false, inputBuffer: "", inputCursorOffset: undefined },
+      other: {
+        active: false,
+        checked: false,
+        inputMode: false,
+        inputBuffer: "",
+        inputCursorOffset: undefined,
+      },
       nextActive: false,
       nextLabel: "Next",
     });
@@ -293,7 +305,13 @@ describe("MultiSelectView.focusedItemRowRange", () => {
     };
     const view = makeView(q, {
       rows: [{ checked: false, active: false }],
-      other: { active: false, inputMode: false, inputBuffer: "", inputCursorOffset: undefined },
+      other: {
+        active: false,
+        checked: false,
+        inputMode: false,
+        inputBuffer: "",
+        inputCursorOffset: undefined,
+      },
       nextActive: true,
       nextLabel: "Next",
     });
@@ -311,7 +329,13 @@ describe("MultiSelectView.focusedItemRowRange", () => {
     };
     const view = makeView(q, {
       rows: [{ checked: false, active: false }],
-      other: { active: false, inputMode: false, inputBuffer: "", inputCursorOffset: undefined },
+      other: {
+        active: false,
+        checked: false,
+        inputMode: false,
+        inputBuffer: "",
+        inputCursorOffset: undefined,
+      },
       nextActive: false,
       nextLabel: "Next",
     });
@@ -335,7 +359,13 @@ describe("MultiSelectView.focusedItemRowRange", () => {
         { checked: false, active: false },
         { checked: false, active: true },
       ],
-      other: { active: false, inputMode: false, inputBuffer: "", inputCursorOffset: undefined },
+      other: {
+        active: false,
+        checked: false,
+        inputMode: false,
+        inputBuffer: "",
+        inputCursorOffset: undefined,
+      },
       nextActive: false,
       nextLabel: "Next",
     });
@@ -427,7 +457,13 @@ describe("MultiSelectView — 'Type something.' row", () => {
         { checked: false, active: false },
         { checked: false, active: false },
       ],
-      other: { active: true, inputMode: true, inputBuffer: "x", inputCursorOffset: undefined },
+      other: {
+        active: true,
+        checked: false,
+        inputMode: true,
+        inputBuffer: "x",
+        inputCursorOffset: undefined,
+      },
       nextActive: false,
       nextLabel: "Next",
     };
@@ -446,7 +482,13 @@ describe("MultiSelectView — 'Type something.' row", () => {
     };
     const view = makeView(q, {
       rows: [{ checked: false, active: false }],
-      other: { active: false, inputMode: false, inputBuffer: "", inputCursorOffset: undefined },
+      other: {
+        active: false,
+        checked: false,
+        inputMode: false,
+        inputBuffer: "",
+        inputCursorOffset: undefined,
+      },
       nextActive: true,
       nextLabel: "Next",
     });
@@ -483,5 +525,40 @@ describe("MultiSelectView width safety", () => {
         expect(visibleWidth(line)).toBeLessThanOrEqual(w);
       }
     }
+  });
+});
+
+describe("MultiSelectView — the typed row's checkbox", () => {
+  const q = question();
+
+  it("is empty with no draft and filled as soon as there is one", () => {
+    const empty = makeView(q, makeProps(q, { optionIndex: 3, inputBuffer: "" }));
+    expect(lineAt(empty.render(80), 3)).toContain("[ ]");
+
+    const typed = makeView(q, makeProps(q, { optionIndex: 3, inputBuffer: "b" }));
+    expect(lineAt(typed.render(80), 3)).toContain("[✔]");
+  });
+
+  it("stays empty for a draft that is only whitespace", () => {
+    for (const draft of [" ", "   ", "\n"]) {
+      const view = makeView(q, makeProps(q, { optionIndex: 3, inputBuffer: draft }));
+      expect(lineAt(view.render(80), 3)).toContain("[ ]");
+    }
+  });
+
+  it("shows the typed row ticked beside ticked options", () => {
+    const view = makeView(
+      q,
+      makeProps(q, {
+        optionIndex: 0,
+        inputBuffer: "bun",
+        checkedIndices: new Set([0, 2]),
+      }),
+    );
+    const lines = view.render(80);
+    expect(lineAt(lines, 0)).toContain("[✔]");
+    expect(lineAt(lines, 1)).toContain("[ ]");
+    expect(lineAt(lines, 2)).toContain("[✔]");
+    expect(lineAt(lines, 3)).toContain("[✔]");
   });
 });

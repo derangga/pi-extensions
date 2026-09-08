@@ -142,6 +142,14 @@ function isString(value: JsonValue | undefined): value is string {
   return typeof value === "string";
 }
 
+/**
+ * The ticked labels, plus the typed row's text when there is any.
+ *
+ * The typed row has no checkbox of its own to consult: text in it IS the tick,
+ * which is why an empty or whitespace-only draft contributes nothing. The text
+ * comes from the live editor rather than the reducer's copy, which is only
+ * refreshed when the user navigates off the row.
+ */
 function buildMultiSelected(state: QuestionnaireState, runtime: QuestionnaireRuntime): string[] {
   const q = runtime.questions[state.currentTab];
   if (!q) {
@@ -155,6 +163,10 @@ function buildMultiSelected(state: QuestionnaireState, runtime: QuestionnaireRun
         out.push(label);
       }
     }
+  }
+  const typed = runtime.inputBuffer.trim();
+  if (typed.length > 0 && !out.includes(typed)) {
+    out.push(typed);
   }
   return out;
 }
@@ -236,6 +248,17 @@ function routeInputMode(
     return { kind: "ignore" };
   }
   if (isConfirm(kb, data)) {
+    // On a multi-select question, Enter here commits the question the way the
+    // Next row does, and `buildMultiSelected` carries the typed text along with
+    // whatever boxes are ticked. It used to commit the text ALONE, discarding
+    // every tick the user had made.
+    if (runtime.questions[state.currentTab]?.multiSelect === true) {
+      return {
+        kind: "multi_confirm",
+        selected: buildMultiSelected(state, runtime),
+        autoAdvanceTab: computeAutoAdvanceTab(state, runtime),
+      };
+    }
     const answer = buildSingleSelectAnswer(state, runtime);
     if (!answer) {
       return { kind: "ignore" };

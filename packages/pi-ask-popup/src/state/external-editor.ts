@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -53,6 +53,11 @@ function runEditor(command: string, file: string): Promise<void> {
  * editor, a failed temp write, anything at all must not leave the user in a
  * stopped TUI with no way back.
  *
+ * Every filesystem step is async. The TUI is stopped anyway, so nothing here is
+ * painting, but the event loop is shared with the rest of Pi and blocking it on
+ * a temp write over a slow or network-backed `TMPDIR` stalls every other
+ * extension in the process.
+ *
  * One trailing newline is stripped, matching Pi's main editor flow: most editors
  * add one on save, and keeping it would silently append a blank line to every
  * answer that went through here.
@@ -70,29 +75,32 @@ export async function editWithExternalEditor(
     throw new Error("External editor command is empty");
   }
 
-  const tempDir = mkdtempSync(join(tmpdir(), "pi-ask-popup-"));
+  const tempDir = await mkdtemp(join(tmpdir(), "pi-ask-popup-"));
   const tempFile = join(tempDir, "answer.md");
   let tuiStopped = false;
 
   try {
-    writeFileSync(tempFile, value, "utf8");
+    await writeFile(tempFile, value, "utf8");
     tui.stop();
     tuiStopped = true;
     process.stdout.write(
       `Launching external editor: ${command}\nPi will resume when the editor exits.\n`,
     );
     await runEditor(command, tempFile);
-    return readFileSync(tempFile, "utf8").replace(/\r?\n$/, "");
+    return (await readFile(tempFile, "utf8")).replace(/\r?\n$/, "");
   } finally {
-    try {
-      rmSync(tempDir, { recursive: true, force: true });
-    } catch {
-      // Best effort. A temp directory left behind is a nuisance; a TUI left
-      // stopped because cleanup threw is a hung session.
-    }
+    // The terminal comes back before the cleanup, not after. Both are in the
+    // finally, but a slow or wedged unlink must not be what stands between the
+    // user and a working screen.
     if (tuiStopped) {
       tui.start();
       tui.requestRender(true);
+    }
+    try {
+      await rm(tempDir, { recursive: true, force: true });
+    } catch {
+      // Best effort. A temp directory left behind is a nuisance; a failed
+      // cleanup that propagated would replace the answer with an error.
     }
   }
 }

@@ -164,6 +164,8 @@ export function makeMultiSelectViewProps(
     rows,
     other: {
       active: otherActive,
+      // Mirrors the real projection: text in the row is the tick.
+      checked: (over.inputBuffer ?? "").trim().length > 0,
       inputMode: (over.inputMode ?? false) && otherActive,
       inputBuffer: over.inputBuffer ?? "",
       inputCursorOffset: over.inputCursorOffset,

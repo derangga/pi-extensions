@@ -38,7 +38,7 @@ A note written on a question you never answer still reaches the model, and a glo
 ## What it does
 
 - **Typed options, not a wall of prose.** Each question carries 2 to 4 authored choices, and every choice explains what it means or what it costs you.
-- **You can always answer in your own words.** A `Type something.` row is added to every question and widens to the full pane while you type.
+- **You can always answer in your own words.** A `Type something.` row is added to every question and widens to the full pane while you type. On a multi-select question it ticks itself the moment you type into it, and what you wrote is submitted alongside whatever boxes you ticked. Clear the text and the tick goes with it.
 - **Compare artifacts, not labels.** An option can carry a markdown `preview` that renders in a bordered box beside the option list.
 - **One interruption, not five.** Up to four questions arrive in a single tabbed dialog, and a Submit tab names anything still blank before you commit.
 - **Notes on any answer, or on all of them.** `n` opens a note editor on any question tab, and on the Submit tab it writes one note covering everything. A written note stays on its tab, dimmed, and the tab bar marks which tabs carry one. A note on a question you never answer still reaches the model as `unansweredNotes`.

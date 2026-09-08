@@ -1,5 +1,5 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth } from "@earendil-works/pi-tui";
+import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { StatefulView } from "../stateful-view.js";
 
 /**
@@ -16,11 +16,12 @@ import type { StatefulView } from "../stateful-view.js";
  * than being appended, so a segment is the same width noted or not. Appending
  * it would add one cell per tab, and four tabs at the schema's 16-character
  * header limit already put this bar at 99 columns: four suffixes would push it
- * to 103, past the 100 columns previews require. `truncateToWidth` below is
- * called with an empty ellipsis and drops the tail, so what would go missing is
- * the Submit tab, silently.
+ * to 103, past the 100 columns previews require.
  */
 export const NOTED_MARKER = "*";
+
+/** Shown in place of the question tabs that did not fit. */
+export const TAB_OVERFLOW_ELLIPSIS = "…";
 
 export interface TabBarProps {
   /** One per author-defined question, in order. */
@@ -44,6 +45,19 @@ export class TabBar implements StatefulView<TabBarProps> {
 
   invalidate(): void {}
 
+  /**
+   * Question tabs absorb the truncation; the Submit pill does not.
+   *
+   * Four 16-character headers put this bar past 99 columns, so a narrower
+   * terminal always drops something. Trimming the joined line from the right
+   * dropped Submit first, and a user who cannot see Submit cannot finish the
+   * questionnaire. The tail is reserved, the question tabs are trimmed to what
+   * is left, and `TAB_OVERFLOW_ELLIPSIS` marks the tabs that went missing.
+   *
+   * Below the tail's own width there is nothing left to reserve — the whole
+   * line is clipped, as before, so the caller's `visibleWidth <= width`
+   * invariant survives every terminal size.
+   */
   render(width: number): string[] {
     const pieces: string[] = [" ← "];
 
@@ -61,10 +75,14 @@ export class TabBar implements StatefulView<TabBarProps> {
     const submitStyled = this.props.submit.active
       ? this.theme.bg("selectedBg", this.theme.fg("text", submitText))
       : this.theme.fg(this.props.submit.allAnswered ? "success" : "dim", submitText);
-    pieces.push(submitStyled);
-    pieces.push(" →");
+    const tail = `${submitStyled} →`;
+    const tailWidth = visibleWidth(tail);
+    const head = pieces.join("");
 
-    const tabLine = truncateToWidth(pieces.join(""), width, "");
-    return [tabLine, ""];
+    if (width <= tailWidth) {
+      return [truncateToWidth(`${head}${tail}`, width, ""), ""];
+    }
+    const headLine = truncateToWidth(head, width - tailWidth, TAB_OVERFLOW_ELLIPSIS);
+    return [`${headLine}${tail}`, ""];
   }
 }

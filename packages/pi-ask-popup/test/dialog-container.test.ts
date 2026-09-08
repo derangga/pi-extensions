@@ -10,6 +10,7 @@ import {
   HINT_PART_ENTER,
   HINT_PART_NEW_LINE,
   HINT_PART_NOTES,
+  HINT_PART_ENTER_CONFIRM,
   HINT_PART_TOGGLE,
   HINT_SINGLE,
   INCOMPLETE_WARNING_PREFIX,
@@ -82,6 +83,25 @@ describe("dialog chrome — a question tab", () => {
     );
     expect(joined).toContain(HINT_PART_TOGGLE);
     expect(renderJoined({}, 120)).not.toContain(HINT_PART_TOGGLE);
+  });
+
+  it("names Enter as the tick while the multi-select free-text row is being typed into", () => {
+    // Space types a space on that row, so advertising it as the toggle would be
+    // a lie, and Enter no longer means "choose this answer" either.
+    const state = makeQuestionnaireState({ inputMode: true, optionIndex: 3 });
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+    const questions = [MULTI_QUESTION, DEFAULT_QUESTIONS[1] as QuestionData];
+    const joined = renderJoined(
+      {
+        questions,
+        state,
+        multiSelectByTab: [multiSelectFor(MULTI_QUESTION, state, questions), undefined],
+        getBodyHeight: () => 4,
+      },
+      120,
+    );
+    expect(joined).toContain(HINT_PART_ENTER_CONFIRM);
+    expect(joined).not.toContain(HINT_PART_TOGGLE);
   });
 
   it("offers notes on an already-answered question too", () => {
@@ -345,7 +365,7 @@ describe("dialog chrome — width safety", () => {
 });
 
 describe("dialog chrome — residual padding", () => {
-  const tall = { getTerminalRows: () => 200 } as const;
+  const tall = { getFrameTerminalRows: () => 200 } as const;
 
   it("grows with the worst-case body height while the current body stays put", () => {
     const short = makeDialog(
@@ -411,7 +431,7 @@ describe("dialog chrome — residual padding", () => {
           state,
           multiSelectByTab,
           getBodyHeight,
-          getTerminalRows: () => 32,
+          getFrameTerminalRows: () => 32,
         }),
       ).render(120);
 

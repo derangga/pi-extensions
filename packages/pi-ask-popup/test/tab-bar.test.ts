@@ -2,7 +2,7 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { lineAt, makeTheme } from "./fixtures.js";
 import { describe, expect, it, vi } from "vitest";
-import { TabBar, type TabBarProps } from "../src/view/components/tab-bar.js";
+import { TAB_OVERFLOW_ELLIPSIS, TabBar, type TabBarProps } from "../src/view/components/tab-bar.js";
 
 // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
 const theme = makeTheme() as Theme;
@@ -105,6 +105,39 @@ describe("TabBar.render", () => {
     expect(line).toContain("Q2");
   });
 
+  it("keeps the Submit pill visible and marks dropped tabs on a narrow terminal", () => {
+    const tb = makeBar(
+      buildProps({
+        questions: [
+          { header: "VeryLongHeaderOne", question: "" },
+          { header: "VeryLongHeaderTwo", question: "" },
+          { header: "VeryLongHeaderThree", question: "" },
+          { header: "VeryLongHeaderFour", question: "" },
+        ],
+        totalTabs: 5,
+      }),
+    );
+    const line = lineAt(tb.render(60), 0);
+    expect(line).toContain("Submit");
+    expect(line).toContain("→");
+    expect(line).toContain(TAB_OVERFLOW_ELLIPSIS);
+    expect(visibleWidth(line)).toBeLessThanOrEqual(60);
+  });
+
+  it("leaves the bar unmarked when every tab fits", () => {
+    const tb = makeBar(buildProps());
+    const line = lineAt(tb.render(80), 0);
+    expect(line).not.toContain(TAB_OVERFLOW_ELLIPSIS);
+    expect(line).toContain("Submit");
+  });
+
+  it("clips the whole line when the width cannot even hold the Submit pill", () => {
+    const tb = makeBar(buildProps());
+    for (const w of [1, 4, 8, 12]) {
+      expect(visibleWidth(lineAt(tb.render(w), 0))).toBeLessThanOrEqual(w);
+    }
+  });
+
   it("truncates rather than overflowing when 4 long headers exceed width", () => {
     const tb = makeBar(
       buildProps({
@@ -120,6 +153,7 @@ describe("TabBar.render", () => {
     for (const w of [40, 60, 80, 120]) {
       const lines = tb.render(w);
       expect(visibleWidth(lineAt(lines, 0))).toBeLessThanOrEqual(w);
+      expect(lineAt(lines, 0)).toContain("Submit");
     }
   });
 

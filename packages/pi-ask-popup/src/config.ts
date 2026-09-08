@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 
@@ -81,6 +81,35 @@ export function configPaths(sources: ConfigSources): string[] {
   return paths;
 }
 
+/** What one layer parsed to, and the stamp of the file it parsed from. */
+interface CachedLayer {
+  /** `mtimeMs:size`, or undefined when the file could not be stat'd (usually absent). */
+  stamp: string | undefined;
+  value: JsonRecord;
+  /** Replayed on every hit, so a malformed file keeps complaining. */
+  warnings: readonly string[];
+}
+
+const layerCache = new Map<string, CachedLayer>();
+
+/**
+ * Drop the memo. Tests rewrite the same path within a millisecond, which is
+ * finer than the stamp can see; production has no reason to call it.
+ */
+export function clearConfigCache(): void {
+  layerCache.clear();
+}
+
+/** Undefined for a file that cannot be stat'd — absent, or gone behind a bad mount. */
+function layerStamp(path: string): string | undefined {
+  try {
+    const stat = statSync(path);
+    return `${stat.mtimeMs}:${stat.size}`;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Read one layer. An absent file means "no overrides" and is not a warning —
  * having no config is the normal case, not a degraded one. Anything else that
@@ -90,8 +119,30 @@ export function configPaths(sources: ConfigSources): string[] {
  * Deliberately `readFileSync` + catch rather than `existsSync` then read: the
  * check-then-read pair races, and this keeps the no-write guarantee obvious —
  * nothing here can create a file or a parent directory.
+ *
+ * Memoized on `mtimeMs:size`, because this sits on the tool-call hot path: the
+ * user has just triggered a questionnaire and the overlay is about to paint.
+ * An unchanged layer then costs one `stat` instead of a read and a JSON parse,
+ * and the usual case — no config file at all — costs the failed `stat` alone.
+ * The stamp is the same race the read already had: a file rewritten inside one
+ * millisecond at the same size is read as unchanged until it changes again.
  */
 function readLayer(path: string, warnings: string[]): JsonRecord {
+  const stamp = layerStamp(path);
+  const cached = layerCache.get(path);
+  if (cached && cached.stamp === stamp) {
+    warnings.push(...cached.warnings);
+    return cached.value;
+  }
+  const layerWarnings: string[] = [];
+  const value = parseLayer(path, layerWarnings);
+  layerCache.set(path, { stamp, value, warnings: layerWarnings });
+  warnings.push(...layerWarnings);
+  return value;
+}
+
+/** The read itself. Separated so the memo above stays about caching. */
+function parseLayer(path: string, warnings: string[]): JsonRecord {
   let text: string;
   try {
     text = readFileSync(path, "utf8");

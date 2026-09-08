@@ -9,6 +9,8 @@ import type {
 export const DECLINE_MESSAGE = "User declined to answer questions";
 export const TIMED_OUT_MESSAGE =
   "Questionnaire timed out — the user did not respond within the configured timeout. The user never saw a decline; do NOT treat this as a rejection. Ask the questions as plain chat text instead or retry.";
+export const HOST_ERROR_MESSAGE =
+  "The host replied with a value that was never offered, so the questionnaire could not be completed. Nobody declined and nobody answered — do NOT treat this as a rejection. Ask the questions as plain chat text instead.";
 export const ENVELOPE_PREFIX = "User has answered your questions:";
 export const ENVELOPE_SUFFIX = "You can now continue with the user's answers in mind.";
 /** Opens the segment for a note whose question was never answered. */
@@ -51,6 +53,23 @@ export function buildQuestionnaireResponse(
     }
     return buildToolResult(TIMED_OUT_MESSAGE, details);
   }
+  if (result?.error === "host_error") {
+    // A broken host is not a decision. Sharing the decline text would tell the
+    // model the user said no, when the user was never shown a working dialog.
+    const details: QuestionnaireResult = {
+      answers: result.answers,
+      cancelled: true,
+      error: "host_error",
+    };
+    if (result.hostErrorDetail && result.hostErrorDetail.length > 0) {
+      (details as { hostErrorDetail: string }).hostErrorDetail = result.hostErrorDetail;
+      return buildToolResult(
+        `${HOST_ERROR_MESSAGE} (host sent: ${result.hostErrorDetail})`,
+        details,
+      );
+    }
+    return buildToolResult(HOST_ERROR_MESSAGE, details);
+  }
   if (!result || result.cancelled) {
     // The decline text stays canonical even when a global note rides a
     // cancelled result. The note survives in `details`, like partial answers.
@@ -71,11 +90,18 @@ export function buildQuestionnaireResponse(
     return buildToolResult(DECLINE_MESSAGE, details);
   }
 
+  // Indexed once rather than scanned per question. Both sides are keyed by
+  // `questionIndex`, which is what the loop below asks for, and it is the same
+  // shape `orderedAnswers` uses in the reducer. A first entry wins, so a
+  // duplicated index reads as the earlier `find` did.
+  const answerByIndex = byQuestionIndex(result.answers);
+  const noteByIndex = byQuestionIndex(result.unansweredNotes ?? []);
+
   const segments: string[] = [];
   // Iterate the questions rather than the answers so segments always follow the
   // order the model asked in, whatever order the user filled tabs.
   for (let i = 0; i < params.questions.length; i++) {
-    const a = result.answers.find((x) => x.questionIndex === i);
+    const a = answerByIndex.get(i);
     if (a) {
       segments.push(buildAnswerSegment(a));
       continue;
@@ -84,7 +110,7 @@ export function buildQuestionnaireResponse(
     // emitted here rather than grouped at the end. Because this loop runs
     // before the "nothing to report" check below, a questionnaire submitted
     // with nothing but such a note counts as answered rather than declined.
-    const n = result.unansweredNotes?.find((x) => x.questionIndex === i);
+    const n = noteByIndex.get(i);
     if (n) {
       segments.push(buildUnansweredNoteSegment(n));
     }
@@ -98,6 +124,17 @@ export function buildQuestionnaireResponse(
     return buildToolResult(DECLINE_MESSAGE, { answers: result.answers, cancelled: true });
   }
   return buildToolResult(`${ENVELOPE_PREFIX} ${segments.join(" ")} ${ENVELOPE_SUFFIX}`, result);
+}
+
+/** First entry per `questionIndex` wins, which is what `Array.find` did. */
+function byQuestionIndex<T extends { questionIndex: number }>(items: readonly T[]): Map<number, T> {
+  const out = new Map<number, T>();
+  for (const item of items) {
+    if (!out.has(item.questionIndex)) {
+      out.set(item.questionIndex, item);
+    }
+  }
+  return out;
 }
 
 /**

@@ -49,7 +49,7 @@ function trailingBlanks(lines: readonly string[]): number {
 }
 
 const OVERFLOWING = {
-  getTerminalRows: () => 14,
+  getFrameTerminalRows: () => 14,
   getBodyHeight: () => 20,
   getCurrentBodyHeight: () => 10,
 };
@@ -58,7 +58,7 @@ describe("dialog overflow — a terminal with room to spare", () => {
   it("keeps the residual padding, since nothing is being scrolled away", () => {
     // (6 + 5) - (1 + 2) = 8 padding rows below the hint.
     const lines = renderDialog({
-      getTerminalRows: () => 50,
+      getFrameTerminalRows: () => 50,
       getBodyHeight: () => 6,
       getCurrentBodyHeight: () => 1,
     });
@@ -71,7 +71,7 @@ describe("dialog overflow — a terminal with room to spare", () => {
 
   it("emits no scroll indicators at all", () => {
     const lines = renderDialog({
-      getTerminalRows: () => 50,
+      getFrameTerminalRows: () => 50,
       getBodyHeight: () => 1,
       getCurrentBodyHeight: () => 1,
     });
@@ -83,14 +83,14 @@ describe("dialog overflow — a terminal with room to spare", () => {
 
 describe("dialog overflow — staying inside the terminal", () => {
   it.each([5, 7, 10, 15, 20, 24])("fits a %d-row terminal", (termRows) => {
-    const lines = renderDialog({ ...OVERFLOWING, getTerminalRows: () => termRows });
+    const lines = renderDialog({ ...OVERFLOWING, getFrameTerminalRows: () => termRows });
     expect(lines.length).toBeLessThanOrEqual(termRows);
   });
 
   it("never emits a line wider than the width it was asked for", () => {
     for (const termRows of [10, 15, 24]) {
       for (const width of [60, 80, 120]) {
-        const lines = renderDialog({ ...OVERFLOWING, getTerminalRows: () => termRows }, width);
+        const lines = renderDialog({ ...OVERFLOWING, getFrameTerminalRows: () => termRows }, width);
         for (const line of lines) {
           expect(visibleWidth(line)).toBeLessThanOrEqual(width);
         }
@@ -114,7 +114,7 @@ describe("dialog overflow — the three regions", () => {
         { question: "only?", header: "Only", options: [{ label: "yes", description: "" }] },
       ],
       isMulti: false,
-      getTerminalRows: () => 10,
+      getFrameTerminalRows: () => 10,
       getBodyHeight: () => 10,
       getCurrentBodyHeight: () => 5,
     }).join("\n");
@@ -126,14 +126,14 @@ describe("dialog overflow — the three regions", () => {
 describe("dialog overflow — a terminal too small for any body", () => {
   it("shows exactly the chrome when the terminal is chrome-height", () => {
     // topFixed 4 + bottomFixed 3 = 7.
-    const lines = renderDialog({ ...OVERFLOWING, getTerminalRows: () => 7 });
+    const lines = renderDialog({ ...OVERFLOWING, getFrameTerminalRows: () => 7 });
     expect(lines).toHaveLength(7);
     expect(lineAt(lines, 0)).toMatch(/─/);
     expect(lines.join("\n")).toContain(HINT_PART_NOTES);
   });
 
   it("clips the chrome itself when even that will not fit", () => {
-    const lines = renderDialog({ ...OVERFLOWING, getTerminalRows: () => 5 });
+    const lines = renderDialog({ ...OVERFLOWING, getFrameTerminalRows: () => 5 });
     expect(lines).toHaveLength(5);
   });
 });
@@ -148,7 +148,7 @@ describe("dialog overflow — which arrows appear", () => {
     // termRows 8 leaves availableMiddle = 8 - 4 - 3 = 1. Writing ↑ and then ↓
     // into that one row would leave only the ↓, hiding the fact that there is
     // anything above it.
-    const lines = renderDialog({ ...tallBody(), getTerminalRows: () => 8 });
+    const lines = renderDialog({ ...tallBody(), getFrameTerminalRows: () => 8 });
     expect(lines.length).toBeLessThanOrEqual(8);
     expect(trimmed(lineAt(lines, 4))).toBe("↕");
     expect(indicatorRows(lines, "↑")).toEqual([]);
@@ -172,7 +172,7 @@ describe("dialog overflow — which arrows appear", () => {
 
   it("marks only the top when the focus is on the last row", () => {
     const lines = renderDialog({
-      getTerminalRows: () => 14,
+      getFrameTerminalRows: () => 14,
       getBodyHeight: () => 30,
       getCurrentBodyHeight: () => 30,
       previewPane: stubPreviewPane(Array<string>(30).fill("<LINE>"), (_w) => [29, 30]),
@@ -209,7 +209,7 @@ describe("dialog overflow — where the window lands", () => {
     const joined = renderDialog({
       state,
       submitPicker: submitPickerFor(state),
-      getTerminalRows: () => 14,
+      getFrameTerminalRows: () => 14,
       getBodyHeight: () => 6,
     }).join("\n");
     expect(joined).toContain(REVIEW_HEADING);
@@ -239,7 +239,7 @@ describe("dialog overflow — notes on a multi-select tab", () => {
       questions: [multiQuestion],
       isMulti: false,
       multiSelectByTab: [stubMultiSelect(["<MULTI>"])],
-      getTerminalRows: () => 50,
+      getFrameTerminalRows: () => 50,
       getBodyHeight: () => 8,
       getCurrentBodyHeight: () => 4,
     };
@@ -260,7 +260,7 @@ describe("dialog overflow — notes on a multi-select tab", () => {
       isMulti: false,
       state: makeQuestionnaireState({ notesVisible: true }),
       multiSelectByTab: [stubMultiSelect(Array<string>(10).fill("<MULTI>"))],
-      getTerminalRows: () => 10,
+      getFrameTerminalRows: () => 10,
       getBodyHeight: () => 20,
       getCurrentBodyHeight: () => 20,
     });
@@ -281,7 +281,7 @@ describe("dialog overflow — notes on the submit tab", () => {
       {
         state,
         submitPicker: submitPickerFor(state),
-        getTerminalRows: () => 50,
+        getFrameTerminalRows: () => 50,
         getBodyHeight: () => 8,
         ...over,
       },
@@ -304,7 +304,7 @@ describe("dialog overflow — notes on the submit tab", () => {
 
   it("keeps the border and the picker sticky while overflowing", () => {
     const lines = renderSubmit(submitState({ notesVisible: true }), {
-      getTerminalRows: () => 12,
+      getFrameTerminalRows: () => 12,
       getBodyHeight: () => 20,
     });
     expect(lines.length).toBeLessThanOrEqual(12);

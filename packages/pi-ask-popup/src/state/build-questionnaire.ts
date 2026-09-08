@@ -10,7 +10,10 @@ import {
 import { MultiSelectView } from "../view/components/multi-select-view.js";
 import { OptionListView } from "../view/components/option-list-view.js";
 import { PreviewBlockRenderer } from "../view/components/preview/preview-block-renderer.js";
-import { crossTabLeftWidthWithDonation } from "../view/components/preview/preview-layout-decider.js";
+import {
+  crossTabLeftWidthWithDonation,
+  memoizeByPaneWidth,
+} from "../view/components/preview/preview-layout-decider.js";
 import { PreviewPane, type PreviewPaneProps } from "../view/components/preview/preview-pane.js";
 import { SubmitPicker } from "../view/components/submit-picker.js";
 import { TabBar } from "../view/components/tab-bar.js";
@@ -121,8 +124,29 @@ class QuestionnaireBuilder {
   private readonly markdownTheme = getMarkdownTheme();
   private readonly notesInput: Editor;
   private readonly inlineInput: Editor;
-  private readonly getTerminalWidth = () => this.tui.terminal.columns;
-  private readonly getTerminalRows = () => this.tui.terminal.rows;
+  /**
+   * Terminal size for the frame being painted, refreshed by `beginFrame` and
+   * read back by everything in that frame.
+   *
+   * Components used to reach `tui.terminal` themselves, each at the moment it
+   * happened to run: the pane deciding side-by-side against one reading, the
+   * dialog cutting the scroll window against a later one. A resize landing
+   * between the two split the frame in half. One read at the top of
+   * `DialogView.render` cannot.
+   *
+   * Do not debounce this. A drag fires a resize every few milliseconds, but
+   * each one only reaches `tui.requestRender()`, which sets a flag, schedules
+   * on `process.nextTick` and holds a 16 ms floor between paints. The widths in
+   * between are never painted and never reach a cache; a debounce on top would
+   * buy nothing and delay the frame the user is dragging towards.
+   */
+  private readonly frameTerminal = { columns: 0, rows: 0 };
+  private readonly beginFrame = (): void => {
+    this.frameTerminal.columns = this.tui.terminal.columns;
+    this.frameTerminal.rows = this.tui.terminal.rows;
+  };
+  private readonly getFrameTerminalWidth = () => this.frameTerminal.columns;
+  private readonly getFrameTerminalRows = () => this.frameTerminal.rows;
 
   constructor(config: QuestionnaireBuildConfig) {
     this.tui = config.tui;
@@ -133,6 +157,9 @@ class QuestionnaireBuilder {
     this.initialState = config.initialState;
     this.getCurrentTab = config.getCurrentTab;
     this.collapseKey = config.collapseKey;
+    // Seeded here so a pane that renders before any frame begins sees a real
+    // terminal rather than a zero-width one.
+    this.beginFrame();
 
     this.selectTheme = this.makeSelectTheme();
     const textEditorTheme = editorTheme(this.theme);
@@ -185,7 +212,7 @@ class QuestionnaireBuilder {
     });
     const preview = new PreviewPane({
       question,
-      getTerminalWidth: this.getTerminalWidth,
+      getFrameTerminalWidth: this.getFrameTerminalWidth,
       optionListView: optionList,
       previewBlock,
     });
@@ -215,8 +242,11 @@ class QuestionnaireBuilder {
     // objects first, as upstream did, only produced a shape that already
     // existed -- and produced it with an explicit undefined, which is a
     // different type from an absent key here.
-    const globalLeftWidth = (paneWidth: number): number =>
-      crossTabLeftWidthWithDonation(questions, itemsByTab, questions, paneWidth);
+    // Memoized: the questions and their rows are fixed for the life of the
+    // questionnaire, so the donation is pure of the pane width alone.
+    const globalLeftWidth = memoizeByPaneWidth((paneWidth: number): number =>
+      crossTabLeftWidthWithDonation(questions, itemsByTab, questions, paneWidth),
+    );
     for (const tab of tabs) {
       tab.preview.setGlobalLeftWidth(globalLeftWidth);
     }
@@ -279,7 +309,8 @@ class QuestionnaireBuilder {
         ...(submitPicker === undefined ? {} : { submitPicker }),
         getBodyHeight: heights.global,
         getCurrentBodyHeight: heights.current,
-        getTerminalRows: this.getTerminalRows,
+        beginFrame: this.beginFrame,
+        getFrameTerminalRows: this.getFrameTerminalRows,
         collapseKey: this.collapseKey,
       },
       { state: this.initialState, activePreviewPane },
@@ -314,6 +345,10 @@ class QuestionnaireBuilder {
       }),
       perTabBinding({
         resolve: (tab) => tab.multiSelect,
+        // Gated like the other two. A write to an inactive tab's view clears the
+        // layout it cached, and nothing was going to read the result: the props
+        // for an inactive tab only change while that tab is the active one.
+        predicate: isActiveTab,
         select: selectMultiSelectProps,
       }),
     ];

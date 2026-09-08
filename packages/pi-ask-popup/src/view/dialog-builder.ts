@@ -18,6 +18,13 @@ export const HINT_PART_NAV = "↑/↓ to navigate";
 export const HINT_PART_NEW_LINE = "Shift+Enter for newline";
 export const HINT_PART_CLEAR = "Ctrl+U to clear";
 export const HINT_PART_TOGGLE = "Space to toggle";
+/**
+ * Replaces ENTER while the typed row of a multi-select question has the
+ * keyboard. Enter there commits the question, the way the Next row does, rather
+ * than choosing a single answer — and Space belongs to the draft, so the resting
+ * "Space to toggle" is dropped alongside this.
+ */
+export const HINT_PART_ENTER_CONFIRM = "Enter to confirm";
 export const HINT_PART_NOTES = "n to add notes";
 /** Replaces the add form once the tab already has a note. See `buildHintText`. */
 export const HINT_PART_NOTES_EDIT = "n to edit notes";
@@ -162,7 +169,14 @@ export interface DialogConfig {
   /** Body height of the tab showing right now. The difference is absorbed outside the border. */
   getCurrentBodyHeight: (width: number) => number;
   /** Terminal height, read at render time — the mirror of the width getter. */
-  getTerminalRows: () => number;
+  /**
+   * Snapshot the terminal size for the frame about to be painted. Called first
+   * thing in `render`, before any child renders or is measured, so every
+   * component in the frame decides against the same terminal.
+   */
+  beginFrame: () => void;
+  /** The size `beginFrame` last snapshotted. */
+  getFrameTerminalRows: () => number;
   /**
    * Resolved collapse key (`"ctrl+]"`, `"alt+o"`, `"off"`). Construction-time
    * config, deliberately not canonical state: the runtime's copy must never
@@ -227,6 +241,10 @@ export class DialogView implements StatefulView<DialogProps> {
   invalidate(): void {}
 
   render(width: number): string[] {
+    // First, before any child renders or is measured: the whole frame decides
+    // against one terminal size.
+    this.config.beginFrame();
+
     const state = this.liveProps.state;
     const onSubmit = this.config.isMulti && state.currentTab === this.config.questions.length;
     const strategy = onSubmit && this.submitStrategy ? this.submitStrategy : this.questionStrategy;
@@ -266,7 +284,7 @@ export class DialogView implements StatefulView<DialogProps> {
         strategy.restingNoteRowCount(state),
     );
 
-    const termRows = this.config.getTerminalRows();
+    const termRows = this.config.getFrameTerminalRows();
 
     if (natural.length + spacerRows <= termRows) {
       return renderFitsTerminal(natural, spacerRows);
