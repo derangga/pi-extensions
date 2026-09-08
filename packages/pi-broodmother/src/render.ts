@@ -52,7 +52,7 @@ export function statusIcon(task: TaskView): string {
     case "pending":
       return "○";
     case "running":
-      return "◐";
+      return "•";
     case "skipped":
       return "⊘";
     case "settled":
