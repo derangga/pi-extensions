@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
@@ -6,6 +6,7 @@ import { matchesKey } from "@earendil-works/pi-tui";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   COLLAPSE_KEY_OFF,
+  clearConfigCache,
   CONFIG_FILE_NAME,
   configPaths,
   DEFAULT_COLLAPSE_KEY,
@@ -331,5 +332,64 @@ describe("the accepted grammar against pi-tui's real matcher", () => {
     }
     // pageUp reaches pi-tui's switch lowercased, which is why we store it that way.
     expect(named).not.toContain("pageUp");
+  });
+});
+
+describe("re-reading layers", () => {
+  // A whole-second timestamp, so restoring it survives the Date round trip that
+  // utimesSync does — the sub-millisecond mtime a fresh write gets would not.
+  const PINNED = new Date(1_700_000_000_000);
+
+  /** Same size, same mtime: the stamp the memo compares cannot tell them apart. */
+  function rewriteInPlace(path: string, body: string): void {
+    writeFileSync(path, body);
+    utimesSync(path, PINNED, PINNED);
+  }
+
+  it("does not re-read a file whose stamp has not moved", () => {
+    const { agentDir } = makeRoot();
+    const path = join(agentDir, CONFIG_FILE_NAME);
+    rewriteInPlace(path, '{"collapseKey":"alt+a"}');
+    expect(loadConfig({ agentDir }).config.collapseKey).toBe("alt+a");
+
+    rewriteInPlace(path, '{"collapseKey":"alt+b"}');
+    expect(loadConfig({ agentDir }).config.collapseKey).toBe("alt+a");
+  });
+
+  it("re-reads once the file actually changes", () => {
+    const { agentDir } = makeRoot();
+    writeGlobal(agentDir, '{"collapseKey":"alt+a"}');
+    expect(loadConfig({ agentDir }).config.collapseKey).toBe("alt+a");
+
+    writeGlobal(agentDir, '{"collapseKey":"ctrl+pagedown"}');
+    expect(loadConfig({ agentDir }).config.collapseKey).toBe("ctrl+pagedown");
+  });
+
+  it("picks up a file that did not exist on the first load", () => {
+    const { agentDir } = makeRoot();
+    expect(loadConfig({ agentDir }).config.collapseKey).toBeUndefined();
+
+    writeGlobal(agentDir, '{"collapseKey":"alt+o"}');
+    expect(loadConfig({ agentDir }).config.collapseKey).toBe("alt+o");
+  });
+
+  it("keeps warning about a malformed file on every load", () => {
+    // The warning is the whole diagnostic. A cached second load that dropped it
+    // would make the problem disappear on the second tool call.
+    const { agentDir } = makeRoot();
+    writeGlobal(agentDir, "{ not json");
+    expect(loadConfig({ agentDir }).warnings).toHaveLength(1);
+    expect(loadConfig({ agentDir }).warnings).toHaveLength(1);
+  });
+
+  it("clearConfigCache forces the next load to read again", () => {
+    const { agentDir } = makeRoot();
+    const path = join(agentDir, CONFIG_FILE_NAME);
+    rewriteInPlace(path, '{"collapseKey":"alt+a"}');
+    loadConfig({ agentDir });
+
+    rewriteInPlace(path, '{"collapseKey":"alt+b"}');
+    clearConfigCache();
+    expect(loadConfig({ agentDir }).config.collapseKey).toBe("alt+b");
   });
 });
