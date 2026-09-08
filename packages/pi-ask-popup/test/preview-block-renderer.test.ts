@@ -20,7 +20,10 @@ const markdownFactory = (text: string, _mt: MarkdownTheme) =>
   new FakeMarkdown(text) as unknown as Markdown;
 
 import type { QuestionData } from "../src/tool/types.js";
-import { PREVIEW_RENDER_FAILED_TEXT } from "../src/view/components/preview/markdown-content-cache.js";
+import {
+  type MarkdownFactory as MarkdownFactoryFn,
+  PREVIEW_RENDER_FAILED_TEXT,
+} from "../src/view/components/preview/markdown-content-cache.js";
 import {
   NOTES_AFFORDANCE_TEXT,
   PreviewBlockRenderer,
@@ -300,5 +303,90 @@ describe("PreviewBlockRenderer — untrusted preview markdown", () => {
         }
       }
     }
+  });
+});
+
+describe("PreviewBlockRenderer — per-option width cache", () => {
+  /** Counts every render, per option text, with no cache of its own. */
+  function countingFactory(): {
+    factory: MarkdownFactoryFn;
+    renders: () => Record<string, number>;
+  } {
+    const renders: Record<string, number> = {};
+    class CountingMarkdown {
+      constructor(private readonly text: string) {}
+      render(width: number): string[] {
+        renders[this.text] = (renders[this.text] ?? 0) + 1;
+        return [`MD[${width}]:${this.text}`];
+      }
+      invalidate(): void {}
+    }
+    return {
+      factory: (text: string, _mt: MarkdownTheme) =>
+        new CountingMarkdown(text) as unknown as Markdown,
+      renders: () => renders,
+    };
+  }
+
+  it("re-renders only the option asked for after a width flip", () => {
+    const { factory, renders } = countingFactory();
+    const r = new PreviewBlockRenderer({
+      question: previewQuestion,
+      theme,
+      markdownTheme,
+      markdownFactory: factory,
+    });
+
+    r.blockHeight(60, 0, "side-by-side");
+    r.blockHeight(50, 1, "side-by-side");
+    expect(renders()).toEqual({ "## A\n\nbody A": 1, "## B\n\nbody B": 1 });
+
+    // Option 0 was never measured at 50, so the flip must not have touched it.
+    r.blockHeight(60, 0, "side-by-side");
+    expect(renders()["## A\n\nbody A"]).toBe(1);
+
+    // A width option 0 has not seen does re-render it.
+    r.blockHeight(50, 0, "side-by-side");
+    expect(renders()["## A\n\nbody A"]).toBe(2);
+  });
+
+  it("measures and renders one option in a frame with a single markdown render", () => {
+    const { factory, renders } = countingFactory();
+    const r = new PreviewBlockRenderer({
+      question: previewQuestion,
+      theme,
+      markdownTheme,
+      markdownFactory: factory,
+    });
+    r.blockHeight(60, 0, "side-by-side");
+    r.renderBlock(60, 0, "side-by-side", true, false);
+    expect(renders()["## A\n\nbody A"]).toBe(1);
+  });
+
+  it("invalidate drops the stored rows", () => {
+    const { factory, renders } = countingFactory();
+    const r = new PreviewBlockRenderer({
+      question: previewQuestion,
+      theme,
+      markdownTheme,
+      markdownFactory: factory,
+    });
+    r.blockHeight(60, 0, "side-by-side");
+    r.invalidate();
+    r.blockHeight(60, 0, "side-by-side");
+    expect(renders()["## A\n\nbody A"]).toBe(2);
+  });
+
+  it("hands each caller its own array", () => {
+    const r = new PreviewBlockRenderer({
+      question: previewQuestion,
+      theme,
+      markdownTheme,
+      markdownFactory,
+    });
+    const first = r.renderBlock(60, 0, "side-by-side", true, false);
+    first[1] = "mutated by the caller";
+    const second = r.renderBlock(60, 0, "side-by-side", true, false);
+    expect(second[1]).not.toBe("mutated by the caller");
   });
 });
