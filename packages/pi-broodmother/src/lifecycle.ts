@@ -124,7 +124,12 @@ export interface ChildRunOptions {
   readonly onActivity?: () => void;
 }
 
-class PromptFailed extends Schema.TaggedError<PromptFailed>()("PromptFailed", {
+/**
+ * Wraps both failure shapes of starting or prompting a child session: a
+ * rejected create and a rejected prompt. The tag names what a reader of a
+ * failed result actually lost, the child run, not the prompt specifically.
+ */
+class ChildRunFailed extends Schema.TaggedError<ChildRunFailed>()("ChildRunFailed", {
   message: Schema.String,
 }) {}
 
@@ -368,7 +373,7 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
 
   const prompt = Effect.tryPromise({
     try: () => session.prompt(options.task, { source: "extension" }),
-    catch: (cause) => new PromptFailed({ message: messageFor(cause) }),
+    catch: (cause) => new ChildRunFailed({ message: messageFor(cause) }),
   }).pipe(
     Effect.as("settled" as const),
     // tryPromise rather than promise, because a rejecting abort has to land in
@@ -464,7 +469,7 @@ export function runChildLifecycle(options: ChildRunOptions): Effect.Effect<Child
       const child = yield* Effect.acquireRelease(
         Effect.tryPromise({
           try: () => create(options.child),
-          catch: (cause) => new PromptFailed({ message: messageFor(cause) }),
+          catch: (cause) => new ChildRunFailed({ message: messageFor(cause) }),
         }),
         // Same shape as the abort above: the rejection must be a failure, not
         // a defect, before it can be dropped, or a throwing dispose escapes
@@ -474,5 +479,10 @@ export function runChildLifecycle(options: ChildRunOptions): Effect.Effect<Child
       );
       return yield* runAcquiredChild(child, options);
     }),
-  ).pipe(Effect.catch((failure) => Effect.succeed(startFailure(failure.message))));
+  ).pipe(
+    // By tag, not catchAll: ChildRunFailed is the whole error channel today,
+    // and naming it turns a future second error type into a visible type
+    // error instead of a silent fold into a failed result.
+    Effect.catchTag("ChildRunFailed", (failure) => Effect.succeed(startFailure(failure.message))),
+  );
 }
