@@ -1,9 +1,23 @@
-import type { ExtensionContext, Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
-import { getKeybindings, type Component, truncateToWidth, type TUI } from "@earendil-works/pi-tui";
+import type {
+  ExtensionContext,
+  Theme,
+  ThemeColor,
+} from "@earendil-works/pi-coding-agent";
+import {
+  getKeybindings,
+  type Component,
+  truncateToWidth,
+  type TUI,
+} from "@earendil-works/pi-tui";
 import { Predicate } from "effect";
 
 import type { AskWaiting } from "./intercom.js";
-import { aggregateUsage, type RunView, type TaskStatus, type TaskView } from "./run.js";
+import {
+  aggregateUsage,
+  type RunView,
+  type TaskStatus,
+  type TaskView,
+} from "./run.js";
 type JsonValue =
   | string
   | number
@@ -52,11 +66,13 @@ export function statusIcon(task: TaskView): string {
     case "pending":
       return "○";
     case "running":
-      return "•";
+      return "◐";
     case "skipped":
       return "⊘";
     case "settled":
-      return task.outcome === "completed" || task.outcome === "wrapped_up" ? "✓" : "✗";
+      return task.outcome === "completed" || task.outcome === "wrapped_up"
+        ? "✓"
+        : "✗";
   }
 }
 
@@ -72,7 +88,9 @@ function statusColor(task: TaskView): ThemeColor {
     case "skipped":
       return "warning";
     case "settled":
-      return task.outcome === "completed" || task.outcome === "wrapped_up" ? "success" : "error";
+      return task.outcome === "completed" || task.outcome === "wrapped_up"
+        ? "success"
+        : "error";
   }
 }
 
@@ -81,7 +99,9 @@ export function formatTokens(tokens: number): string {
     return String(tokens);
   }
   const thousands = tokens / 1000;
-  return thousands < 100 ? `${thousands.toFixed(1)}k` : `${Math.round(thousands)}k`;
+  return thousands < 100
+    ? `${thousands.toFixed(1)}k`
+    : `${Math.round(thousands)}k`;
 }
 
 /**
@@ -99,7 +119,9 @@ export function formatCost(cost: number): string | undefined {
 
 export function formatDuration(ms: number): string {
   const seconds = Math.max(0, Math.round(ms / 1000));
-  return seconds >= 60 ? `${Math.floor(seconds / 60)}m${seconds % 60}s` : `${seconds}s`;
+  return seconds >= 60
+    ? `${Math.floor(seconds / 60)}m${seconds % 60}s`
+    : `${seconds}s`;
 }
 
 export function formatElapsed(task: TaskView, now: number): string {
@@ -177,7 +199,11 @@ function quietSegment(
   return `${theme.fg("muted", `quiet ${formatDuration(now - since)}`)} · `;
 }
 
-export function widgetLines(runs: readonly RunView[], theme: Theme, now: number): string[] {
+export function widgetLines(
+  runs: readonly RunView[],
+  theme: Theme,
+  now: number,
+): string[] {
   const tasks = runs.flatMap((run) => run.tasks);
   if (tasks.length === 0) {
     return [];
@@ -192,7 +218,10 @@ export function widgetLines(runs: readonly RunView[], theme: Theme, now: number)
 
   // Unfinished work first: a widget that has run out of room should be showing
   // what is still happening, not what already finished.
-  const ordered = [...tasks.filter((task) => !isDone(task)), ...tasks.filter(isDone)];
+  const ordered = [
+    ...tasks.filter((task) => !isDone(task)),
+    ...tasks.filter(isDone),
+  ];
   // The header and the "+n more" line come out of the same budget, so the
   // widget stays the same height whether or not it overflowed.
   const room = WIDGET_MAX_LINES - 1;
@@ -203,7 +232,9 @@ export function widgetLines(runs: readonly RunView[], theme: Theme, now: number)
 
   const hidden = tasks.length - shown;
   if (hidden > 0) {
-    lines.push(`${theme.fg("dim", "└─")} ${theme.fg("dim", `+${hidden} more`)}`);
+    lines.push(
+      `${theme.fg("dim", "└─")} ${theme.fg("dim", `+${hidden} more`)}`,
+    );
   } else if (lines.length > 1) {
     lines[lines.length - 1] = lines[lines.length - 1]!.replace("├─", "└─");
   }
@@ -428,7 +459,9 @@ function promptLines(value: unknown): readonly string[] {
  */
 function promptBlock(value: unknown, theme: Theme, indent: string): string[] {
   const prompt = promptLines(value);
-  const kept = prompt.slice(0, PROMPT_MAX_LINES).map((line) => `${indent}${theme.fg("dim", line)}`);
+  const kept = prompt
+    .slice(0, PROMPT_MAX_LINES)
+    .map((line) => `${indent}${theme.fg("dim", line)}`);
   const dropped = prompt.length - PROMPT_MAX_LINES;
   if (dropped <= 0) {
     return kept;
@@ -445,14 +478,23 @@ function promptBlock(value: unknown, theme: Theme, indent: string): string[] {
  * Expanded, it prints each task's prompt instead of a 64 character slice of it,
  * which is the only place the prompt the orchestrator wrote is readable in full.
  */
-export function callLines(args: unknown, theme: Theme, expanded = false): string[] {
+export function callLines(
+  args: unknown,
+  theme: Theme,
+  expanded = false,
+): string[] {
   // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-  const tasks: PartialTask[] = Array.isArray((args as { tasks?: unknown } | undefined)?.tasks)
+  const tasks: PartialTask[] = Array.isArray(
+    (args as { tasks?: unknown } | undefined)?.tasks,
+  )
     ? // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-      ((args as { tasks: unknown[] }).tasks.filter(Predicate.isObject) as PartialTask[])
+      ((args as { tasks: unknown[] }).tasks.filter(
+        Predicate.isObject,
+      ) as PartialTask[])
     : [];
   // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-  const autoAwait = (args as { autoAwait?: unknown } | undefined)?.autoAwait === true;
+  const autoAwait =
+    (args as { autoAwait?: unknown } | undefined)?.autoAwait === true;
 
   const displayShape =
     tasks.length === 0
@@ -466,7 +508,8 @@ export function callLines(args: unknown, theme: Theme, expanded = false): string
     const id = text(task.id) ?? `task_${index + 1}`;
     const agent = text(task.agent) ?? "…";
     const needs = edges(task.needs);
-    const edge = needs.length > 0 ? theme.fg("muted", ` ← ${needs.join(", ")}`) : "";
+    const edge =
+      needs.length > 0 ? theme.fg("muted", ` ← ${needs.join(", ")}`) : "";
     const goal = text(task.task);
     lines.push(
       `  ${theme.fg("muted", id)} ${theme.fg("accent", agent)}${edge}${goal ? ` ${theme.fg("dim", truncate(goal))}` : ""}`,
@@ -486,9 +529,14 @@ function summaryLine(run: RunView, theme: Theme): string {
   const done = run.tasks.filter(isDone).length;
   const failed = run.tasks.filter(
     (task) =>
-      task.status === "skipped" || (task.outcome !== undefined && task.outcome !== "completed"),
+      task.status === "skipped" ||
+      (task.outcome !== undefined && task.outcome !== "completed"),
   ).length;
-  const state = run.cancelled ? "cancelled" : run.finished ? "settled" : "running";
+  const state = run.cancelled
+    ? "cancelled"
+    : run.finished
+      ? "settled"
+      : "running";
   const usage = aggregateUsage(run.tasks);
   const cost = formatCost(usage.cost);
   const tail = theme.fg(
@@ -509,7 +557,9 @@ function formatExpandKey(keys: readonly string[]): string {
       part
         .split("+")
         .map((segment) =>
-          process.platform === "darwin" && segment.toLowerCase() === "alt" ? "option" : segment,
+          process.platform === "darwin" && segment.toLowerCase() === "alt"
+            ? "option"
+            : segment,
         )
         .join("+"),
     )
@@ -520,9 +570,9 @@ function expandHint(theme: Theme): string {
   let key = "ctrl+o";
   try {
     // SAFETY: pi-coding-agent registers "app.tools.expand" on the shared pi-tui KeybindingsManager, which the TUI type doesn't list; runtime getKeys accepts any string and returns string[].
-    const keys = (getKeybindings() as { getKeys: (id: string) => string[] }).getKeys(
-      "app.tools.expand",
-    );
+    const keys = (
+      getKeybindings() as { getKeys: (id: string) => string[] }
+    ).getKeys("app.tools.expand");
     if (Array.isArray(keys) && keys.length > 0) {
       key = formatExpandKey(keys);
     }
