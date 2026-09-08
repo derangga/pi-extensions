@@ -10,10 +10,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   appendChildPrompt,
   CHILD_TOOL_NAMES,
+  CHILD_TOOL_NAMES_READONLY,
+  CHILD_TOOL_NAMES_READWRITE,
+  childInstructions,
   createChildSession,
   resolveFffEntry,
   shutdownChildSession,
   SUBAGENT_INSTRUCTIONS,
+  SUBAGENT_INSTRUCTIONS_READWRITE,
 } from "../src/child.js";
 import { createIntercomTools, type TaskChannel } from "../src/intercom.js";
 import { createSubagentTools } from "../src/tools.js";
@@ -80,6 +84,7 @@ describe("child session", () => {
       sessionDir,
       parentSession: "/tmp/parent-session.jsonl",
       projectTrusted: true,
+      permissions: "read-only",
       name: "researcher",
       prompt: "Find the answer.",
       model: model!,
@@ -136,6 +141,7 @@ describe("child session", () => {
       cwd,
       sessionDir,
       projectTrusted: true,
+      permissions: "read-only",
       name: "reader",
       prompt: "Read.",
       model,
@@ -182,6 +188,7 @@ describe("child session", () => {
         prompt: "Look around.",
         model,
         thinking: "off",
+        permissions: "read-only",
         projectTrusted,
         modelRuntime,
         fffEntry: null,
@@ -199,6 +206,55 @@ describe("child session", () => {
       expect(untrusted.session.systemPrompt).not.toContain("PROJECT SKILL MARKER");
     } finally {
       untrusted.session.dispose();
+    }
+  });
+
+  it("hands a child edit, write and bash only when the run is read-write", async () => {
+    const modelRuntime = await ModelRuntime.create({ refreshOnCreate: false });
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+    const model = modelRuntime.getModels()[0] as PiModel;
+
+    const open = async (permissions: "read-only" | "read-write") =>
+      createChildSession({
+        cwd: temporaryRoot("pi-broodmother-mode-"),
+        sessionDir: temporaryRoot("pi-broodmother-sessions-"),
+        name: "implementer",
+        prompt: "Land the change.",
+        model,
+        thinking: "off",
+        permissions,
+        projectTrusted: true,
+        modelRuntime,
+        fffEntry: null,
+      });
+
+    const writable = await open("read-write");
+    try {
+      const active = writable.session.getActiveToolNames();
+      for (const tool of ["read", "grep", "find", "ls", "edit", "write", "bash"]) {
+        expect(active).toContain(tool);
+      }
+      // Pi registers this on every platform; a child gets the parent's shell,
+      // not one this package picked for it.
+      expect(active).not.toContain("powershell");
+      // Still no way to spawn children of its own, whatever else it can do.
+      for (const tool of PARENT_TOOL_NAMES) {
+        expect(active).not.toContain(tool);
+      }
+      expect(writable.session.systemPrompt).toContain(SUBAGENT_INSTRUCTIONS_READWRITE);
+    } finally {
+      writable.session.dispose();
+    }
+
+    const reader = await open("read-only");
+    try {
+      const active = reader.session.getActiveToolNames();
+      for (const tool of ["edit", "write", "bash"]) {
+        expect(active).not.toContain(tool);
+      }
+      expect(reader.session.systemPrompt).not.toContain(SUBAGENT_INSTRUCTIONS_READWRITE);
+    } finally {
+      reader.session.dispose();
     }
   });
 
@@ -221,11 +277,41 @@ describe("child session", () => {
 });
 
 describe("child tool allowlist", () => {
-  it("names no tool that would let a child spawn children", () => {
+  it("names no tool that would let a child spawn children, in either mode", () => {
     expect(PARENT_TOOL_NAMES.length).toBeGreaterThan(0);
-    for (const tool of PARENT_TOOL_NAMES) {
-      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-      expect(CHILD_TOOL_NAMES as readonly string[]).not.toContain(tool);
+    for (const list of [CHILD_TOOL_NAMES_READONLY, CHILD_TOOL_NAMES_READWRITE]) {
+      for (const tool of PARENT_TOOL_NAMES) {
+        // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+        expect(list as readonly string[]).not.toContain(tool);
+      }
+    }
+  });
+
+  it("keeps the old name pointing at the read-only list", () => {
+    expect(CHILD_TOOL_NAMES).toBe(CHILD_TOOL_NAMES_READONLY);
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+    const readonlyNames = CHILD_TOOL_NAMES_READONLY as readonly string[];
+    for (const tool of ["edit", "write", "bash"]) {
+      expect(readonlyNames).not.toContain(tool);
+    }
+  });
+
+  it("adds exactly edit, write and bash on top of the read-only list", () => {
+    expect(CHILD_TOOL_NAMES_READWRITE).toEqual([
+      ...CHILD_TOOL_NAMES_READONLY,
+      "edit",
+      "write",
+      "bash",
+    ]);
+  });
+
+  it("branches the instruction text on the mode", () => {
+    expect(childInstructions("read-only")).toContain("read-only");
+    expect(childInstructions("read-write")).toContain("write access");
+    // The shared half must not drift between the two.
+    for (const mode of ["read-only", "read-write"] as const) {
+      expect(childInstructions(mode)).toContain("ask_parent");
+      expect(childInstructions(mode)).toContain("later dependency wave");
     }
   });
 });

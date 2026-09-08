@@ -36,7 +36,7 @@ import {
   type ResolveError,
   type TaskChoice,
 } from "./resolve.js";
-import { Settings } from "./settings.js";
+import { type Permissions, Settings } from "./settings.js";
 import type { PiModel, ThinkingLevel } from "./thinking.js";
 
 /** A task as the tool schema decodes it: the graph's fields plus the choices. */
@@ -272,6 +272,13 @@ interface TaskState {
 interface RunState {
   readonly id: string;
   readonly startedAt: number;
+  /**
+   * Captured when the run starts, not read when each child spawns. Flipping
+   * the setting mid-session leaves runs already in flight exactly as they were
+   * and applies to the next one, which is the only reading that lets a user
+   * answer "what could that run do?" after the fact.
+   */
+  readonly permissions: Permissions;
   readonly tasks: readonly TaskState[];
   readonly byId: ReadonlyMap<string, TaskState>;
   /**
@@ -533,6 +540,7 @@ export class Manager extends Context.Service<
                     model: state.resolvedModel,
                     thinking: state.thinking,
                     ...(request.parentSession ? { parentSession: request.parentSession } : {}),
+                    permissions: run.permissions,
                     projectTrusted: request.projectTrusted,
                     customTools: createIntercomTools(channel),
                   },
@@ -666,6 +674,7 @@ export class Manager extends Context.Service<
             id: `run_${counter}`,
             startedAt: Date.now(),
             tasks: states,
+            permissions: current.permissions,
             byId: new Map(states.map((state) => [state.id, state])),
             controller: new AbortController(),
             done: yield* Deferred.make<void>(),

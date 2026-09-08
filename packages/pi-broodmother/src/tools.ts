@@ -273,9 +273,13 @@ export function createSubagentTools(host: SubagentToolHost): ToolDefinition[] {
     {
       name: "subagent",
       label: "Subagent",
+      // Mode-neutral on purpose. A tool description is a fixed string read
+      // once when the extension loads, so it cannot track a setting the user
+      // flips mid-session. The live mode is named in the text this tool
+      // returns instead, which is the part the model reads every call.
       description:
-        "Delegate research to read-only child agents. Children can read, grep, find and list; they cannot edit, write or run commands. Pass every sub-task of the work in one call: tasks with no needs run in parallel, and a task with needs starts once those settle, with their output prepended to its prompt.",
-      promptSnippet: "Delegate read-only research to child agents in one batched call.",
+        "Delegate work to child agents. Children can read, grep, find and list. They are read-only by default and can also edit, write and run commands when /broodmother Permissions is read-write; the run's own mode is named in this tool's reply. Pass every sub-task of the work in one call: tasks with no needs run in parallel, and a task with needs starts once those settle, with their output prepended to its prompt.",
+      promptSnippet: "Delegate research or changes to child agents in one batched call.",
       promptGuidelines: [
         "Delegate only what you would otherwise have to read a lot of the project to answer. Anything a single read or grep settles, do yourself.",
         "Spawn the fewest tasks the work splits into. Every child is a fresh session that re-reads the project, so two vague tasks cost more than one specific one and answer less.",
@@ -283,6 +287,7 @@ export function createSubagentTools(host: SubagentToolHost): ToolDefinition[] {
         "Declare ordering with needs rather than by splitting the work across calls.",
         "Never restate an upstream result in a dependent's prompt; the edge already delivers it.",
         "A child sees none of this conversation, so write each prompt to stand alone.",
+        "A child gets no project conventions file. When a task will change code, put the conventions it must follow in that task's prompt.",
         "End your turn after starting a run. Do not idle waiting for it.",
       ],
       parameters: SUBAGENT_PARAMS,
