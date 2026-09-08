@@ -1,6 +1,6 @@
 {
   "name": "pi-ask-popup",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Pi extension. A tabbed terminal questionnaire the model can put to you when it would otherwise guess, with typed options, markdown previews and notes instead of free-form replies.",
   "type": "module",
   "license": "MIT",
