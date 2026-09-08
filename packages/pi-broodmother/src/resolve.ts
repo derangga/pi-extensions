@@ -104,12 +104,13 @@ function opencodeSessionHeaders(
   if (!sessionId) {
     return (headers) => headers;
   }
-  let host: string;
-  try {
-    host = new URL(model.baseUrl).hostname;
-  } catch {
-    host = "";
-  }
+  const host = (() => {
+    try {
+      return new URL(model.baseUrl).hostname;
+    } catch {
+      return "";
+    }
+  })();
   if (!model.provider.startsWith("opencode") && host !== "opencode.ai") {
     return (headers) => headers;
   }
@@ -290,17 +291,15 @@ export function resolveModelRef(
   }
 
   const query = normalize(trimmed);
-  let best: PiModel | undefined;
-  let bestScore = 0;
-  for (const model of available) {
-    const value = score(model, query);
-    if (value > bestScore) {
-      bestScore = value;
-      best = model;
-    }
-  }
-  if (best && bestScore >= 20) {
-    return best;
+  const best = available.reduce<{ model: PiModel | undefined; score: number }>(
+    (acc, model) => {
+      const value = score(model, query);
+      return value > acc.score ? { model, score: value } : acc;
+    },
+    { model: undefined, score: 0 },
+  );
+  if (best.model && best.score >= 20) {
+    return best.model;
   }
 
   // A provider/modelId that matched nothing under that provider retries the
@@ -321,14 +320,11 @@ function clampThinking(model: PiModel, level: ThinkingLevel): ThinkingLevel {
   if (supported.includes(level)) {
     return level;
   }
-
-  for (let index = THINKING_LEVELS.indexOf(level); index >= 0; index--) {
-    const candidate = THINKING_LEVELS[index];
-    if (candidate && supported.includes(candidate)) {
-      return candidate;
-    }
-  }
-  return supported[0] ?? "off";
+  const start = THINKING_LEVELS.indexOf(level);
+  const candidate = THINKING_LEVELS.slice(0, start + 1)
+    .reverse()
+    .find((entry: ThinkingLevel | undefined) => entry !== undefined && supported.includes(entry));
+  return candidate ?? supported[0] ?? "off";
 }
 
 // --- the resolver ------------------------------------------------------------
@@ -341,16 +337,16 @@ const resolveOne = Effect.fn("Resolve.task")(function* (
 ): Effect.fn.Return<ResolvedTask, ResolveError> {
   const wanted = pickModelRef(task, settings);
 
-  let model: PiModel;
-  if (wanted.value === undefined) {
-    if (!parent.model) {
-      return yield* new NoModelAvailable({
-        task: task.id,
-        reason: "no model was given and the session has none to inherit",
-      });
+  const model: PiModel = yield* Effect.gen(function* () {
+    if (wanted.value === undefined) {
+      if (!parent.model) {
+        return yield* new NoModelAvailable({
+          task: task.id,
+          reason: "no model was given and the session has none to inherit",
+        });
+      }
+      return parent.model;
     }
-    model = parent.model;
-  } else {
     const found = resolveModelRef(wanted.value, available, parent.model?.provider);
     if (!found) {
       return yield* new ModelNotFound({
@@ -359,8 +355,8 @@ const resolveOne = Effect.fn("Resolve.task")(function* (
         available: available.map(modelKey).sort(),
       });
     }
-    model = found;
-  }
+    return found;
+  });
 
   const level = pickThinking(task, settings, parent);
   const resolved = yield* resolveThinkingFor(task, model, level);

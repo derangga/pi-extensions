@@ -233,6 +233,33 @@ describe("Manager.start", () => {
     expect(seen[1]).toContain("## Output of up");
     expect(seen[1]).toContain("use THE FACT");
     expect(outputs(run).down).toBe("synthesised");
+    // The view reports what the child was sent, not the template it came from.
+    const down = run.tasks.find((entry) => entry.id === "down")!;
+    // `task` stays the short label; `prompt` is the instruction as sent.
+    expect(down.task).toBe("read");
+    expect(down.prompt).toBe(seen[1]);
+    expect(down.prompt).toContain("use THE FACT");
+  });
+
+  it("reports no prompt for a task that never dispatched", async () => {
+    const run = await withManager([], (manager) =>
+      Effect.gen(function* () {
+        const started = yield* manager.start(
+          request(
+            [task({ id: "up", prompt: "gather" }), task({ id: "down", needs: ["up"] })],
+            childFactory((prompt) => (prompt.startsWith("gather") ? "" : "should not run")),
+          ),
+        );
+        yield* manager.wait(started.id, undefined);
+        return yield* manager.view(started.id);
+      }),
+    );
+
+    const byId = (id: string) => run.tasks.find((entry) => entry.id === id)!;
+    expect(byId("down").status).toBe("skipped");
+    expect(byId("down").prompt).toBeUndefined();
+    expect(byId("up").prompt).toBe("gather");
+    expect(byId("up").task).toBe("read");
   });
 
   it("skips a dependent when its upstream produced nothing", async () => {
@@ -320,6 +347,50 @@ describe("Manager.wait", () => {
     }
     expect(outcome.messages).toHaveLength(1);
     expect(outcome.messages[0]).toMatchObject({ kind: "ask", text: "which branch?" });
+  });
+
+  it("reports which child is blocked and on what, then clears it", async () => {
+    const blocked: { id: string; question: string }[] = [];
+    const run = await withManager(
+      [],
+      (manager) =>
+        Effect.gen(function* () {
+          const started = yield* manager.start(
+            request(
+              [task({ id: "a" })],
+              childFactory(async (_prompt, options) => {
+                const ask = options.customTools?.find((tool) => tool.name === "ask_parent");
+                await ask!.execute(
+                  "call-1",
+                  { question: "which branch?" },
+                  undefined,
+                  undefined,
+                  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+                  undefined as never,
+                );
+                return "done";
+              }),
+            ),
+          );
+          yield* manager.wait(started.id, undefined);
+          yield* manager.reply(started.id, "a", "main");
+          yield* manager.wait(started.id, undefined);
+          return yield* manager.view(started.id);
+        }),
+      {},
+      (runs) => {
+        for (const task_ of runs.flatMap((entry) => entry.tasks)) {
+          if (task_.waiting) {
+            blocked.push({ id: task_.id, question: task_.waiting.question });
+          }
+        }
+      },
+    );
+
+    expect(blocked.map((entry) => entry.question)).toContain("which branch?");
+    expect(blocked.every((entry) => entry.id === "a")).toBe(true);
+    // The channel scope closes before the task settles, so nothing is stale.
+    expect(run.tasks[0]?.waiting).toBeUndefined();
   });
 
   it("resumes a waiting child with the parent's reply", async () => {

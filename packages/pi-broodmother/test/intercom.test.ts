@@ -9,6 +9,7 @@ import {
   PARKED_MESSAGE_CAP,
   PARENT_REPLY_TIMEOUT,
   TASK_ENDED_REPLY,
+  type AskWaiting,
   type ParentDeliveryMode,
   type ParentTraffic,
   type TaskAddress,
@@ -261,15 +262,16 @@ describe("Intercom", () => {
     expect(deliveries[0]!.message).toContain("Stop and diagnose");
   });
 
-  it("reports waiting transitions without allowing observer failures to strand asks", async () => {
-    const transitions: boolean[] = [];
+  it("reports the question it is waiting on, and clears it on reply", async () => {
+    const transitions: (AskWaiting | undefined)[] = [];
+    const before = Date.now();
     const answer = await runIntercom(
       Effect.gen(function* () {
         const intercom = yield* Intercom;
         const channel = yield* intercom.openTask(address, {
-          onWaitingChange: (waiting) => {
-            transitions.push(waiting);
-            if (waiting) {
+          onWaitingChange: (ask) => {
+            transitions.push(ask);
+            if (ask) {
               throw new Error("broken observer");
             }
           },
@@ -281,8 +283,33 @@ describe("Intercom", () => {
       }),
     );
 
+    // A throwing observer must not strand the child on its latch.
     expect(answer).toBe("yes");
-    expect(transitions).toEqual([true, false]);
+    expect(transitions).toHaveLength(2);
+    expect(transitions[0]?.question).toBe("Continue?");
+    expect(transitions[0]?.since).toBeGreaterThanOrEqual(before);
+    expect(transitions[1]).toBeUndefined();
+  });
+
+  it("clears the question when the task ends without an answer", async () => {
+    const transitions: (AskWaiting | undefined)[] = [];
+    await runIntercom(
+      Effect.gen(function* () {
+        const intercom = yield* Intercom;
+        yield* Effect.scoped(
+          Effect.gen(function* () {
+            const channel = yield* intercom.openTask(address, {
+              onWaitingChange: (ask) => transitions.push(ask),
+            });
+            yield* channel.ask("Continue?").pipe(Effect.forkChild);
+            yield* Effect.yieldNow;
+          }),
+        );
+      }),
+    );
+
+    expect(transitions[0]?.question).toBe("Continue?");
+    expect(transitions.at(-1)).toBeUndefined();
   });
 });
 

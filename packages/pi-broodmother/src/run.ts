@@ -14,6 +14,7 @@ import {
 import {
   createIntercomTools,
   Intercom,
+  type AskWaiting,
   type ParentTraffic,
   type ReplyOutcome,
   type TaskAddress,
@@ -69,6 +70,18 @@ export interface TaskView {
   readonly model: string;
   readonly thinking: ThinkingLevel;
   readonly status: TaskStatus;
+  /**
+   * What the child was sent, which is `task` with every `{previous}` filled in
+   * from upstream output. Undefined until the task dispatches, so a pending or
+   * skipped task has none. Read `task` for the template the orchestrator wrote.
+   */
+  readonly prompt: string | undefined;
+  /**
+   * Set while the child is blocked on `ask_parent`, cleared when it is answered
+   * or the task ends. Reading it consumes nothing: the question still reaches
+   * the parent through the parked queue exactly as before.
+   */
+  readonly waiting: AskWaiting | undefined;
   readonly outcome: ChildOutcome | undefined;
   readonly output: string | undefined;
   readonly sessionFile: string | undefined;
@@ -80,6 +93,12 @@ export interface TaskView {
   readonly cost: number;
   /** The last tool the child called, as a short phrase. */
   readonly activity: string | undefined;
+  /**
+   * When the child last showed any sign of life. Undefined until it does,
+   * which is why a reader falls back to `startedAt`: a child that has said
+   * nothing at all since dispatch is the case most worth seeing.
+   */
+  readonly lastActivityAt: number | undefined;
   /** Undefined until the task starts. Elapsed is the caller's to compute. */
   readonly startedAt: number | undefined;
   readonly endedAt: number | undefined;
@@ -233,8 +252,15 @@ interface TaskState {
   /** Completed once, when the task reaches a terminal status. */
   readonly settled: Deferred.Deferred<void>;
   status: TaskStatus;
+  /** The composed prompt, set at dispatch. See `TaskView.prompt`. */
+  prompt: string | undefined;
+  /** The ask this child is blocked on. See `TaskView.waiting`. */
+  waiting: AskWaiting | undefined;
   result: ChildRunResult | undefined;
   progress: TaskProgress;
+  /** See `TaskView.lastActivityAt`. Written without notifying: the widget
+   * pulls a fresh view on every repaint, so a ping needs no snapshot. */
+  lastActivityAt: number | undefined;
   startedAt: number | undefined;
   endedAt: number | undefined;
   missing: readonly string[];
@@ -267,15 +293,18 @@ function viewTask(state: TaskState): TaskView {
     model: state.model,
     thinking: state.thinking,
     status: state.status,
+    prompt: state.prompt,
+    waiting: state.waiting,
     outcome: state.result?.outcome,
     output: state.result?.output,
-    sessionFile: state.result?.sessionFile,
+    sessionFile: state.result?.sessionFile ?? state.progress.sessionFile,
     turns: state.result?.turns ?? 0,
     toolCalls: state.progress.toolCalls,
     tokens: state.progress.tokens,
     billedTokens: state.progress.billedTokens,
     cost: state.progress.cost,
     activity: state.progress.activity,
+    lastActivityAt: state.lastActivityAt,
     startedAt: state.startedAt,
     endedAt: state.endedAt,
     missing: state.missing,
@@ -482,12 +511,18 @@ export class Manager extends Context.Service<
 
             const address: TaskAddress = { runId: run.id, taskId: state.id, task: state.task };
             state.status = "running";
+            state.prompt = prompt;
             state.startedAt = Date.now();
             yield* Effect.sync(changed);
 
             const result = yield* Effect.scoped(
               Effect.gen(function* () {
-                const channel = yield* intercom.openTask(address);
+                const channel = yield* intercom.openTask(address, {
+                  onWaitingChange: (ask) => {
+                    state.waiting = ask;
+                    changed();
+                  },
+                });
                 return yield* runChildLifecycle({
                   child: {
                     cwd: request.cwd,
@@ -504,6 +539,12 @@ export class Manager extends Context.Service<
                   onProgress: (progress) => {
                     state.progress = progress;
                     changed();
+                  },
+                  // No changed(): this fires per token, and changed() rebuilds
+                  // every view of every run. The widget pulls a fresh view on
+                  // each repaint, so the next heartbeat sees this anyway.
+                  onActivity: () => {
+                    state.lastActivityAt = Date.now();
                   },
                   ...(request.create ? { create: request.create } : {}),
                 });
@@ -605,8 +646,11 @@ export class Manager extends Context.Service<
               maxTurns: request_.maxTurns ?? current.maxTurns,
               settled: yield* Deferred.make<void>(),
               status: "pending",
+              prompt: undefined,
+              waiting: undefined,
               result: undefined,
               progress: NO_PROGRESS,
+              lastActivityAt: undefined,
               startedAt: undefined,
               endedAt: undefined,
               missing: [],

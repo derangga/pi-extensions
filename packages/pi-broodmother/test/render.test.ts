@@ -38,6 +38,8 @@ function taskView(fields: Partial<TaskView> = {}): TaskView {
     model: "anthropic/claude-opus-5",
     thinking: "off",
     status: "running",
+    prompt: undefined,
+    waiting: undefined,
     outcome: undefined,
     output: undefined,
     sessionFile: undefined,
@@ -47,6 +49,7 @@ function taskView(fields: Partial<TaskView> = {}): TaskView {
     billedTokens: 9500,
     cost: 0.0123,
     activity: "Grep useEffect",
+    lastActivityAt: undefined,
     startedAt: NOW - 12_000,
     endedAt: undefined,
     missing: [],
@@ -124,6 +127,104 @@ describe("widgetLines", () => {
 
     const [, done] = widgetLines([runView([settled()])], theme, NOW);
     expect(done).not.toContain("→ Grep useEffect");
+  });
+
+  it("shows that a child is blocked on a question, and for how long", () => {
+    const [, blocked] = widgetLines(
+      [runView([taskView({ waiting: { question: "which schema?", since: NOW - 521_000 } })])],
+      theme,
+      NOW,
+    );
+    expect(blocked).toContain("⏸");
+    expect(blocked).toContain("asks · 8m41s");
+    // The ask takes the activity slot: a blocked child has no current call.
+    expect(blocked).not.toContain("→ Grep useEffect");
+    // The question itself belongs to the expanded result row, not this line.
+    expect(blocked).not.toContain("which schema?");
+    expect(blocked).toContain("3 tools · 1.5k tok");
+  });
+
+  it("stops showing an ask once the task is done", () => {
+    const [, done] = widgetLines(
+      [runView([settled({ waiting: { question: "which schema?", since: NOW - 5_000 } })])],
+      theme,
+      NOW,
+    );
+    expect(done).not.toContain("⏸");
+    expect(done).not.toContain("asks");
+    expect(done).toContain("✓");
+  });
+
+  it("stays silent about a child that is working normally", () => {
+    // Every tool call, token and message resets the clock, so during ordinary
+    // work this number sits near zero. Printing it would be noise on every row.
+    const [, busy] = widgetLines(
+      [runView([taskView({ lastActivityAt: NOW - 4_000 })])],
+      theme,
+      NOW,
+    );
+    expect(busy).not.toContain("quiet");
+    expect(busy).toContain("→ Grep useEffect");
+  });
+
+  it("says how long a child has been quiet, beside what it went quiet on", () => {
+    const [, hushed] = widgetLines(
+      [runView([taskView({ lastActivityAt: NOW - 192_000 })])],
+      theme,
+      NOW,
+    );
+    expect(hushed).toContain("quiet 3m12s");
+    // Beside the activity, not instead of it: the tool it stalled on is the
+    // most useful thing on the line.
+    expect(hushed).toContain("→ Grep useEffect");
+    // Ahead of the stats, so a narrow terminal eats the numbers first.
+    expect(hushed).toMatch(/quiet 3m12s.*3 tools/);
+  });
+
+  it("counts from the start for a child that has never said anything", () => {
+    // A child silent since dispatch is the case most worth surfacing, so an
+    // absent timestamp must not read as "no news is good news".
+    const [, mute] = widgetLines(
+      [runView([taskView({ lastActivityAt: undefined, startedAt: NOW - 61_000 })])],
+      theme,
+      NOW,
+    );
+    expect(mute).toContain("quiet 1m1s");
+  });
+
+  it("leaves a blocked child to its own elapsed", () => {
+    // A blocked child is silent by any definition, but the ask already says how
+    // long and names the reason. Two durations would just invite comparison.
+    const [, blocked] = widgetLines(
+      [
+        runView([
+          taskView({
+            waiting: { question: "which schema?", since: NOW - 521_000 },
+            lastActivityAt: NOW - 521_000,
+          }),
+        ]),
+      ],
+      theme,
+      NOW,
+    );
+    expect(blocked).toContain("asks · 8m41s");
+    expect(blocked).not.toContain("quiet");
+  });
+
+  it("says nothing about a task that has not started or has finished", () => {
+    const [, pending] = widgetLines(
+      [runView([taskView({ status: "pending", needs: ["up"], startedAt: undefined })])],
+      theme,
+      NOW,
+    );
+    expect(pending).not.toContain("quiet");
+
+    const [, done] = widgetLines(
+      [runView([settled({ lastActivityAt: NOW - 600_000 })])],
+      theme,
+      NOW,
+    );
+    expect(done).not.toContain("quiet");
   });
 
   it("says what a pending task is waiting for", () => {
@@ -295,6 +396,71 @@ describe("callLines", () => {
     expect(line).not.toContain("\n");
     expect(line.length).toBeLessThan(120);
   });
+
+  it("keeps every line of the prompt when expanded, beside the label", () => {
+    const prompt = "first line\nsecond line\nthird line";
+    const lines = callLines(
+      { tasks: [{ id: "one", agent: "a", task: "read code", prompt }] },
+      theme,
+      true,
+    );
+    expect(lines).toHaveLength(5);
+    // The row keeps the short label in both modes; only the block is new.
+    expect(lines[1]).toContain("one a");
+    expect(lines[1]).toContain("read code");
+    expect(lines[1]).not.toContain("first line");
+    expect(lines[2]).toContain("first line");
+    expect(lines[3]).toContain("second line");
+    expect(lines[4]).toContain("third line");
+  });
+
+  it("never expands the label, which is three words and not the prompt", () => {
+    const lines = callLines(
+      { tasks: [{ agent: "a", task: "read code", prompt: "the real instruction" }] },
+      theme,
+      true,
+    );
+    expect(lines).toHaveLength(3);
+    expect(lines[2]).toContain("the real instruction");
+    expect(lines[2]).not.toContain("read code");
+  });
+
+  it("does not truncate a long single-line prompt when expanded", () => {
+    const prompt = "y".repeat(200);
+    const lines = callLines({ tasks: [{ agent: "a", prompt }] }, theme, true);
+    expect(lines[2]).toContain(prompt);
+    expect(lines[2]).not.toContain("…");
+  });
+
+  it("caps the expanded prompt and says how many lines it dropped", () => {
+    const prompt = Array.from({ length: 26 }, (_, index) => `line ${index + 1}`).join("\n");
+    const lines = callLines({ tasks: [{ agent: "a", prompt }] }, theme, true);
+    // header, task, 20 prompt lines, pointer
+    expect(lines).toHaveLength(23);
+    expect(lines[21]).toContain("line 20");
+    expect(lines[22]).toContain("+6 lines");
+    expect(lines[22]).not.toContain("line 21");
+  });
+
+  it("says one line rather than 1 lines", () => {
+    const prompt = Array.from({ length: 21 }, (_, index) => `line ${index + 1}`).join("\n");
+    const lines = callLines({ tasks: [{ agent: "a", prompt }] }, theme, true);
+    expect(lines.at(-1)).toContain("+1 line");
+    expect(lines.at(-1)).not.toContain("+1 lines");
+  });
+
+  it("expands nothing for a task whose prompt is missing or not a string", () => {
+    const lines = callLines({ tasks: [{ agent: "a" }, { agent: "b", prompt: 12 }] }, theme, true);
+    expect(lines).toHaveLength(3);
+    expect(lines[1]).toContain("task_1 a");
+    expect(lines[2]).toContain("task_2 b");
+  });
+
+  it("drops blank trailing lines rather than spending the cap on them", () => {
+    const lines = callLines({ tasks: [{ agent: "a", prompt: "only line\n\n  \n" }] }, theme, true);
+    expect(lines).toHaveLength(3);
+    expect(lines[2]).toContain("only line");
+  });
 });
 
 describe("resultLines", () => {
@@ -304,7 +470,9 @@ describe("resultLines", () => {
       theme,
       false,
     );
-    expect(lines).toEqual(["2/2 done settled · 3.0k tok · $0.0246"]);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("2/2 done settled · 3.0k tok · $0.0246");
+    expect(lines[0]).toContain("ctrl+o to expand");
   });
 
   it("counts what did not finish cleanly", () => {
@@ -314,6 +482,50 @@ describe("resultLines", () => {
       false,
     );
     expect(lines[0]).toContain("1 not clean");
+  });
+
+  it("keeps a multi-line answer on multiple lines", () => {
+    // It used to run through `text`, which flattens every newline, and then a
+    // 120 character cut: 24k retained, one squashed line readable. Reading a
+    // prompt against the answer it produced is why this row expands at all.
+    const answer = ["## Findings", "", "1. The first thing", "2. The second thing"].join("\n");
+    const lines = resultLines(
+      runView([settled({ output: answer })], { finished: true }),
+      theme,
+      true,
+      NOW,
+    );
+    const text = lines.join("\n");
+    expect(text).toContain("output:");
+    expect(text).toContain("## Findings");
+    expect(text).toContain("2. The second thing");
+    // Four separate rows, not one joined line.
+    expect(lines.filter((line) => line.includes("The first thing"))).toHaveLength(1);
+    expect(text).not.toContain("## Findings 1. The first thing");
+  });
+
+  it("caps a long answer and says how much it held back", () => {
+    const answer = Array.from({ length: 26 }, (_, index) => `line ${index + 1}`).join("\n");
+    const lines = resultLines(
+      runView([settled({ output: answer })], { finished: true }),
+      theme,
+      true,
+      NOW,
+    );
+    const text = lines.join("\n");
+    expect(text).toContain("line 20");
+    expect(text).not.toContain("line 21");
+    expect(text).toContain("… +6 lines");
+  });
+
+  it("prints no output block for a task that produced nothing", () => {
+    const lines = resultLines(
+      runView([settled({ output: undefined })], { finished: true }),
+      theme,
+      true,
+      NOW,
+    );
+    expect(lines.join("\n")).not.toContain("output:");
   });
 
   it("expands to per-task rows carrying output and the transcript path", () => {
@@ -330,6 +542,58 @@ describe("resultLines", () => {
       NOW,
     );
     expect(lines.join("\n")).toContain("skipped: up produced nothing");
+  });
+
+  it("prints the prompt the child was sent, not the template", () => {
+    const lines = resultLines(
+      runView(
+        [settled({ task: "Review {previous}", prompt: "Review\n## up\nthe upstream text" })],
+        {
+          finished: true,
+        },
+      ),
+      theme,
+      true,
+      NOW,
+    );
+    const body = lines.join("\n");
+    expect(body).toContain("prompt:");
+    expect(body).toContain("## up");
+    expect(body).toContain("the upstream text");
+    expect(body).not.toContain("{previous}");
+  });
+
+  it("caps the prompt it prints and points at what it kept back", () => {
+    const prompt = Array.from({ length: 23 }, (_, index) => `line ${index + 1}`).join("\n");
+    const body = resultLines(
+      runView([settled({ prompt })], { finished: true }),
+      theme,
+      true,
+      NOW,
+    ).join("\n");
+    expect(body).toContain("line 20");
+    expect(body).not.toContain("line 21");
+    expect(body).toContain("+3 lines");
+  });
+
+  it("omits the prompt block for a task that never dispatched", () => {
+    const body = resultLines(
+      runView([taskView({ status: "skipped", missing: ["up"], endedAt: NOW })], { finished: true }),
+      theme,
+      true,
+      NOW,
+    ).join("\n");
+    expect(body).not.toContain("prompt:");
+  });
+
+  it("keeps the prompt out of the collapsed summary", () => {
+    const lines = resultLines(
+      runView([settled({ prompt: "the whole prompt" })], { finished: true }),
+      theme,
+      false,
+    );
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).not.toContain("the whole prompt");
   });
 });
 

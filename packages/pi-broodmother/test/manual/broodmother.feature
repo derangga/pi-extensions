@@ -180,6 +180,44 @@ Feature: Delegating research to child agents
     And the child resumes and reports the README's first line
 
   @interactive
+  Scenario: The widget names the child that is blocked, and for how long
+    Given I paste:
+      """
+      Call subagent ONCE with NO autoAwait and two tasks. First: id 'asker',
+      agent 'an indecisive reader', task 'ask then read', prompt 'Before doing
+      anything you MUST call ask_parent to ask which file to read:
+      packages/pi-broodmother/package.json or packages/pi-broodmother/README.md.
+      Wait for the answer, read only that file, and report its first line.'.
+      Second: id 'worker', agent 'a line counter', task 'count readme lines',
+      prompt 'Read packages/pi-broodmother/README.md and reply with only the
+      number of lines it has.'. Then end your turn without calling
+      subagent_result.
+      """
+    When asker asks
+    Then its row reads "⏸ an indecisive reader · asks · 4s" ahead of its counts
+    And worker's row keeps its own icon and its own activity
+    And the row does not quote the question anywhere
+    And the elapsed beside "asks" climbs a second at a time while nothing else moves
+    When I call reply_subagent with that taskId and "the README"
+    Then the ⏸ is gone before asker's next tool call shows up
+    # The elapsed number is the reason this row exists. The question itself
+    # reaches the parent either way, as a followUp message or as a parked
+    # subagent_result's return, and it then scrolls away. Only the row says
+    # which child is still stuck and how near it is to the ten minute timeout.
+
+  @interactive
+  Scenario: A blocked child's transcript is readable while it waits
+    Given asker from the scenario above is waiting and I have not replied
+    When I call subagent_result with NO wait
+    Then it prints a transcript path for asker
+    When I tail that file in another terminal
+    Then it already holds asker's turns up to the ask
+    And the ask_parent call is its last entry
+    # A running child reports its session file from the first progress report,
+    # so the path is real long before the task settles. This is what the README
+    # means when it says tail covers watching one child.
+
+  @interactive
   Scenario: An unanswered ask times out rather than hanging
     Given a child is waiting on ask_parent
     When I never answer
@@ -373,6 +411,134 @@ Feature: Delegating research to child agents
     Then the expanded rows come from the same run the summary text described
     # The result carries the run as structure, not just prose, so the two can
     # never disagree.
+
+  # -------------------------------------------------------- prompt visibility
+
+  @interactive
+  Scenario: The collapsed call row stays a summary
+    Given a subagent call of three tasks is in the transcript, not expanded
+    Then each task is one line: id, agent, any edge, and a short label
+    And no prompt text appears
+    # Three to five words per task is what the row is for. Anything longer
+    # belongs behind the expand.
+
+  @interactive
+  Scenario: Expanding a subagent call shows every prompt in full
+    Given I paste:
+      """
+      Call subagent ONCE with autoAwait true and two tasks. First: id 'a',
+      agent 'a version reader', task 'read version', prompt 'Read
+      packages/pi-broodmother/package.json and reply with only the version field
+      value. Do not explain. Do not read anything else. If the file is missing,
+      say so and stop.'. Second: id 'b', agent 'a licence reader', task 'read
+      licence', prompt 'Read packages/pi-broodmother/LICENSE and reply with only
+      the licence name.'.
+      """
+    When I expand that call
+    Then a's whole prompt is under a's row, on as many lines as it was written
+    And the sentence about a missing file is there, not cut at 64 characters
+    And b's whole prompt is under b's row
+    And each row still shows its short label above its prompt
+    # Collapsed, both prompts were a 64 character slice. This is the parity the
+    # spike was actually after: in Claude Code the prompt is visible because it
+    # is a tool argument and expanding shows it.
+
+  @interactive
+  Scenario: A prompt longer than twenty lines is capped, not spilled
+    Given a task whose prompt is thirty numbered lines
+    When I expand the call
+    Then twenty lines are printed
+    And the next line reads "… +10 lines"
+    And the cap applies per task, so a second task gets its own twenty
+    # Expanding is deliberate and the row scrolls, so the cap is generous. A
+    # budget shared across tasks would give a wide run two lines each, which is
+    # the truncation this escaped.
+
+  @interactive
+  Scenario: A chained task shows the prompt it was sent, not the template
+    Given I paste:
+      """
+      Call subagent ONCE with autoAwait true and two tasks. First: id 'a',
+      agent 'a version reader', task 'read version', prompt 'Read
+      packages/pi-broodmother/package.json and reply with only the version field
+      value.'. Second: id 'b', needs ['a'], agent 'an echo', task 'echo
+      upstream', prompt 'The version is {previous}. Reply with that exact string
+      and nothing else.'.
+      """
+    When I expand the call row
+    Then b's prompt still reads "{previous}", because nothing has run yet
+    When I expand the result row instead
+    Then b's block is headed "prompt:" and reads "The version is 0.1.0."
+    And "{previous}" appears nowhere in it
+    And a's block shows its prompt unchanged, having no edge to fill
+    # The call row reads tool arguments; substitution happens at dispatch. So
+    # the two rows answer different questions and both are worth having.
+
+  Scenario: The orchestrator is never billed for its own prompt
+    Given any settled run
+    When I call subagent_result, with and without verbose
+    Then neither report contains the prompt text
+    And both still name the transcript, the outcome and the output
+    # The report is the tool result the model reads. Sending its own
+    # instruction back, with the upstream output it already has attached, would
+    # charge it twice for nothing. The prompt is for the person watching.
+
+  # ------------------------------------------------------------ going quiet
+
+  @interactive
+  Scenario: A child that stops saying anything says so
+    Given I paste:
+      """
+      Call subagent ONCE with autoAwait true and one task: id 'a', agent 'a
+      sleeper', task 'sleep quietly', prompt 'Run exactly this bash command and
+      nothing else, then reply "done": sleep 90'.
+      """
+    When the child starts the sleep and I watch the widget
+    Then for the first 30 seconds the line reads only "→ Bash sleep 90"
+    And after that it grows a "quiet 31s" segment that counts up each second
+    And the tool it went quiet on is still on the line beside the counter
+    And the icon and its colour never change
+    When the sleep finishes and the child replies
+    Then the counter disappears on the next repaint
+    # sleep writes nothing to stdout, so no tool_execution_update ever fires.
+    # That is the real shape of this: not "slow" but "silent". A build that
+    # streams output resets the clock and never shows a counter at all.
+
+  @interactive
+  Scenario: A streaming command stays quiet about being quiet
+    Given a task whose prompt runs 'for i in $(seq 1 60); do echo $i; sleep 1; done'
+    When I watch the widget for the whole minute
+    Then no "quiet" segment ever appears
+    # Only bash and powershell emit tool_execution_update. This is the case that
+    # separates a working child from a stalled one, and if it ever regresses the
+    # counter starts crying wolf on every healthy build.
+
+  Scenario: A blocked child keeps its own clock
+    Given a child parked on ask_parent for more than 30 seconds
+    When I look at the widget
+    Then the line reads "asks · <elapsed>" and carries no "quiet" segment
+    # Both would be true and they would differ by a second or two, which only
+    # invites the reader to work out why. The ask says it better: it names the
+    # reason and counts against the parent reply timeout.
+
+  # -------------------------------------------------- reading the answer back
+
+  @interactive
+  Scenario: The answer is readable against the prompt that produced it
+    Given I paste:
+      """
+      Call subagent ONCE with autoAwait true and one task: id 'a', agent 'a
+      lister', task 'list the rules', prompt 'Read CLAUDE.md and reply with
+      every rule heading as a numbered markdown list, one per line.'
+      """
+    When I expand the result row
+    Then the block headed "prompt:" shows what I sent
+    And below it a block headed "output:" shows the numbered list on many lines
+    And the list is not squashed onto a single line
+    And if the answer ran past 20 lines a "… +N lines" line says how many
+    # This is the loop the row exists for: read the instruction, read what came
+    # back, tighten the instruction. It was 120 flattened characters before, out
+    # of the 24k that was already being kept.
 
   # ---------------------------------------------------------------- events
 

@@ -23,6 +23,8 @@ function taskView(fields: Partial<TaskView> = {}): TaskView {
     model: "anthropic/claude-opus-5",
     thinking: "off",
     status: "settled",
+    prompt: "read the code in src/",
+    waiting: undefined,
     outcome: "completed",
     output: "the answer",
     sessionFile: "/sessions/a.jsonl",
@@ -32,6 +34,7 @@ function taskView(fields: Partial<TaskView> = {}): TaskView {
     billedTokens: 7200,
     cost: 0.0042,
     activity: "Grep useEffect",
+    lastActivityAt: undefined,
     startedAt: 1000,
     endedAt: 4000,
     missing: [],
@@ -167,6 +170,15 @@ describe("formatRun", () => {
     expect(text).toContain("transcript: /sessions/a.jsonl");
     expect(text).toContain("the answer");
     expect(text).not.toContain("model:");
+  });
+
+  it("never sends the prompt back to the orchestrator that wrote it", () => {
+    // formatRun becomes the tool result content. Echoing the prompt there bills
+    // the orchestrator for its own instruction plus the upstream output it
+    // already has. The prompt belongs in resultLines, which only the TUI reads.
+    const run = runView([taskView({ prompt: "the whole composed instruction" })]);
+    expect(formatRun(run)).not.toContain("the whole composed instruction");
+    expect(formatRun(run, { verbose: true })).not.toContain("the whole composed instruction");
   });
 
   it("adds model, thinking, turns and notes only when verbose", () => {

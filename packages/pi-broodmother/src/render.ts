@@ -1,7 +1,8 @@
 import type { ExtensionContext, Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
-import { type Component, truncateToWidth, type TUI } from "@earendil-works/pi-tui";
+import { getKeybindings, type Component, truncateToWidth, type TUI } from "@earendil-works/pi-tui";
 import { Predicate } from "effect";
 
+import type { AskWaiting } from "./intercom.js";
 import { aggregateUsage, type RunView, type TaskStatus, type TaskView } from "./run.js";
 type JsonValue =
   | string
@@ -20,6 +21,21 @@ export const WIDGET_KEY = "pi-broodmother";
 /** Header plus tasks. Past this the widget is eating the transcript. */
 export const WIDGET_MAX_LINES = 9;
 const GOAL_MAX = 64;
+/**
+ * How long a child must show no sign of life before the widget says so. Not a
+ * verdict that anything is wrong: a command that writes nothing until it exits
+ * is silent and healthy. It is a floor on rendering, because every tool call,
+ * token and message resets the clock, so during ordinary work this number sits
+ * near zero and printing it would be noise on every line.
+ */
+const QUIET_AFTER_MS = 30_000;
+/**
+ * How much of a prompt the expanded call row prints. Per task, not per call: a
+ * shared budget would give a wide run two lines each, which is the truncation
+ * this exists to escape. A chained prompt carries its upstream output, so the
+ * cap is what keeps one edge from filling the screen.
+ */
+const PROMPT_MAX_LINES = 20;
 
 /**
  * Pi's Component is a synchronous `render(width)` that repaints several times a
@@ -27,6 +43,11 @@ const GOAL_MAX = 64;
  * Effect reaches here.
  */
 export function statusIcon(task: TaskView): string {
+  // A child blocked on a question is running, but saying so hides the one row
+  // the reader can act on.
+  if (task.waiting && task.status === "running") {
+    return "⏸";
+  }
   switch (task.status) {
     case "pending":
       return "○";
@@ -40,6 +61,9 @@ export function statusIcon(task: TaskView): string {
 }
 
 function statusColor(task: TaskView): ThemeColor {
+  if (task.waiting && task.status === "running") {
+    return "warning";
+  }
   switch (task.status) {
     case "pending":
       return "muted";
@@ -73,12 +97,16 @@ export function formatCost(cost: number): string | undefined {
   return cost >= 0.0001 ? `$${cost.toFixed(4)}` : "<$0.0001";
 }
 
+export function formatDuration(ms: number): string {
+  const seconds = Math.max(0, Math.round(ms / 1000));
+  return seconds >= 60 ? `${Math.floor(seconds / 60)}m${seconds % 60}s` : `${seconds}s`;
+}
+
 export function formatElapsed(task: TaskView, now: number): string {
   if (task.startedAt === undefined) {
     return "–";
   }
-  const seconds = Math.max(0, Math.round(((task.endedAt ?? now) - task.startedAt) / 1000));
-  return seconds >= 60 ? `${Math.floor(seconds / 60)}m${seconds % 60}s` : `${seconds}s`;
+  return formatDuration((task.endedAt ?? now) - task.startedAt);
 }
 
 const TERMINAL: readonly TaskStatus[] = ["settled", "skipped"];
@@ -100,13 +128,53 @@ export function widgetLine(task: TaskView, theme: Theme, now: number): string {
     "dim",
     `${task.toolCalls} tools · ${formatTokens(task.tokens)} tok · ${cost ? `${cost} · ` : ""}${formatElapsed(task, now)}`,
   );
+  // The ask takes the activity slot rather than sitting beside it. A blocked
+  // child's last tool call was the ask itself, so printing both says it twice.
+  const blocked = !isDone(task) && task.waiting ? task.waiting : undefined;
+  const asks = blocked
+    ? `${theme.fg("warning", `asks · ${formatDuration(now - blocked.since)}`)} · `
+    : "";
   const activity =
-    !isDone(task) && task.activity ? `${theme.fg("muted", `→ ${task.activity}`)} · ` : "";
-  const waiting =
+    !isDone(task) && !blocked && task.activity
+      ? `${theme.fg("muted", `→ ${task.activity}`)} · `
+      : "";
+  // Beside the activity rather than replacing it: when a child goes quiet, the
+  // tool it went quiet on is the most useful thing on the line. Ahead of the
+  // stats, so the narrow-terminal truncation eats the numbers first.
+  const quiet = quietSegment(task, blocked, theme, now);
+  const waitsFor =
     task.status === "pending" && task.needs.length > 0
       ? `${theme.fg("muted", `↳ waits ${task.needs.join(", ")}`)} · `
       : "";
-  return `${icon} ${name} · ${waiting}${activity}${stats}`;
+  return `${icon} ${name} · ${waitsFor}${asks}${activity}${quiet}${stats}`;
+}
+
+/**
+ * How long the child has been silent, once that is long enough to be worth
+ * saying. "quiet" and not "idle" or "stuck": all this measures is an absence of
+ * output, and a child mid-build is neither idle nor stuck.
+ *
+ * A blocked child is skipped because the ask already carries its own elapsed,
+ * measured against the parent reply timeout, which says the same thing better
+ * and names the reason. A task that has not started is skipped because waiting
+ * on an upstream edge is the graph working, not a child going quiet.
+ */
+function quietSegment(
+  task: TaskView,
+  blocked: AskWaiting | undefined,
+  theme: Theme,
+  now: number,
+): string {
+  if (isDone(task) || blocked || task.status !== "running") {
+    return "";
+  }
+  // Falls back to startedAt: a child that has said nothing at all since
+  // dispatch is the case most worth surfacing, not the one to stay silent on.
+  const since = task.lastActivityAt ?? task.startedAt;
+  if (since === undefined || now - since < QUIET_AFTER_MS) {
+    return "";
+  }
+  return `${theme.fg("muted", `quiet ${formatDuration(now - since)}`)} · `;
 }
 
 export function widgetLines(runs: readonly RunView[], theme: Theme, now: number): string[] {
@@ -231,6 +299,26 @@ export function createWidgetHost(
   let tui: TUI | undefined;
   let mounted = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let heartbeat: ReturnType<typeof setInterval> | undefined;
+
+  const hasUnsettled = (): boolean => runs().some((run) => !run.finished);
+
+  const startHeartbeat = (): void => {
+    if (heartbeat) {
+      return;
+    }
+    heartbeat = setInterval(() => {
+      tui?.requestRender();
+    }, 1000);
+    heartbeat.unref?.();
+  };
+
+  const stopHeartbeat = (): void => {
+    if (heartbeat) {
+      clearInterval(heartbeat);
+      heartbeat = undefined;
+    }
+  };
 
   const mount = (ctx: ExtensionContext): void => {
     if (mounted || !ctx.hasUI) {
@@ -257,22 +345,27 @@ export function createWidgetHost(
         return;
       }
       mount(ctx);
-      if (timer) {
-        return;
+      if (!timer) {
+        timer = setTimeout(() => {
+          timer = undefined;
+          tui?.requestRender();
+        }, throttleMs);
+        // Keeping the process alive for a repaint would hold a CLI session open
+        // after its work is done.
+        timer.unref?.();
       }
-      timer = setTimeout(() => {
-        timer = undefined;
-        tui?.requestRender();
-      }, throttleMs);
-      // Keeping the process alive for a repaint would hold a CLI session open
-      // after its work is done.
-      timer.unref?.();
+      if (hasUnsettled()) {
+        startHeartbeat();
+      } else {
+        stopHeartbeat();
+      }
     },
     clear(ctx) {
       if (timer) {
         clearTimeout(timer);
       }
       timer = undefined;
+      stopHeartbeat();
       tui = undefined;
       if (!mounted) {
         return;
@@ -293,7 +386,10 @@ export function createWidgetHost(
 interface PartialTask {
   readonly id?: JsonValue | undefined;
   readonly agent?: JsonValue | undefined;
+  /** The three-to-five word label, which is what the row shows. */
   readonly task?: JsonValue | undefined;
+  /** The whole instruction. Only the expanded row has room for it. */
+  readonly prompt?: JsonValue | undefined;
   readonly needs?: JsonValue | undefined;
 }
 
@@ -314,11 +410,42 @@ function edges(needs: unknown): string[] {
 }
 
 /**
+ * The prompt as the child will read it, not as `text` would flatten it. A goal
+ * on one line wants its whitespace collapsed; a prompt of twenty does not.
+ */
+function promptLines(value: unknown): readonly string[] {
+  if (!Predicate.isString(value)) {
+    return [];
+  }
+  const body = value.trim();
+  return body === "" ? [] : body.split("\n");
+}
+
+/**
+ * A prompt as indented lines, capped, with a line saying what was held back.
+ * The call row and the result row share it so the cap and the pointer cannot
+ * drift apart: they are showing the same prompt at two moments.
+ */
+function promptBlock(value: unknown, theme: Theme, indent: string): string[] {
+  const prompt = promptLines(value);
+  const kept = prompt.slice(0, PROMPT_MAX_LINES).map((line) => `${indent}${theme.fg("dim", line)}`);
+  const dropped = prompt.length - PROMPT_MAX_LINES;
+  if (dropped <= 0) {
+    return kept;
+  }
+  const held = `… +${dropped} ${dropped === 1 ? "line" : "lines"}`;
+  return [...kept, `${indent}${theme.fg("muted", held)}`];
+}
+
+/**
  * Drawn while the arguments are still streaming, so every field is optional and
  * every type is a guess. It costs nothing and it is the difference between
  * watching a plan appear and watching a spinner.
+ *
+ * Expanded, it prints each task's prompt instead of a 64 character slice of it,
+ * which is the only place the prompt the orchestrator wrote is readable in full.
  */
-export function callLines(args: unknown, theme: Theme): string[] {
+export function callLines(args: unknown, theme: Theme, expanded = false): string[] {
   // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   const tasks: PartialTask[] = Array.isArray((args as { tasks?: unknown } | undefined)?.tasks)
     ? // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
@@ -344,6 +471,11 @@ export function callLines(args: unknown, theme: Theme): string[] {
     lines.push(
       `  ${theme.fg("muted", id)} ${theme.fg("accent", agent)}${edge}${goal ? ` ${theme.fg("dim", truncate(goal))}` : ""}`,
     );
+    if (expanded) {
+      // The prompt as typed. `{previous}` is still a hole here, because the
+      // call row reads tool arguments and substitution happens at dispatch.
+      lines.push(...promptBlock(task.prompt, theme, "    "));
+    }
   }
   return lines;
 }
@@ -366,16 +498,50 @@ function summaryLine(run: RunView, theme: Theme): string {
   return `${theme.fg(failed > 0 ? "warning" : "success", `${done}/${run.tasks.length} done`)} ${theme.fg("muted", state)} · ${tail}`;
 }
 
+function formatExpandKey(keys: readonly string[]): string {
+  if (keys.length === 0) {
+    return "ctrl+o";
+  }
+  const raw = keys.join("/");
+  return raw
+    .split("/")
+    .map((part) =>
+      part
+        .split("+")
+        .map((segment) =>
+          process.platform === "darwin" && segment.toLowerCase() === "alt" ? "option" : segment,
+        )
+        .join("+"),
+    )
+    .join("/");
+}
+
+function expandHint(theme: Theme): string {
+  let key = "ctrl+o";
+  try {
+    // SAFETY: pi-coding-agent registers "app.tools.expand" on the shared pi-tui KeybindingsManager, which the TUI type doesn't list; runtime getKeys accepts any string and returns string[].
+    const keys = (getKeybindings() as { getKeys: (id: string) => string[] }).getKeys(
+      "app.tools.expand",
+    );
+    if (Array.isArray(keys) && keys.length > 0) {
+      key = formatExpandKey(keys);
+    }
+  } catch {
+    // No keybindings available yet, keep the default.
+  }
+  return `${theme.fg("dim", key)}${theme.fg("muted", " to expand")}`;
+}
+
 export function resultLines(
   run: RunView,
   theme: Theme,
   expanded: boolean,
   now: number = Date.now(),
 ): string[] {
-  const lines = [summaryLine(run, theme)];
   if (!expanded) {
-    return lines;
+    return [`${summaryLine(run, theme)} · ${expandHint(theme)}`];
   }
+  const lines = [summaryLine(run, theme)];
 
   for (const task of run.tasks) {
     lines.push(`  ${widgetLine(task, theme, now)}`);
@@ -385,9 +551,20 @@ export function resultLines(
       );
       continue;
     }
-    const body = text(task.output);
-    if (body) {
-      lines.push(`    ${theme.fg("dim", truncate(body, 120))}`);
+    // What the child was actually sent, upstream output spliced in. Labelled,
+    // because an unlabelled block above the output reads as more output.
+    const prompt = promptBlock(task.prompt, theme, "      ");
+    if (prompt.length > 0) {
+      lines.push(`    ${theme.fg("muted", "prompt:")}`, ...prompt);
+    }
+    // The answer gets the same treatment as the prompt above it. It used to go
+    // through `text`, which flattens every newline, and then a 120 character
+    // cut, so a multi-line answer arrived as one squashed line: 24k retained by
+    // RESULT_CAP_BYTES, 120 of it readable. Reading a prompt against the answer
+    // it produced is the whole reason to expand this row.
+    const answer = promptBlock(task.output, theme, "      ");
+    if (answer.length > 0) {
+      lines.push(`    ${theme.fg("muted", "output:")}`, ...answer);
     }
     if (task.sessionFile) {
       lines.push(`    ${theme.fg("muted", task.sessionFile)}`);
