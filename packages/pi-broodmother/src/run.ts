@@ -379,7 +379,7 @@ const readAgentFile = Effect.fn("Manager.agentFile")(function* (
   agent: string,
   cwd: string,
 ): Effect.fn.Return<AgentFile | undefined, AgentFileUnreadable> {
-  return yield* Effect.try({
+  return yield* Effect.tryPromise({
     try: () => loadAgentFile(agent, cwd),
     catch: (cause) =>
       new AgentFileUnreadable({
@@ -635,9 +635,17 @@ export class Manager extends Context.Service<
           const current = yield* settings.current;
           const plan = yield* planGraph(request.tasks, current.maxTasks);
 
-          const files = yield* Effect.forEach(request.tasks, (task) =>
-            readAgentFile(task.agent, request.cwd),
+          // One read per distinct name: a batch often names the same agent
+          // twice, and every read is a filesystem round trip the start path
+          // waits on before a single child exists.
+          const agents = [...new Set(request.tasks.map((task) => task.agent))];
+          const loaded = yield* Effect.forEach(agents, (agent) =>
+            readAgentFile(agent, request.cwd),
           );
+          const byAgent = new Map<string, AgentFile | undefined>(
+            agents.map((agent, index) => [agent, loaded[index]] as const),
+          );
+          const files = request.tasks.map((task) => byAgent.get(task.agent));
 
           const choices: TaskChoice[] = plan.map((task) => {
             const request_ = request.tasks[task.index]!;

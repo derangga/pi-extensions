@@ -1,7 +1,9 @@
 import type { AgentSession, AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 import { Effect, Layer } from "effect";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import { loadAgentFile } from "../src/agent-file.js";
+import type * as agentFileModule from "../src/agent-file.js";
 import type { ChildSessionOptions } from "../src/child.js";
 import { Intercom, type ParentDeliveryMode } from "../src/intercom.js";
 import type { ChildFactory } from "../src/lifecycle.js";
@@ -20,6 +22,12 @@ import {
 } from "../src/run.js";
 import { DEFAULT_SETTINGS, Settings, type SubagentSettings } from "../src/settings.js";
 import type { PiModel } from "../src/thinking.js";
+
+/** Wraps the real agent-file reader in a spy, so a test can count the reads. */
+vi.mock("../src/agent-file.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof agentFileModule>();
+  return { ...actual, loadAgentFile: vi.fn<typeof actual.loadAgentFile>(actual.loadAgentFile) };
+});
 
 // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
 const rawModel: unknown = {
@@ -185,6 +193,28 @@ function outputs(run: RunView): Record<string, string | undefined> {
 }
 
 describe("Manager.start", () => {
+  it("reads each distinct agent file once per start", async () => {
+    const mocked = vi.mocked(loadAgentFile);
+    mocked.mockClear();
+    const sent: Sent[] = [];
+    await withManager(sent, (manager) =>
+      Effect.gen(function* () {
+        const started = yield* manager.start(
+          request(
+            Array.from({ length: 16 }, (_, index) =>
+              task({ id: `t${index + 1}`, agent: "same agent", prompt: `prompt ${index + 1}` }),
+            ),
+            childFactory((prompt) => `answered ${prompt}`),
+          ),
+        );
+        yield* manager.wait(started.id, undefined);
+      }),
+    );
+
+    expect(mocked).toHaveBeenCalledTimes(1);
+    expect(mocked).toHaveBeenCalledWith("same agent", "/repo");
+  });
+
   it("runs an edgeless batch in parallel and reports every output", async () => {
     const sent: Sent[] = [];
     const run = await withManager(sent, (manager) =>

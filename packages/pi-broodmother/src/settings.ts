@@ -245,7 +245,8 @@ export class Settings extends Context.Service<
   );
 }
 
-function isMissingFile(cause: unknown): boolean {
+/** A Node fs error for a path that does not exist, as opposed to one that is broken. */
+export function isMissingFile(cause: unknown): boolean {
   return Predicate.hasProperty(cause, "code") && cause.code === "ENOENT";
 }
 
