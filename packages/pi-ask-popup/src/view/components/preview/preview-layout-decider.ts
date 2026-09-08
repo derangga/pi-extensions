@@ -198,6 +198,38 @@ export function crossTabLeftWidthWithDonation(
 }
 
 /**
+ * Widths kept before the memo below is dropped wholesale. A frame asks for one;
+ * the rest of the entries are old terminal sizes from a resize drag.
+ */
+const PANE_WIDTH_MEMO_MAX_ENTRIES = 16;
+
+/**
+ * Memoize a pane-width computation. For `crossTabLeftWidthWithDonation` and
+ * `crossTabPreviewBudget`, whose other inputs are fixed for the life of a
+ * questionnaire: both scan every tab, every option and every preview source
+ * line, and the pane width only changes on resize, yet the callers ask four to
+ * five times a frame (`focusedItemRowRange`, `naturalHeight`,
+ * `maxNaturalHeight`, `renderSideBySide`).
+ */
+export function memoizeByPaneWidth(
+  compute: (paneWidth: number) => number,
+): (paneWidth: number) => number {
+  const cache = new Map<number, number>();
+  return (paneWidth: number): number => {
+    const hit = cache.get(paneWidth);
+    if (hit !== undefined) {
+      return hit;
+    }
+    const value = compute(paneWidth);
+    if (cache.size >= PANE_WIDTH_MEMO_MAX_ENTRIES) {
+      cache.clear();
+    }
+    cache.set(paneWidth, value);
+    return value;
+  };
+}
+
+/**
  * Width allocation for side-by-side mode.
  * `adaptiveLeft` is the pre-computed left column width (from `adaptiveLeftWidth`,
  * cross-tab aggregated). The Math.max(1, ...) calls keep both columns >= 1 col on

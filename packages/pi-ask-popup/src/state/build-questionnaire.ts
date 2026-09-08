@@ -10,7 +10,10 @@ import {
 import { MultiSelectView } from "../view/components/multi-select-view.js";
 import { OptionListView } from "../view/components/option-list-view.js";
 import { PreviewBlockRenderer } from "../view/components/preview/preview-block-renderer.js";
-import { crossTabLeftWidthWithDonation } from "../view/components/preview/preview-layout-decider.js";
+import {
+  crossTabLeftWidthWithDonation,
+  memoizeByPaneWidth,
+} from "../view/components/preview/preview-layout-decider.js";
 import { PreviewPane, type PreviewPaneProps } from "../view/components/preview/preview-pane.js";
 import { SubmitPicker } from "../view/components/submit-picker.js";
 import { TabBar } from "../view/components/tab-bar.js";
@@ -215,8 +218,11 @@ class QuestionnaireBuilder {
     // objects first, as upstream did, only produced a shape that already
     // existed -- and produced it with an explicit undefined, which is a
     // different type from an absent key here.
-    const globalLeftWidth = (paneWidth: number): number =>
-      crossTabLeftWidthWithDonation(questions, itemsByTab, questions, paneWidth);
+    // Memoized: the questions and their rows are fixed for the life of the
+    // questionnaire, so the donation is pure of the pane width alone.
+    const globalLeftWidth = memoizeByPaneWidth((paneWidth: number): number =>
+      crossTabLeftWidthWithDonation(questions, itemsByTab, questions, paneWidth),
+    );
     for (const tab of tabs) {
       tab.preview.setGlobalLeftWidth(globalLeftWidth);
     }

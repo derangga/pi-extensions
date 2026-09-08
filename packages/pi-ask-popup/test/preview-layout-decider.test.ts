@@ -8,6 +8,7 @@ import {
   crossTabMaxLeftWidth,
   crossTabPreviewBudget,
   MAX_LEFT_RATIO,
+  memoizeByPaneWidth,
   MIN_LEFT,
   MIN_PREVIEW_WIDTH,
   PREVIEW_COLUMN_GAP,
@@ -289,5 +290,39 @@ describe("decideLayout", () => {
 
   it("documents the floor the README promises", () => {
     expect(PREVIEW_MIN_WIDTH).toBe(100);
+  });
+});
+
+describe("memoizeByPaneWidth", () => {
+  it("computes once per pane width and reuses the result", () => {
+    let calls = 0;
+    const memo = memoizeByPaneWidth((paneWidth) => {
+      calls++;
+      return paneWidth * 2;
+    });
+
+    expect(memo(120)).toBe(240);
+    expect(memo(120)).toBe(240);
+    expect(calls).toBe(1);
+
+    expect(memo(80)).toBe(160);
+    expect(calls).toBe(2);
+    expect(memo(120)).toBe(240);
+    expect(calls).toBe(2);
+  });
+
+  it("keeps returning the right width once a resize drag overflows the memo", () => {
+    let calls = 0;
+    const memo = memoizeByPaneWidth((paneWidth) => {
+      calls++;
+      return paneWidth + 1;
+    });
+    for (let width = 40; width < 140; width++) {
+      expect(memo(width)).toBe(width + 1);
+    }
+    expect(calls).toBe(100);
+    // Whatever the memo dropped, a repeat of the last width is still a hit.
+    expect(memo(139)).toBe(140);
+    expect(calls).toBe(100);
   });
 });
