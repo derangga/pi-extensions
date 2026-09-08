@@ -133,6 +133,12 @@ class QuestionnaireBuilder {
    * dialog cutting the scroll window against a later one. A resize landing
    * between the two split the frame in half. One read at the top of
    * `DialogView.render` cannot.
+   *
+   * Do not debounce this. A drag fires a resize every few milliseconds, but
+   * each one only reaches `tui.requestRender()`, which sets a flag, schedules
+   * on `process.nextTick` and holds a 16 ms floor between paints. The widths in
+   * between are never painted and never reach a cache; a debounce on top would
+   * buy nothing and delay the frame the user is dragging towards.
    */
   private readonly frameTerminal = { columns: 0, rows: 0 };
   private readonly beginFrame = (): void => {
