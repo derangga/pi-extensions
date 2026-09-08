@@ -364,9 +364,11 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
     catch: (cause) => new PromptFailed({ message: messageFor(cause) }),
   }).pipe(
     Effect.as("settled" as const),
-    Effect.onInterrupt(() =>
-      Effect.promise(() => session.abort()).pipe(Effect.catch(() => Effect.void)),
-    ),
+    // tryPromise rather than promise, because a rejecting abort has to land in
+    // the error channel before Effect.ignore can drop it: a promise rejection
+    // is a defect, which ignore (and the Effect.catch this replaces) let
+    // through. Best-effort cleanup, so any failure ends in void either way.
+    Effect.onInterrupt(() => Effect.tryPromise(() => session.abort()).pipe(Effect.ignore)),
   );
 
   const terminal = yield* Effect.raceFirst(prompt, waitForStop).pipe(
@@ -458,10 +460,11 @@ export function runChildLifecycle(options: ChildRunOptions): Effect.Effect<Child
           try: () => create(options.child),
           catch: (cause) => new PromptFailed({ message: messageFor(cause) }),
         }),
+        // Same shape as the abort above: the rejection must be a failure, not
+        // a defect, before it can be dropped, or a throwing dispose escapes
+        // the release and takes the run's result with it.
         (acquired) =>
-          Effect.promise(() => shutdownChildSession(acquired.session)).pipe(
-            Effect.catch(() => Effect.void),
-          ),
+          Effect.tryPromise(() => shutdownChildSession(acquired.session)).pipe(Effect.ignore),
       );
       return yield* runAcquiredChild(child, options);
     }),

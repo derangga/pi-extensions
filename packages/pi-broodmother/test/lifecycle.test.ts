@@ -251,6 +251,35 @@ describe("child lifecycle", () => {
     expect(result.notes.join(" ")).not.toContain("half applied");
   });
 
+  it("survives an abort that rejects while the prompt is being interrupted", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const fake = fakeChild(() => new Promise<void>(() => undefined));
+    fake.abort.mockImplementation(async () => {
+      throw new Error("abort exploded");
+    });
+
+    const result = await Effect.runPromise(
+      runChildLifecycle(options(fake.created, { signal: controller.signal })),
+    );
+
+    expect(result.outcome).toBe("stopped");
+    expect(fake.abort).toHaveBeenCalled();
+  });
+
+  it("survives a dispose that throws while the session is released", async () => {
+    const fake = fakeChild(({ messages }) => {
+      messages.push(assistant("answer first"));
+    });
+    fake.dispose.mockImplementation(() => {
+      throw new Error("dispose exploded");
+    });
+
+    const result = await Effect.runPromise(runChildLifecycle(options(fake.created)));
+
+    expect(result).toMatchObject({ outcome: "completed", output: "answer first" });
+  });
+
   it("warns that a writable child cut short may have half applied its changes", async () => {
     const controller = new AbortController();
     controller.abort();
