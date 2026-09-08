@@ -90,11 +90,18 @@ export function buildQuestionnaireResponse(
     return buildToolResult(DECLINE_MESSAGE, details);
   }
 
+  // Indexed once rather than scanned per question. Both sides are keyed by
+  // `questionIndex`, which is what the loop below asks for, and it is the same
+  // shape `orderedAnswers` uses in the reducer. A first entry wins, so a
+  // duplicated index reads as the earlier `find` did.
+  const answerByIndex = byQuestionIndex(result.answers);
+  const noteByIndex = byQuestionIndex(result.unansweredNotes ?? []);
+
   const segments: string[] = [];
   // Iterate the questions rather than the answers so segments always follow the
   // order the model asked in, whatever order the user filled tabs.
   for (let i = 0; i < params.questions.length; i++) {
-    const a = result.answers.find((x) => x.questionIndex === i);
+    const a = answerByIndex.get(i);
     if (a) {
       segments.push(buildAnswerSegment(a));
       continue;
@@ -103,7 +110,7 @@ export function buildQuestionnaireResponse(
     // emitted here rather than grouped at the end. Because this loop runs
     // before the "nothing to report" check below, a questionnaire submitted
     // with nothing but such a note counts as answered rather than declined.
-    const n = result.unansweredNotes?.find((x) => x.questionIndex === i);
+    const n = noteByIndex.get(i);
     if (n) {
       segments.push(buildUnansweredNoteSegment(n));
     }
@@ -117,6 +124,17 @@ export function buildQuestionnaireResponse(
     return buildToolResult(DECLINE_MESSAGE, { answers: result.answers, cancelled: true });
   }
   return buildToolResult(`${ENVELOPE_PREFIX} ${segments.join(" ")} ${ENVELOPE_SUFFIX}`, result);
+}
+
+/** First entry per `questionIndex` wins, which is what `Array.find` did. */
+function byQuestionIndex<T extends { questionIndex: number }>(items: readonly T[]): Map<number, T> {
+  const out = new Map<number, T>();
+  for (const item of items) {
+    if (!out.has(item.questionIndex)) {
+      out.set(item.questionIndex, item);
+    }
+  }
+  return out;
 }
 
 /**
