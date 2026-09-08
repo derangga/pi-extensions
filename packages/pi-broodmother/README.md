@@ -7,9 +7,10 @@ One tool call takes a whole batch of tasks. Each task can name the tasks it
 needs, which holds it until those finish and pastes their output into its
 prompt. No edges means everything runs in parallel.
 
-Children are read-only. They read, grep, find and list, and that is all. You
-pick the model and the thinking effort from a settings panel instead of letting
-the orchestrating model guess.
+Children are read-only until you say otherwise. They read, grep, find and list,
+and one row in the settings panel lets them edit, write and run commands as
+well. You pick the model and the thinking effort from the same panel instead of
+letting the orchestrating model guess.
 
 The name is the Dota 2 hero, who spawns her own children and sends them out to
 do the work. That is roughly the job here.
@@ -70,15 +71,16 @@ A child gets a fresh session. It sees:
 - Pi's base system prompt
 - the `agent` string, as "You are a dependency archaeologist." If the name
   matches an agent file, that file's body is used instead
-- a short instruction block saying it is read-only and how to reach you
+- a short instruction block saying what it may do and how to reach you, which
+  is where `read-only` or `read-write` is spelled out for the model
 - the output of every task it needs, as `## Output of <id>` blocks
 - its own `prompt`
 
 It does not see your conversation. Not the question you asked, not the files
 you have open, not the earlier turns. It also does not load the project's
-context files, skills, prompt templates or any other extension. That is
-deliberate: inheriting all of that costs input tokens on every child and a
-research task rarely needs it.
+context files, prompt templates or any other extension. Skills it does load,
+the same ones the parent sees. The rest is left out deliberately: inheriting it
+costs input tokens on every child and a research task rarely needs it.
 
 So write each `prompt` as if you were handing it to someone who just walked in.
 State the goal, the scope and the shape of the answer you want.
@@ -88,13 +90,32 @@ the prompt to place the first need's output inline instead.
 
 ## What a child can and cannot do
 
-Can: `read`, `grep`, `find`, `ls`. If [`@ff-labs/pi-fff`](https://www.npmjs.com/package/@ff-labs/pi-fff)
+Always: `read`, `grep`, `find`, `ls`. If [`@ff-labs/pi-fff`](https://www.npmjs.com/package/@ff-labs/pi-fff)
 is installed, its search tools load too. If it is not, the run says so in a note
-and carries on with Pi's own tools.
+and carries on with Pi's own tools. Skills load as well, the same ones the
+parent session sees, from `~/.agents/skills` and any `.agents/skills` up to the
+git root. A project's skills need the project trusted, the same answer you gave
+the parent.
 
-Cannot: edit, write, run shell commands, spawn its own children, or reach any
-other extension. This is enforced by the tool list the session is built with,
-not by asking nicely.
+Never: spawn its own children, or reach any other extension. Enforced by the
+tool list the session is built with, not by asking nicely.
+
+Only when Permissions is `read-write`: `edit`, `write`, `bash`. Read this part
+before you flip it. A writable child reaches as far as the session that spawned
+it. Nothing keeps it inside the project directory, because an absolute path or
+a `..` resolves like any other path, and nothing asks you before a change
+lands, which is also true of the writes you make in Pi yourself. So the switch
+grants a child what you already had, in a session you are not watching
+keystroke by keystroke.
+
+Two things make that reviewable. `git diff` shows what actually changed, and
+every task reports the session file holding its full transcript, so you can
+read what a child did and why. A child stopped part way through, by
+`subagent_cancel` or by running out of turns, says in its result that its
+changes may be half applied; nothing rolls them back.
+
+The default is `read-only`, and a settings file written before this row existed
+loads as `read-only` too.
 
 Two tools exist only for talking to you:
 
@@ -132,7 +153,7 @@ a question.
 
 ## Settings
 
-`/broodmother` opens a panel with five rows.
+`/broodmother` opens a panel with six rows.
 
 | Row | What it does |
 |---|---|
@@ -141,6 +162,7 @@ a question.
 | Concurrency | How many children run at once |
 | Max turns | Turn budget per child before it is asked to wrap up |
 | Max tasks | Most children one call may spawn, 1 to 16. A call over the cap is refused before any child starts |
+| Permissions | The most a child may do. `read-only` is files in and nothing out; `read-write` adds `edit`, `write` and `bash`. Last row on purpose: every row commits as it changes, so a gate at the top would be one stray arrow key away from granting a shell |
 
 Concurrency and max tasks answer different questions. Concurrency is how many
 children run at the same time, so it moves wall time and memory. Max tasks is
@@ -253,16 +275,22 @@ only, never prompts or output.
 
 Each of these was considered against a working implementation and cut.
 
-Write agents, and the worktrees, branches and merge story they need. Nested
+The worktrees, branches and merge story write agents would want. Nested
 spawning. Scheduling. A scripted workflow sandbox. Cross-extension RPC. Handle
 based addressing. Parent conversation inheritance. A peek pane, since every
 result carries a session path and `tail` covers it.
 
-**The limitation worth knowing about.** Read-only children plus dependency edges
-can only chain research into synthesis. A plan-then-implement chain is not
-expressible here, because the implementer would need write tools. If that turns
-out to be the job this package is wanted for, write agents come back, and they
-bring worktrees with them.
+**The limitation worth knowing about.** Permissions is one switch for the whole
+extension, so a batch is all read-only or all read-write. Mixing them, letting
+three researchers stay read-only while one implementer writes, needs a per-task
+override that does not exist yet. Until it does, a plan-then-implement chain
+either runs entirely in write mode or gets split across two calls with a visit
+to the panel in between.
+
+Writable children also share one working tree with no isolation between them.
+Two children editing the same file in the same wave will interleave, and
+nothing detects it. Give a wave one writer, or sequence the writers with
+`needs`. Worktrees are the real answer and they are not here.
 
 ## Dependencies
 

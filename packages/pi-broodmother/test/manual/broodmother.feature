@@ -84,6 +84,78 @@ Feature: Delegating research to child agents
     Then the child reports it has no write, edit or bash tool
     When I run `test -e /tmp/pi-broodmother-should-not-exist`
     Then the file does not exist
+    # Default settings. The next section flips the row and runs this again.
+
+  # ------------------------------------------------------------- permissions
+
+  # The row is last in the panel, which is the point: the cursor opens on Model
+  # and every row commits as it moves, so a gate at the top would be one stray
+  # arrow key away from handing a child a shell. Getting to it takes one `up`.
+
+  @interactive
+  Scenario: Granting write access takes a deliberate keypress
+    Given I run `/broodmother`
+    Then the cursor sits on Model and the last row is Permissions, reading read-only
+    When I press right on Model
+    Then a model picker opens rather than any permission changing
+    When I press escape and then up
+    Then the cursor sits on Permissions
+    And its description says children may edit, write and run commands, and names git diff
+    When I press right
+    Then it reads read-write and the settings file already says so
+    # No confirmation dialog. Reaching the row was the confirmation.
+
+  Scenario: A write-mode child reads, writes and runs a command
+    Given Permissions is read-write
+    And I paste:
+      """
+      Call subagent ONCE with autoAwait true and one task: agent 'a scribe',
+      task 'land a change', prompt 'Write the file
+      /tmp/pi-broodmother-write-test.txt containing exactly the word hello,
+      then run `wc -c /tmp/pi-broodmother-write-test.txt` and report the byte
+      count you saw.'
+      """
+    Then the start reply says these children are read-write before any task row
+    And the child reports the byte count from the command it ran
+    When I run `cat /tmp/pi-broodmother-write-test.txt`
+    Then it says hello
+    # The start reply is the only place the live mode reaches the model: the
+    # tool description is fixed at load and cannot know which way the row went.
+
+  Scenario: Flipping back takes effect on the next run, not the one in flight
+    Given Permissions is read-write
+    And a long write task is running
+    When I set Permissions back to read-only mid-run
+    Then the running child keeps its write tools and finishes as it was
+    And the next run's start reply says these children are read-only
+
+  Scenario: A cancelled write-mode child admits it may have left a mess
+    Given Permissions is read-write
+    And I paste:
+      """
+      Call subagent ONCE with one task: agent 'a scribe', task 'write three
+      files', prompt 'Create /tmp/pi-broodmother-partial-1.txt, then -2, then
+      -3, each containing its own number, pausing to re-read each one after
+      writing it.'
+      """
+    When I call subagent_cancel while it is working
+    Then its result carries a note saying changes may be half applied, and names git diff
+    And whichever files it already wrote are still on disk
+    # Nothing rolls a child's writes back. The note exists so this is not a
+    # surprise discovered later.
+
+  Scenario: A read-only child in a repo with skills still sees them
+    Given Permissions is read-only
+    And I paste:
+      """
+      Call subagent ONCE with autoAwait true and one task: agent 'a reader',
+      task 'list skills', prompt 'List the names of every skill available to
+      you, then say whether you have a write or bash tool.'
+      """
+    Then it names the skills from .agents/skills in this repo
+    And it says it has no write or bash tool
+    # A skill is instructions loaded with read, not a capability, so it is not
+    # gated on the permission row.
 
   # ---------------------------------------------------------------- max tasks
 
@@ -558,5 +630,7 @@ Feature: Delegating research to child agents
   Scenario: Leaving no mess behind
     When I finish
     Then I remove /tmp/pi-broodmother-test.json and /tmp/pi-broodmother-should-not-exist
+    And I remove /tmp/pi-broodmother-write-test.txt and /tmp/pi-broodmother-partial-*.txt
+    And I set Permissions back to read-only if a scenario left it read-write
     And I remember child sessions are real transcripts in Pi's session directory
     And they are named "subagent: <task>" and are worth reading when a scenario surprises me
