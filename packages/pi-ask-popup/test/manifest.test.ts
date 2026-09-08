@@ -31,8 +31,8 @@ function readManifest(): Manifest {
 
 describe("pi-ask-popup manifest", () => {
   it("ships zero runtime dependencies", () => {
-    // The whole premise of the fork over rpiv-ask-user-question, which pulls
-    // @juicesharp/rpiv-config and typebox as hard dependencies.
+    // The fork removes the config and localization dependencies, leaving
+    // typebox as the only peer.
     expect(readManifest().dependencies).toBeUndefined();
   });
 
