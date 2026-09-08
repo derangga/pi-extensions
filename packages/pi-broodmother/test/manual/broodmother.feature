@@ -22,12 +22,6 @@ Feature: Delegating research to child agents
     Given pi is running in /Users/sociolla/Documents/playground/pi-extension
     And the extension is loaded with `-e ./packages/pi-broodmother/src/index.ts`
     And the project is trusted
-
-    # @ff-labs/pi-fff is not in this repo's node_modules, so every child reports
-    # "note: @ff-labs/pi-fff is not installed; using Pi's built-in tools only"
-    # and falls back to Pi's read, grep, find and ls. That is the degraded path
-    # working, not a failure. `npm i -D @ff-labs/pi-fff` at the root exercises
-    # the other one.
     And I expect the fff note on every child until fff is installed
 
   # ---------------------------------------------------------------- discovery
