@@ -149,6 +149,24 @@ export class WrappingSelect implements Component {
   }
 
   render(width: number): string[] {
+    // A copy, because callers own what they get back: `PreviewPane` hands this
+    // array straight up to the dialog, which decorates rows in place.
+    return [...this.cachedRows(width)];
+  }
+
+  /**
+   * Row count at `width` without handing out the rows.
+   *
+   * Reads the same memo `render` fills, so `measureHeight(w) ===
+   * render(w).length` by construction — the height probes in `PreviewPane`
+   * relied on that parity while paying for an array copy to get it.
+   */
+  measureHeight(width: number): number {
+    return this.cachedRows(width).length;
+  }
+
+  /** The memo. Returns the stored array itself — callers must not mutate it. */
+  private cachedRows(width: number): string[] {
     const signature = this.renderStateSignature();
     if (signature !== this.renderCacheSignature) {
       this.renderCache.clear();
@@ -156,16 +174,14 @@ export class WrappingSelect implements Component {
     }
     const cached = this.renderCache.get(width);
     if (cached !== undefined) {
-      // A copy, because callers own what they get back: `PreviewPane` hands
-      // this array straight up to the dialog, which decorates rows in place.
-      return [...cached];
+      return cached;
     }
     const lines = this.renderRows(width);
     if (this.renderCache.size >= WrappingSelect.RENDER_CACHE_MAX_WIDTHS) {
       this.renderCache.clear();
     }
     this.renderCache.set(width, lines);
-    return [...lines];
+    return lines;
   }
 
   /**

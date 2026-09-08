@@ -1007,3 +1007,72 @@ describe("PreviewPane — inputMode (custom-answer full-width while typing)", ()
     expect(restoredLines.some((l) => /┌─+┐/.test(l))).toBe(true);
   });
 });
+
+describe("PreviewPane — height probes do not re-render the option list", () => {
+  const question: QuestionData = {
+    question: "pick",
+    header: "pick",
+    options: [
+      { label: "Alpha", description: "a description long enough to wrap", preview: "## A\n\nbody" },
+      { label: "Beta", description: "another description", preview: "## B\n\nbody" },
+      { label: "Gamma", description: "" },
+    ],
+  };
+
+  // Every option row passes through the select theme, so counting its calls
+  // counts the wraps the option list actually performed.
+  function makeCountingPane() {
+    let wraps = 0;
+    const tally = (t: string) => {
+      wraps++;
+      return t;
+    };
+    const items: WrappingSelectItem[] = question.options.map((o) => ({
+      kind: "option" as const,
+      label: o.label,
+      description: o.description,
+    }));
+    const optionListView = new OptionListView({
+      items,
+      theme: { selectedText: tally, description: tally, scrollInfo: tally },
+    });
+    optionListView.setProps({ selectedIndex: 0, focused: true, inputBuffer: "" });
+    const pane = new PreviewPane({
+      question,
+      getTerminalWidth: () => 120,
+      optionListView,
+      previewBlock: new PreviewBlockRenderer({ question, theme, markdownTheme, markdownFactory }),
+    });
+    pane.setGlobalLeftWidth((paneWidth) => adaptiveLeftWidth(items, items.length + 1, paneWidth));
+    pane.setProps({ notesVisible: false, selectedIndex: 0, focused: true, inputMode: false });
+    return { pane, optionListView, wraps: () => wraps };
+  }
+
+  it("wraps the option list once for a frame's probes plus its render", () => {
+    const { pane, wraps } = makeCountingPane();
+
+    pane.naturalHeight(120);
+    const afterFirstProbe = wraps();
+    expect(afterFirstProbe).toBeGreaterThan(0);
+
+    // The second probe and the paint both land on the same width, so neither
+    // wraps again. `focusedItemRowRange` is deliberately out of this count: it
+    // still walks items one by one and has its own backlog entry.
+    pane.maxNaturalHeight(120);
+    pane.render(120);
+    expect(wraps()).toBe(afterFirstProbe);
+  });
+
+  it("keeps measureHeight equal to the rendered row count at every width", () => {
+    const { optionListView } = makeCountingPane();
+    for (const width of [24, 40, 60, 120]) {
+      expect(optionListView.measureHeight(width)).toBe(optionListView.render(width).length);
+    }
+  });
+
+  it("still reports the heights the pane renders", () => {
+    const { pane } = makeCountingPane();
+    expect(pane.naturalHeight(120)).toBe(pane.render(120).length);
+    expect(pane.maxNaturalHeight(120)).toBeGreaterThanOrEqual(pane.naturalHeight(120));
+  });
+});
