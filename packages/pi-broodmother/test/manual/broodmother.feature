@@ -483,6 +483,63 @@ Feature: Delegating research to child agents
     # instruction back, with the upstream output it already has attached, would
     # charge it twice for nothing. The prompt is for the person watching.
 
+  # ------------------------------------------------------------ going quiet
+
+  @interactive
+  Scenario: A child that stops saying anything says so
+    Given I paste:
+      """
+      Call subagent ONCE with autoAwait true and one task: id 'a', agent 'a
+      sleeper', task 'sleep quietly', prompt 'Run exactly this bash command and
+      nothing else, then reply "done": sleep 90'.
+      """
+    When the child starts the sleep and I watch the widget
+    Then for the first 30 seconds the line reads only "→ Bash sleep 90"
+    And after that it grows a "quiet 31s" segment that counts up each second
+    And the tool it went quiet on is still on the line beside the counter
+    And the icon and its colour never change
+    When the sleep finishes and the child replies
+    Then the counter disappears on the next repaint
+    # sleep writes nothing to stdout, so no tool_execution_update ever fires.
+    # That is the real shape of this: not "slow" but "silent". A build that
+    # streams output resets the clock and never shows a counter at all.
+
+  @interactive
+  Scenario: A streaming command stays quiet about being quiet
+    Given a task whose prompt runs 'for i in $(seq 1 60); do echo $i; sleep 1; done'
+    When I watch the widget for the whole minute
+    Then no "quiet" segment ever appears
+    # Only bash and powershell emit tool_execution_update. This is the case that
+    # separates a working child from a stalled one, and if it ever regresses the
+    # counter starts crying wolf on every healthy build.
+
+  Scenario: A blocked child keeps its own clock
+    Given a child parked on ask_parent for more than 30 seconds
+    When I look at the widget
+    Then the line reads "asks · <elapsed>" and carries no "quiet" segment
+    # Both would be true and they would differ by a second or two, which only
+    # invites the reader to work out why. The ask says it better: it names the
+    # reason and counts against the parent reply timeout.
+
+  # -------------------------------------------------- reading the answer back
+
+  @interactive
+  Scenario: The answer is readable against the prompt that produced it
+    Given I paste:
+      """
+      Call subagent ONCE with autoAwait true and one task: id 'a', agent 'a
+      lister', task 'list the rules', prompt 'Read CLAUDE.md and reply with
+      every rule heading as a numbered markdown list, one per line.'
+      """
+    When I expand the result row
+    Then the block headed "prompt:" shows what I sent
+    And below it a block headed "output:" shows the numbered list on many lines
+    And the list is not squashed onto a single line
+    And if the answer ran past 20 lines a "… +N lines" line says how many
+    # This is the loop the row exists for: read the instruction, read what came
+    # back, tighten the instruction. It was 120 flattened characters before, out
+    # of the 24k that was already being kept.
+
   # ---------------------------------------------------------------- events
 
   Scenario: Three channels on Pi's own bus
