@@ -10,6 +10,8 @@ export const MAX_PREVIEW_HEIGHT_SIDE_BY_SIDE = 20;
 /** Preserves narrow-terminal protection in stacked layout. */
 export const MAX_PREVIEW_HEIGHT_STACKED = 15;
 export const NO_PREVIEW_TEXT = "No preview available";
+/** Fallback body line when a preview's markdown fails to render (untrusted input boundary). */
+export const PREVIEW_RENDER_FAILED_TEXT = "Preview failed to render";
 /** 1 blank separator + 1 affordance text row reserved when `hasAnyPreview` (height stability of the affordance row's offset relative to the box). */
 export const NOTES_AFFORDANCE_OVERHEAD = 2;
 
@@ -60,6 +62,12 @@ export class MarkdownContentCache {
   /**
    * Compute the body lines for a given option at a given inner width. Width changes
    * invalidate the per-Markdown render cache.
+   *
+   * Untrusted boundary: `preview` is model-authored markdown and this is the only
+   * place it reaches the render path. A `Markdown` that throws (malformed input,
+   * width edge cases) must not take the overlay down with it, so the render is
+   * wrapped and a single dim fallback line is returned instead. There is no
+   * notify channel from the view layer — the fallback line IS the diagnostic.
    */
   bodyFor(optionIndex: number, innerWidth: number): string[] {
     if (this.cachedWidth !== innerWidth) {
@@ -74,12 +82,16 @@ export class MarkdownContentCache {
       const pad = Math.max(0, innerWidth - visibleWidth(placeholder));
       return [placeholder + " ".repeat(pad)];
     }
-    let md = this.markdownCache.get(optionIndex);
-    if (!md) {
-      md = this.markdownFactory(text, this.markdownTheme);
-      this.markdownCache.set(optionIndex, md);
+    try {
+      let md = this.markdownCache.get(optionIndex);
+      if (!md) {
+        md = this.markdownFactory(text, this.markdownTheme);
+        this.markdownCache.set(optionIndex, md);
+      }
+      return stripFenceMarkers(md.render(innerWidth));
+    } catch {
+      return [this.theme.fg("dim", PREVIEW_RENDER_FAILED_TEXT)];
     }
-    return stripFenceMarkers(md.render(innerWidth));
   }
 
   invalidate(): void {

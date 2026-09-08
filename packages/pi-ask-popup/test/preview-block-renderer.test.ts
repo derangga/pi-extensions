@@ -20,6 +20,7 @@ const markdownFactory = (text: string, _mt: MarkdownTheme) =>
   new FakeMarkdown(text) as unknown as Markdown;
 
 import type { QuestionData } from "../src/tool/types.js";
+import { PREVIEW_RENDER_FAILED_TEXT } from "../src/view/components/preview/markdown-content-cache.js";
 import {
   NOTES_AFFORDANCE_TEXT,
   PreviewBlockRenderer,
@@ -195,5 +196,109 @@ describe("PreviewBlockRenderer — cache lifecycle", () => {
     r.invalidate();
     r.renderBlock(60, 0, "side-by-side", true, false);
     expect(markdownConstructed).toBe(1);
+  });
+});
+
+describe("PreviewBlockRenderer — untrusted preview markdown", () => {
+  class ThrowingMarkdown {
+    render(_width: number): string[] {
+      throw new Error("boom");
+    }
+    invalidate(): void {}
+  }
+  const throwingFactory = (_t: string, _mt: MarkdownTheme) =>
+    new ThrowingMarkdown() as unknown as Markdown;
+
+  it("returns a single fallback line instead of throwing when Markdown.render throws", () => {
+    const r = new PreviewBlockRenderer({
+      question: previewQuestion,
+      theme,
+      markdownTheme,
+      markdownFactory: throwingFactory,
+    });
+
+    const lines = r.renderBlock(40, 0, "side-by-side", true, false);
+    expect(lines.some((l) => l.includes(PREVIEW_RENDER_FAILED_TEXT))).toBe(true);
+    // The fallback preserves the height contract: blockHeight still equals renderBlock().length.
+    expect(r.blockHeight(40, 0, "side-by-side")).toBe(lines.length);
+  });
+
+  it("blockHeight measures the fallback line without throwing (height probes are on the crash path too)", () => {
+    const r = new PreviewBlockRenderer({
+      question: previewQuestion,
+      theme,
+      markdownTheme,
+      markdownFactory: throwingFactory,
+    });
+
+    expect(r.blockHeight(20, 1, "stacked")).toBeGreaterThan(0);
+  });
+
+  it("never throws for random preview strings through the real Markdown renderer", () => {
+    // Seeded LCG so a failure is reproducible from the seed, not a flaky roll.
+    let seed = 0x2f6e2b1;
+    const rand = () => {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      return seed / 0xffffffff;
+    };
+    const chunks = [
+      "#",
+      "##",
+      "*",
+      "**",
+      "`",
+      "```",
+      "~~~",
+      "-",
+      ">",
+      "|",
+      "[",
+      "]",
+      "(",
+      ")",
+      "_",
+      "\\",
+      "$",
+      "$$",
+      "&",
+      "<",
+      "!",
+      " \t",
+      "\n",
+      "\r",
+      "😀",
+      "中",
+      "\x1b[31m",
+      "abc",
+      "XYZ",
+      "0123",
+      " ",
+    ];
+    const randText = () => {
+      const n = 1 + Math.floor(rand() * 40);
+      let s = "";
+      for (let i = 0; i < n; i++) {
+        s += chunks[Math.floor(rand() * chunks.length)] ?? "";
+      }
+      return s;
+    };
+
+    for (let round = 0; round < 60; round++) {
+      const question: QuestionData = {
+        question: "q",
+        header: "q",
+        options: [0, 1, 2].map((i) => ({ label: `o${i}`, description: "", preview: randText() })),
+      };
+      // No markdownFactory: the real pi-tui Markdown runs, which is the surface
+      // the fuzz is meant to protect.
+      const r = new PreviewBlockRenderer({ question, theme, markdownTheme });
+      for (const width of [1, 3, 12, 40, 100]) {
+        for (let i = 0; i < question.options.length; i++) {
+          const lines = r.renderBlock(width, i, "side-by-side", true, false);
+          expect(lines.length).toBeGreaterThan(0);
+          expect(r.blockHeight(width, i, "stacked")).toBeGreaterThan(0);
+        }
+      }
+    }
   });
 });
