@@ -47,9 +47,9 @@ describe("separator styles a config can name", () => {
   });
 
   it("falls back to the preset's own separator for a style this build dropped", () => {
-    // pi-footer carries per-widget powerline variants: left, right, soft and
-    // cap. A config written against upstream must land on something renderable
-    // rather than on an empty separator.
+    // Per-widget powerline variants were dropped: left, right, soft and cap. A
+    // config written with an unknown separator must land on something
+    // renderable rather than on an empty separator.
     expect(normalizeConfig({ separator: "powerline-left" }).separator).toBe("dot");
     expect(normalizeConfig({ separator: 7 }).separator).toBe("dot");
   });

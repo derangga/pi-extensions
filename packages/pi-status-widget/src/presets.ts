@@ -17,12 +17,11 @@ function widget(type: WidgetType, options: WidgetOptions = {}): PresetWidget {
 }
 
 /**
- * pi-footer's three plain layouts, with its verbosity segment dropped.
+ * Three plain layouts with the verbosity segment omitted.
  *
  * A preset carries a separator and a widget list, and deliberately no icon
- * mode. Upstream lets git-heavy force nerd icons, which overwrites the user's
- * choice on a preset switch; here a font capability belongs to the terminal
- * rather than to a layout.
+ * mode. A font capability belongs to the terminal rather than to a layout, so
+ * a preset switch does not overwrite the user's icon choice.
  */
 export const PRESET_DEFINITIONS = {
   default: {

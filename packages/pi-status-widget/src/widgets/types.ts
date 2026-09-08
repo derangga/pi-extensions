@@ -5,9 +5,8 @@ import type { ColorScheme } from "../schemes.js";
 import type { IconMode, StatusbarData, WidgetEntry, WidgetOptions, WidgetStyle } from "../types.js";
 
 /**
- * One glyph per icon mode. pi-footer carries a third, `text`, holding word
- * labels; it went with the preset that used it. Two modes means the type makes
- * an unhandled mode impossible rather than merely unlikely.
+ * One glyph per icon mode. Two modes means the type makes an unhandled mode
+ * impossible rather than merely unlikely.
  */
 export interface WidgetIconSet {
   emoji: string;
@@ -19,10 +18,9 @@ export type PropertyKind = "boolean" | "number" | "choice" | "text";
 export type WidgetPropertyDefault = string | number | boolean;
 
 /**
- * A widget-specific option. pi-footer carries a label, a description, a
- * showWhen guard and a bag of showIn* flags on every one of these; all of it
- * existed to lay out the config UI's field editors and pickers. What survives
- * is what the sanitizer needs to validate a hand-edited config file.
+ * A widget-specific option. Only what the sanitizer needs to validate a
+ * hand-edited config file is kept: id, kind, default, and for some kinds
+ * min/max or choices.
  */
 export interface WidgetProperty {
   id: string;

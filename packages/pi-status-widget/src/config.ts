@@ -107,9 +107,8 @@ export interface LoadedConfig {
 
 /**
  * A missing file is the normal first run. A file that exists but cannot be
- * parsed falls back to defaults and reports why, rather than throwing: pi-footer
- * rethrows anything that is not ENOENT, which stops the extension loading and
- * takes the footer with it. A statusline is not worth a failed load.
+ * parsed falls back to defaults and reports why, rather than throwing. A
+ * statusline is not worth a failed load.
  */
 export async function loadConfig(path = getConfigPath()): Promise<LoadedConfig> {
   let raw: string;

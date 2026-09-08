@@ -89,7 +89,8 @@ describe("switching preset", () => {
   });
 
   it("keeps an explicit icon choice through the switch", () => {
-    // The decision this package makes differently from pi-footer.
+    // Icon mode belongs to the terminal, not the layout, so a preset switch
+    // must not overwrite it.
     const chosen = { ...cloneConfig(DEFAULT_CONFIG), iconMode: "nerd" as const };
     expect(configWithPreset(chosen, "compact").iconMode).toBe("nerd");
     expect(configWithPreset(chosen, "git-heavy").iconMode).toBe("nerd");
@@ -132,8 +133,8 @@ describe("normalization", () => {
   });
 
   it("rejects an icon mode this build dropped", () => {
-    // pi-footer's third mode. A stale config must not select something the icon
-    // sets no longer carry.
+    // The text icon mode was dropped. A stale config must not select something
+    // the icon sets no longer carry.
     expect(normalizeConfig({ iconMode: "text" }).iconMode).toBe("emoji");
   });
 
@@ -174,7 +175,8 @@ describe("loading", () => {
   });
 
   it("falls back to defaults and reports why on malformed JSON", async () => {
-    // pi-footer rethrows here, which stops the extension loading.
+    // Falls back to defaults rather than throwing, so the extension stays
+    // loaded.
     await writeFile(configPath, "{ not json", "utf8");
     const loaded = await loadConfig(configPath);
     expect(loaded.config.preset).toBe("default");

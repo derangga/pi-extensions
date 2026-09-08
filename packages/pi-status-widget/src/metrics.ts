@@ -31,9 +31,9 @@ interface MessageLike {
 
 /**
  * Walks the session branch for the two numbers a shipped widget reads: total
- * cost and the earliest timestamp. pi-footer also accumulates input, output and
- * cache token counts, message counts by role, compactions and per-turn totals,
- * every one of which fed a widget this package does not ship.
+ * cost and the earliest timestamp. Other counters such as input, output and
+ * cache token counts, message counts by role, compactions and per-turn totals
+ * have no shipped widget and are not collected.
  *
  * Nothing here throws. An entry that does not look like a message, a timestamp
  * that will not parse and a cost that is not a finite number are all skipped,

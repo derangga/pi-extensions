@@ -10,9 +10,8 @@ interface CacheEntry<V> {
  * returns whatever is cached, including a stale value, and starts one refresh in
  * the background; the caller is told to repaint when fresh data lands.
  *
- * pi-footer namespaces the keys, since it caches project runtime detection
- * alongside git. Git is the only asynchronous collector this package ships, so
- * the key is the key.
+ * Git is the only asynchronous collector this package ships, so no key
+ * namespacing is needed.
  */
 export class AsyncCache {
   private readonly entries = new Map<string, CacheEntry<unknown>>();

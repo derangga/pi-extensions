@@ -24,10 +24,6 @@ export interface RenderStatusbarOptions {
  * One draw of the footer. Every line goes through truncateToWidth, which is
  * ANSI-aware, so a line cut short never leaves half an escape sequence behind
  * for the terminal to swallow the rest of the row with.
- *
- * pi-footer also carries a width mode that renders 40 columns narrower than the
- * terminal. That existed so the config TUI could preview a footer beside its
- * own chrome, and went with the TUI.
  */
 export function renderStatusbar(
   store: WidgetStore,
@@ -95,10 +91,7 @@ interface RenderedSegment {
 }
 
 /**
- * Widgets that rendered empty leave no separator behind. pi-footer additionally
- * suppresses the separator next to a `separator` widget; that widget type built
- * the powerline presets and is not in this registry, which leaves the check
- * unreachable.
+ * Widgets that rendered empty leave no separator behind.
  */
 function joinSegments(
   entries: readonly RenderedSegment[],

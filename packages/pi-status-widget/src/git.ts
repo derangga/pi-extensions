@@ -46,10 +46,8 @@ interface EnabledWidget {
 }
 
 /**
- * The commands the enabled widgets actually need. This is the one place the
- * package diverges from pi-footer on purpose: upstream runs all seven every
- * refresh whenever any git widget is on, two of them feeding widgets this
- * package does not ship. Here `compact` costs one subprocess beyond the probe
+ * The commands the enabled widgets actually need. Only the commands required
+ * by enabled widgets are run. `compact` costs one subprocess beyond the probe
  * and `git-heavy` costs four.
  *
  * Undefined when no git widget is enabled at all, which means no collection and

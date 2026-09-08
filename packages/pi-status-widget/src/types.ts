@@ -72,10 +72,10 @@ export function isRecord(value: unknown): value is Record<string, JsonValue> {
 export type GetExtensionStatuses = () => ReadonlyMap<string, string>;
 
 /**
- * Only what a shipped widget reads. pi-footer also accumulates input, output and
- * cache token counts, message counts by role, compactions and per-turn totals,
- * all of which fed widgets this package does not ship. Collecting them here
- * would mean collecting and testing numbers nothing displays.
+ * Only what a shipped widget reads. Other counters such as input, output and
+ * cache token counts, message counts by role, compactions and per-turn totals
+ * have no shipped widget. Collecting them here would mean testing numbers
+ * nothing displays.
  */
 export interface SessionMetrics {
   costUsd: number;

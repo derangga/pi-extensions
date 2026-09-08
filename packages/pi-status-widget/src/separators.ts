@@ -11,11 +11,10 @@ export const SEPARATOR_VALUES = [
 export type SeparatorStyle = (typeof SEPARATOR_VALUES)[number];
 
 /**
- * Text placed between two adjacent segments. pi-footer also carries per-widget
- * separators with left, right, soft and cap powerline variants, all of which
- * existed to build the powerline presets. The powerline style survives as a
- * plain separator for anyone who wants it in a hand-edited config, and needs a
- * patched font like the nerd icon mode does.
+ * Text placed between two adjacent segments. Per-widget separators and
+ * powerline variants with left, right, soft and cap styles are not provided.
+ * The powerline style survives as a plain separator for anyone who wants it in
+ * a hand-edited config, and needs a patched font like the nerd icon mode does.
  */
 export function separatorText(separator: SeparatorStyle): string {
   switch (separator) {

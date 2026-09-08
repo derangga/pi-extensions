@@ -43,9 +43,9 @@ describe("pi-statusbar manifest", () => {
   });
 
   it("does not depend on chalk, at any strength", () => {
-    // pi-footer takes chalk as a hard dependency for 256-color and truecolor
-    // output. This package emits those escape codes itself, so chalk must not
-    // reappear as a dependency, a peer, or an optional peer.
+    // Chalk is a hard dependency elsewhere for 256-color and truecolor output.
+    // This package emits those escape codes itself, so chalk must not reappear
+    // as a dependency, a peer, or an optional peer.
     const manifest = readManifest();
     expect(Object.keys(manifest.dependencies ?? {})).not.toContain("chalk");
     expect(Object.keys(manifest.peerDependencies ?? {})).not.toContain("chalk");
@@ -107,9 +107,8 @@ describe("pi-statusbar manifest", () => {
     // Three standing rules in one sweep, all of which package.json can satisfy
     // while the source does not:
     //
-    // - Zero runtime dependencies. An import of chalk, which pi-footer takes as
-    //   a hard dependency, would break at load for every user because nothing
-    //   installs it.
+    // - Zero runtime dependencies. An import of chalk would break at load for
+    //   every user because nothing installs it.
     // - Node builtins carry the node: prefix. Bun implements that surface; a
     //   bare "fs" does not resolve in the compiled binary, and this code is
     //   loaded into whichever runtime the user installed Pi under.

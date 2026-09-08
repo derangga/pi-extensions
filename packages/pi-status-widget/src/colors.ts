@@ -6,10 +6,9 @@ import type { ColorScheme } from "./schemes.js";
  * ANSI 16-color codes, keyed by the name a config file uses. Each pair is
  * [foreground, background].
  *
- * pi-footer emits these through chalk. This package emits them directly: chalk
- * covered only 256-color, truecolor and bold, all of which are either dropped
- * or one escape sequence, and a runtime dependency for that is not a trade
- * worth making.
+ * Emits codes directly without a runtime dependency. 256-color, truecolor and
+ * bold are either not needed or are a single escape sequence, so a dependency
+ * for that is not worth the cost.
  */
 const NAMED_COLORS = {
   black: [30, 40],

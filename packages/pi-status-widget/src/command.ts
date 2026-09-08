@@ -30,10 +30,10 @@ import type { IconMode, StatusbarConfig } from "./types.js";
 export const COMMAND_NAME = "statusbar";
 
 /**
- * The whole config surface, in place of pi-footer's 26-file terminal editor.
- * Three presets is a small enough space that a panel of rows beats a builder,
- * and the file path is on the first line because hand-editing is the way to
- * reach anything this command does not cover.
+ * The whole config surface for the footer. Three presets is a small enough
+ * space that a panel of rows beats a builder, and the file path is on the
+ * first line because hand-editing is the way to reach anything this command
+ * does not cover.
  */
 export const USAGE = [
   "Usage:",
