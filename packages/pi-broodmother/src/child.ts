@@ -1,4 +1,8 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { Option, Schema } from "effect";
 
 import {
   type AgentSession,
@@ -133,15 +137,70 @@ export async function shutdownChildSession(
   }
 }
 
-export function resolveFffEntry(
-  resolve: (specifier: string) => string = (specifier) => import.meta.resolve(specifier),
+/**
+ * One resolution attempt turned into a path, or undefined when the specifier
+ * does not resolve or resolves somewhere no filesystem read could reach.
+ */
+function resolvedEntryPath(
+  resolve: (specifier: string) => string,
+  specifier: string,
 ): string | undefined {
   try {
-    const resolved = resolve(FFF_PACKAGE);
+    const resolved = resolve(specifier);
     return resolved.startsWith("file:") ? fileURLToPath(resolved) : resolved;
   } catch {
     return undefined;
   }
+}
+
+/** A manifest that declares at least one extension entry, each a non-empty relative path. */
+const decodeFffManifest = Schema.decodeUnknownOption(
+  Schema.Struct({
+    pi: Schema.Struct({
+      extensions: Schema.NonEmptyArray(Schema.NonEmptyString),
+    }),
+  }),
+);
+
+/**
+ * The entry the package's own manifest declares. `pi.extensions[0]` is the
+ * file Pi's package manager loads in the parent session, so resolving it here
+ * hands a child the same extension the parent sees. A package that ships a
+ * `main` still gets its `pi` entry, not that `main`.
+ */
+function entryFromManifest(
+  resolve: (specifier: string) => string,
+  readFile: (path: string) => string,
+): string | undefined {
+  const manifestPath = resolvedEntryPath(resolve, `${FFF_PACKAGE}/package.json`);
+  if (!manifestPath) {
+    return undefined;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFile(manifestPath));
+  } catch {
+    return undefined;
+  }
+  // A third-party manifest, decoded here at the boundary before anything trusts it.
+  const decoded = decodeFffManifest(parsed);
+  if (Option.isNone(decoded)) {
+    return undefined;
+  }
+  return join(dirname(manifestPath), decoded.value.pi.extensions[0]);
+}
+
+/**
+ * The installed fff package's entry file, or undefined when no fff is
+ * reachable. The manifest's `pi.extensions` is preferred, because that is
+ * what Pi itself loads in the parent session; the bare specifier is the
+ * fallback for a package that hides package.json behind an exports map.
+ */
+export function resolveFffEntry(
+  resolve: (specifier: string) => string = (specifier) => import.meta.resolve(specifier),
+  readFile: (path: string) => string = (path) => readFileSync(path, "utf8"),
+): string | undefined {
+  return entryFromManifest(resolve, readFile) ?? resolvedEntryPath(resolve, FFF_PACKAGE);
 }
 
 export function appendChildPrompt(

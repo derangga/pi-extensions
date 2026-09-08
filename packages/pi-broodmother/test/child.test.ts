@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { type AgentSession, ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { Effect } from "effect";
@@ -48,8 +48,53 @@ afterEach(() => {
 });
 
 describe("child session", () => {
-  it("resolves a file URL and degrades when fff is unavailable", () => {
-    expect(resolveFffEntry(() => "file:///tmp/fff.ts")).toBe("/tmp/fff.ts");
+  it("prefers the entry the fff manifest declares over the bare specifier", () => {
+    const pkg = temporaryRoot("pi-broodmother-fff-");
+    mkdirSync(join(pkg, "src"), { recursive: true });
+    writeFileSync(
+      join(pkg, "package.json"),
+      JSON.stringify({ name: "@ff-labs/pi-fff", pi: { extensions: ["./src/index.ts"] } }),
+      "utf8",
+    );
+    const manifestUrl = pathToFileURL(join(pkg, "package.json")).href;
+    /** Resolves only the manifest subpath, the way today's installed fff behaves: no main, no exports, no index.js. */
+    const manifestOnly = (specifier: string): string => {
+      if (specifier === "@ff-labs/pi-fff/package.json") {
+        return manifestUrl;
+      }
+      throw new Error("unresolvable");
+    };
+
+    // Real fs reads the temp manifest, so the join and parse paths run as shipped.
+    expect(resolveFffEntry(manifestOnly)).toBe(join(pkg, "src", "index.ts"));
+
+    // An entry pi did not declare, or a manifest without one, must not resolve.
+    writeFileSync(
+      join(pkg, "package.json"),
+      JSON.stringify({ name: "@ff-labs/pi-fff", pi: { extensions: [] } }),
+      "utf8",
+    );
+    expect(resolveFffEntry(manifestOnly)).toBeUndefined();
+    expect(resolveFffEntry(manifestOnly, () => "not json")).toBeUndefined();
+    expect(
+      resolveFffEntry(manifestOnly, () => JSON.stringify({ pi: { extensions: [""] } })),
+    ).toBeUndefined();
+    expect(
+      resolveFffEntry(manifestOnly, () => {
+        throw new Error("unreadable");
+      }),
+    ).toBeUndefined();
+  });
+
+  it("falls back to the bare specifier and degrades when fff is unreachable", () => {
+    /** Hides package.json the way an exports map can, so only the bare spec resolves. */
+    const bareOnly = (specifier: string) => {
+      if (specifier === "@ff-labs/pi-fff") {
+        return "file:///tmp/fff.ts";
+      }
+      throw new Error("unresolvable");
+    };
+    expect(resolveFffEntry(bareOnly)).toBe("/tmp/fff.ts");
     expect(
       resolveFffEntry(() => {
         throw new Error("missing");
