@@ -221,7 +221,7 @@ export class Intercom extends Context.Service<
             yield* Effect.try({
               try: () => delivery.send(directText, mode),
               catch: () => undefined,
-            }).pipe(Effect.catch(() => Effect.void));
+            }).pipe(Effect.ignore);
           });
 
           const openTask = Effect.fn("Intercom.openTask")(function* (
