@@ -4,6 +4,15 @@
   "description": "Pi extension. A tabbed terminal questionnaire the model can put to you when it would otherwise guess, with typed options, markdown previews and notes instead of free-form replies.",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/derangga/pi-extensions.git",
+    "directory": "packages/pi-ask-popup"
+  },
+  "homepage": "https://github.com/derangga/pi-extensions/tree/master/packages/pi-ask-popup#readme",
+  "bugs": {
+    "url": "https://github.com/derangga/pi-extensions/issues"
+  },
   "author": "derangga <contact@rangga.site>",
   "keywords": [
     "pi-package",

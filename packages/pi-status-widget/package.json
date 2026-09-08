@@ -4,6 +4,15 @@
   "description": "Pi extension. A footer/statusline with three presets, emoji or nerd font icons, and a thinking-level segment whose color tracks the level.",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/derangga/pi-extensions.git",
+    "directory": "packages/pi-status-widget"
+  },
+  "homepage": "https://github.com/derangga/pi-extensions/tree/master/packages/pi-status-widget#readme",
+  "bugs": {
+    "url": "https://github.com/derangga/pi-extensions/issues"
+  },
   "author": "derangga <contact@rangga.site>",
   "keywords": [
     "pi-package",

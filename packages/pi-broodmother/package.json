@@ -4,6 +4,15 @@
   "description": "Pi extension. Delegate a batch of read-only research tasks to child agents, with dependency edges between them, a model and thinking effort you pick, and a two-way channel back to the parent.",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/derangga/pi-extensions.git",
+    "directory": "packages/pi-broodmother"
+  },
+  "homepage": "https://github.com/derangga/pi-extensions/tree/master/packages/pi-broodmother#readme",
+  "bugs": {
+    "url": "https://github.com/derangga/pi-extensions/issues"
+  },
   "author": "derangga <contact@rangga.site>",
   "keywords": [
     "pi-package",

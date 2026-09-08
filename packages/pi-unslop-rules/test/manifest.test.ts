@@ -16,6 +16,7 @@ interface Manifest {
   name: string;
   version: string;
   license: string;
+  repository?: { type?: string; url?: string; directory?: string };
   dependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
   files?: string[];
@@ -54,6 +55,15 @@ describe("pi-unslop-rules manifest", () => {
     for (const target of Object.values(readManifest().exports ?? {})) {
       expect(existsSync(join(packageRoot, target))).toBe(true);
     }
+  });
+
+  it("points provenance at the monorepo and this package directory", () => {
+    // npm rejects a provenance bundle whose repository.url does not match the
+    // repository the workflow built from, and an absent field reads as "".
+    // The tag is already public by the time the registry says so.
+    const repository = readManifest().repository;
+    expect(repository?.url).toBe("git+https://github.com/derangga/pi-extensions.git");
+    expect(repository?.directory).toBe("packages/pi-unslop-rules");
   });
 
   it("publishes source and legal text, and nothing else", () => {

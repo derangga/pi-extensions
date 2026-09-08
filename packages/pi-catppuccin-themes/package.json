@@ -4,6 +4,15 @@
   "description": "Pi themes. The four Catppuccin flavors (latte, frappe, macchiato, mocha) vendored in-house so no third-party install is needed.",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/derangga/pi-extensions.git",
+    "directory": "packages/pi-catppuccin-themes"
+  },
+  "homepage": "https://github.com/derangga/pi-extensions/tree/master/packages/pi-catppuccin-themes#readme",
+  "bugs": {
+    "url": "https://github.com/derangga/pi-extensions/issues"
+  },
   "author": "derangga <contact@rangga.site>",
   "keywords": [
     "pi-package",
