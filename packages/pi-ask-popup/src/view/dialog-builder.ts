@@ -162,7 +162,14 @@ export interface DialogConfig {
   /** Body height of the tab showing right now. The difference is absorbed outside the border. */
   getCurrentBodyHeight: (width: number) => number;
   /** Terminal height, read at render time — the mirror of the width getter. */
-  getTerminalRows: () => number;
+  /**
+   * Snapshot the terminal size for the frame about to be painted. Called first
+   * thing in `render`, before any child renders or is measured, so every
+   * component in the frame decides against the same terminal.
+   */
+  beginFrame: () => void;
+  /** The size `beginFrame` last snapshotted. */
+  getFrameTerminalRows: () => number;
   /**
    * Resolved collapse key (`"ctrl+]"`, `"alt+o"`, `"off"`). Construction-time
    * config, deliberately not canonical state: the runtime's copy must never
@@ -227,6 +234,10 @@ export class DialogView implements StatefulView<DialogProps> {
   invalidate(): void {}
 
   render(width: number): string[] {
+    // First, before any child renders or is measured: the whole frame decides
+    // against one terminal size.
+    this.config.beginFrame();
+
     const state = this.liveProps.state;
     const onSubmit = this.config.isMulti && state.currentTab === this.config.questions.length;
     const strategy = onSubmit && this.submitStrategy ? this.submitStrategy : this.questionStrategy;
@@ -266,7 +277,7 @@ export class DialogView implements StatefulView<DialogProps> {
         strategy.restingNoteRowCount(state),
     );
 
-    const termRows = this.config.getTerminalRows();
+    const termRows = this.config.getFrameTerminalRows();
 
     if (natural.length + spacerRows <= termRows) {
       return renderFitsTerminal(natural, spacerRows);

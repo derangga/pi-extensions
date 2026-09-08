@@ -59,7 +59,13 @@ export interface PreviewPaneProps {
 
 export interface PreviewPaneConfig {
   question: QuestionData;
-  getTerminalWidth: () => number;
+  /**
+   * The frame's terminal width, snapshotted by `DialogView.render` before
+   * anything paints. Not a live read of `tui.terminal.columns`: two components
+   * deciding layout from two different readings of one frame is the bug this
+   * closes.
+   */
+  getFrameTerminalWidth: () => number;
   optionListView: OptionListView;
   previewBlock: PreviewBlockRenderer;
 }
@@ -80,7 +86,7 @@ export interface PreviewPaneConfig {
  */
 export class PreviewPane implements StatefulView<PreviewPaneProps>, Component {
   private readonly question: QuestionData;
-  private readonly getTerminalWidth: () => number;
+  private readonly getFrameTerminalWidth: () => number;
   private readonly optionListView: OptionListView;
   private readonly previewBlock: PreviewBlockRenderer;
   private props: PreviewPaneProps;
@@ -95,7 +101,7 @@ export class PreviewPane implements StatefulView<PreviewPaneProps>, Component {
 
   constructor(config: PreviewPaneConfig) {
     this.question = config.question;
-    this.getTerminalWidth = config.getTerminalWidth;
+    this.getFrameTerminalWidth = config.getFrameTerminalWidth;
     this.optionListView = config.optionListView;
     this.previewBlock = config.previewBlock;
     this.props = { notesVisible: false, selectedIndex: 0, focused: false, inputMode: false };
@@ -136,7 +142,7 @@ export class PreviewPane implements StatefulView<PreviewPaneProps>, Component {
       return this.optionListView.render(width);
     }
 
-    const mode = decideLayout(this.getTerminalWidth(), width);
+    const mode = decideLayout(this.getFrameTerminalWidth(), width);
     if (mode === "side-by-side") {
       return this.renderSideBySide(width, mode);
     }
@@ -167,7 +173,7 @@ export class PreviewPane implements StatefulView<PreviewPaneProps>, Component {
     if (this.props.inputMode) {
       return this.optionListView.focusedItemRowRange(width);
     }
-    const mode = decideLayout(this.getTerminalWidth(), width);
+    const mode = decideLayout(this.getFrameTerminalWidth(), width);
     if (mode === "stacked") {
       return this.optionListView.focusedItemRowRange(width);
     }
@@ -188,7 +194,7 @@ export class PreviewPane implements StatefulView<PreviewPaneProps>, Component {
     if (this.props.inputMode) {
       return this.optionListView.measureHeight(width);
     }
-    const mode = decideLayout(this.getTerminalWidth(), width);
+    const mode = decideLayout(this.getFrameTerminalWidth(), width);
     const adaptiveLeft = this.getAdaptiveLeft(width);
     const { optionsWidth, previewWidth } = bodyWidths(width, mode, adaptiveLeft);
     const optionsHeight = this.optionListView.measureHeight(optionsWidth);
@@ -215,7 +221,7 @@ export class PreviewPane implements StatefulView<PreviewPaneProps>, Component {
     if (this.props.inputMode) {
       return this.optionListView.measureHeight(width);
     }
-    const mode = decideLayout(this.getTerminalWidth(), width);
+    const mode = decideLayout(this.getFrameTerminalWidth(), width);
     const adaptiveLeft = this.getAdaptiveLeft(width);
     const { optionsWidth, previewWidth } = bodyWidths(width, mode, adaptiveLeft);
     const optionsHeight = this.optionListView.measureHeight(optionsWidth);

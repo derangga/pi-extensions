@@ -345,7 +345,7 @@ describe("dialog chrome — width safety", () => {
 });
 
 describe("dialog chrome — residual padding", () => {
-  const tall = { getTerminalRows: () => 200 } as const;
+  const tall = { getFrameTerminalRows: () => 200 } as const;
 
   it("grows with the worst-case body height while the current body stays put", () => {
     const short = makeDialog(
@@ -411,7 +411,7 @@ describe("dialog chrome — residual padding", () => {
           state,
           multiSelectByTab,
           getBodyHeight,
-          getTerminalRows: () => 32,
+          getFrameTerminalRows: () => 32,
         }),
       ).render(120);
 

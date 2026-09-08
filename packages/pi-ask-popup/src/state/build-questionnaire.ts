@@ -124,8 +124,23 @@ class QuestionnaireBuilder {
   private readonly markdownTheme = getMarkdownTheme();
   private readonly notesInput: Editor;
   private readonly inlineInput: Editor;
-  private readonly getTerminalWidth = () => this.tui.terminal.columns;
-  private readonly getTerminalRows = () => this.tui.terminal.rows;
+  /**
+   * Terminal size for the frame being painted, refreshed by `beginFrame` and
+   * read back by everything in that frame.
+   *
+   * Components used to reach `tui.terminal` themselves, each at the moment it
+   * happened to run: the pane deciding side-by-side against one reading, the
+   * dialog cutting the scroll window against a later one. A resize landing
+   * between the two split the frame in half. One read at the top of
+   * `DialogView.render` cannot.
+   */
+  private readonly frameTerminal = { columns: 0, rows: 0 };
+  private readonly beginFrame = (): void => {
+    this.frameTerminal.columns = this.tui.terminal.columns;
+    this.frameTerminal.rows = this.tui.terminal.rows;
+  };
+  private readonly getFrameTerminalWidth = () => this.frameTerminal.columns;
+  private readonly getFrameTerminalRows = () => this.frameTerminal.rows;
 
   constructor(config: QuestionnaireBuildConfig) {
     this.tui = config.tui;
@@ -136,6 +151,9 @@ class QuestionnaireBuilder {
     this.initialState = config.initialState;
     this.getCurrentTab = config.getCurrentTab;
     this.collapseKey = config.collapseKey;
+    // Seeded here so a pane that renders before any frame begins sees a real
+    // terminal rather than a zero-width one.
+    this.beginFrame();
 
     this.selectTheme = this.makeSelectTheme();
     const textEditorTheme = editorTheme(this.theme);
@@ -188,7 +206,7 @@ class QuestionnaireBuilder {
     });
     const preview = new PreviewPane({
       question,
-      getTerminalWidth: this.getTerminalWidth,
+      getFrameTerminalWidth: this.getFrameTerminalWidth,
       optionListView: optionList,
       previewBlock,
     });
@@ -285,7 +303,8 @@ class QuestionnaireBuilder {
         ...(submitPicker === undefined ? {} : { submitPicker }),
         getBodyHeight: heights.global,
         getCurrentBodyHeight: heights.current,
-        getTerminalRows: this.getTerminalRows,
+        beginFrame: this.beginFrame,
+        getFrameTerminalRows: this.getFrameTerminalRows,
         collapseKey: this.collapseKey,
       },
       { state: this.initialState, activePreviewPane },

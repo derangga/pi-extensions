@@ -82,7 +82,7 @@ function makePane(question: QuestionData, getWidth: () => number = () => 120) {
   });
   const pane = new PreviewPane({
     question,
-    getTerminalWidth: getWidth,
+    getFrameTerminalWidth: getWidth,
     optionListView,
     previewBlock,
   });
@@ -793,7 +793,7 @@ describe("PreviewPane composes OptionListView state into render output", () => {
     });
     const pane = new PreviewPane({
       question: otherQuestion,
-      getTerminalWidth: () => 120,
+      getFrameTerminalWidth: () => 120,
       optionListView,
       previewBlock,
     });
@@ -882,7 +882,7 @@ describe("PreviewPane — adaptive left column width", () => {
     });
     const pane = new PreviewPane({
       question,
-      getTerminalWidth: () => 120,
+      getFrameTerminalWidth: () => 120,
       optionListView,
       previewBlock,
     });
@@ -942,7 +942,7 @@ describe("PreviewPane — inputMode (custom-answer full-width while typing)", ()
     });
     const pane = new PreviewPane({
       question: previewQuestion,
-      getTerminalWidth: getWidth,
+      getFrameTerminalWidth: getWidth,
       optionListView,
       previewBlock,
     });
@@ -1039,7 +1039,7 @@ describe("PreviewPane — height probes do not re-render the option list", () =>
     optionListView.setProps({ selectedIndex: 0, focused: true, inputBuffer: "" });
     const pane = new PreviewPane({
       question,
-      getTerminalWidth: () => 120,
+      getFrameTerminalWidth: () => 120,
       optionListView,
       previewBlock: new PreviewBlockRenderer({ question, theme, markdownTheme, markdownFactory }),
     });
