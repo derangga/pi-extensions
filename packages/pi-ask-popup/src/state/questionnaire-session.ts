@@ -1,5 +1,6 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Editor, OverlayHandle, TUI } from "@earendil-works/pi-tui";
+import { truncateToWidth } from "@earendil-works/pi-tui";
 import { COLLAPSE_KEY_OFF, formatKeySpecForDisplay } from "../config.js";
 import type { QuestionData, QuestionnaireResult, QuestionParams } from "../tool/types.js";
 import {
@@ -36,6 +37,32 @@ export interface QuestionnaireSessionConfig {
    * keeps receiving keys.
    */
   canReopenWhileHidden: boolean;
+}
+
+/** Header of the screen shown when the overlay could not be painted. */
+export const RENDER_FAILED_TEXT = "Questionnaire failed to render — press Esc to cancel";
+
+/** Never throws, whatever was thrown: this runs inside the boundary. */
+function describeThrown(thrown: unknown): string {
+  try {
+    return thrown instanceof Error ? thrown.message : String(thrown);
+  } catch {
+    return "unknown error";
+  }
+}
+
+/**
+ * The screen the boundary paints in place of the overlay.
+ *
+ * Deliberately themeless and unstyled: a theme call is one of the things that
+ * can have thrown, and a fallback that needs the failing machinery to work is
+ * not a fallback. Two plain rows, clipped to the width.
+ */
+function renderFailureScreen(width: number, thrown: unknown): string[] {
+  return [
+    truncateToWidth(` ${RENDER_FAILED_TEXT} `, width, ""),
+    truncateToWidth(` ${describeThrown(thrown)} `, width, "…"),
+  ];
 }
 
 export interface QuestionnaireSessionComponent {
@@ -163,7 +190,18 @@ export class QuestionnaireSession {
   ): QuestionnaireSessionComponent {
     const collapsedRender = this.buildCollapsedRender(theme);
     return {
-      render: (width) => (this.state.collapsed ? collapsedRender(width) : built.render(width)),
+      // The boundary. Everything below it — markdown from the model, border
+      // arithmetic, width math — runs inside pi-tui's render loop, where a
+      // throw takes the overlay down and leaves the user with no way to answer
+      // or dismiss it. Input still routes through `handleInput`, so Esc works
+      // on the fallback screen.
+      render: (width) => {
+        try {
+          return this.state.collapsed ? collapsedRender(width) : built.render(width);
+        } catch (thrown) {
+          return renderFailureScreen(width, thrown);
+        }
+      },
       invalidate: built.invalidate,
       handleInput: (data) => this.dispatch(data),
     };

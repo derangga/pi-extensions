@@ -1,7 +1,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { OverlayHandle, TUI } from "@earendil-works/pi-tui";
 import { describe, expect, it, vi } from "vitest";
-import { QuestionnaireSession } from "../src/state/questionnaire-session.js";
+import { QuestionnaireSession, RENDER_FAILED_TEXT } from "../src/state/questionnaire-session.js";
 import type { WrappingSelectItem } from "../src/state/row-intent.js";
 import type { QuestionnaireResult, QuestionParams } from "../src/tool/types.js";
 import { makeTheme } from "./fixtures.js";
@@ -77,6 +77,7 @@ const keybindings = {
 
 interface SessionOptions {
   params?: QuestionParams;
+  theme?: Theme;
   itemsByTab?: WrappingSelectItem[][];
   editInput?: (value: string) => Promise<string | undefined>;
   keybindings?: typeof keybindings;
@@ -92,7 +93,7 @@ function makeSession(options: SessionOptions = {}) {
     // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
     tui: { terminal: { columns: 120, rows: 40 }, requestRender } as unknown as TUI,
     // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-    theme: makeTheme() as unknown as Theme,
+    theme: options.theme ?? (makeTheme() as unknown as Theme),
     params: sessionParams,
     itemsByTab: options.itemsByTab ?? itemsFor(sessionParams),
     done,
@@ -585,5 +586,66 @@ describe("finishing", () => {
       answers: [{ questionIndex: 0, question: "Which?", kind: "option", answer: "A" }],
       cancelled: false,
     });
+  });
+});
+
+describe("a render that throws", () => {
+  /** A theme that works until it is armed, so the session can be built first. */
+  function explodingTheme(): { theme: Theme; arm: () => void; disarm: () => void } {
+    const base = makeTheme();
+    let armed = false;
+    const theme = {
+      ...base,
+      fg: (name: string, text: string) => {
+        if (armed) {
+          throw new Error("kaboom");
+        }
+        // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+        return (base as unknown as Theme).fg(name as never, text);
+      },
+      // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+    } as unknown as Theme;
+    return {
+      theme,
+      arm: () => {
+        armed = true;
+      },
+      disarm: () => {
+        armed = false;
+      },
+    };
+  }
+
+  it("paints a fallback screen instead of taking the overlay down", () => {
+    const { theme, arm } = explodingTheme();
+    const { session } = makeSession({ theme });
+    arm();
+
+    const lines = session.component.render(120);
+    expect(lines.join("\n")).toContain(RENDER_FAILED_TEXT);
+    expect(lines.join("\n")).toContain("kaboom");
+    for (const line of lines) {
+      expect(line.length).toBeLessThanOrEqual(120);
+    }
+  });
+
+  it("stays dismissable while it cannot paint", () => {
+    const { theme, arm } = explodingTheme();
+    const { session, done } = makeSession({ theme });
+    arm();
+    session.component.render(120);
+
+    session.dispatch(ESC);
+    expect(done).toHaveBeenCalledWith({ answers: [], cancelled: true });
+  });
+
+  it("recovers on its own once rendering works again", () => {
+    const { theme, arm, disarm } = explodingTheme();
+    const { session } = makeSession({ theme });
+
+    arm();
+    expect(session.component.render(120).join("\n")).toContain(RENDER_FAILED_TEXT);
+    disarm();
+    expect(session.component.render(120).join("\n")).not.toContain(RENDER_FAILED_TEXT);
   });
 });
