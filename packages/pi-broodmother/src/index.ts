@@ -63,7 +63,7 @@ export default function broodmotherExtension(pi: ExtensionAPI): void {
         Layer.mergeAll(
           Settings.layer,
           surfaces,
-          Intercom.layer().pipe(Layer.provide(parentDelivery)),
+          Intercom.layer.pipe(Layer.provide(parentDelivery)),
         ),
       ),
     ),

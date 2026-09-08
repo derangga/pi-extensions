@@ -76,7 +76,7 @@ function layers(
     Layer.provideMerge(
       Layer.mergeAll(
         settingsLayer(overrides),
-        Intercom.layer().pipe(
+        Intercom.layer.pipe(
           Layer.provide(
             Layer.succeed(
               ParentDelivery,
@@ -402,7 +402,7 @@ describe("Manager.start", () => {
             Layer.provideMerge(
               Layer.mergeAll(
                 mutableSettings,
-                Intercom.layer().pipe(
+                Intercom.layer.pipe(
                   Layer.provide(
                     Layer.succeed(
                       ParentDelivery,
