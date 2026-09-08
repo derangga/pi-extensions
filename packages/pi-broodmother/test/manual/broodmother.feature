@@ -24,7 +24,7 @@ Feature: Delegating research to child agents
     And the project is trusted
 
     # @ff-labs/pi-fff is not in this repo's node_modules, so every child reports
-    # "note: @ff-labs/pi-fff is not installed; using Pi's read-only tools only"
+    # "note: @ff-labs/pi-fff is not installed; using Pi's built-in tools only"
     # and falls back to Pi's read, grep, find and ls. That is the degraded path
     # working, not a failure. `npm i -D @ff-labs/pi-fff` at the root exercises
     # the other one.

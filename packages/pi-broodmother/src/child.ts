@@ -7,6 +7,7 @@ import {
   getAgentDir,
   type ModelRuntime,
   SessionManager,
+  SettingsManager,
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 
@@ -38,6 +39,14 @@ export interface ChildSessionOptions {
   readonly model: PiModel;
   readonly thinking: ThinkingLevel;
   readonly parentSession?: string;
+  /**
+   * The parent's answer to the project trust prompt. A child builds its own
+   * SettingsManager, whose `projectTrusted` defaults to true, so without this
+   * a child would read a repo's own `.agents/skills` in a project the user
+   * declined to trust. Required rather than defaulted: a trust decision is
+   * the caller's to state.
+   */
+  readonly projectTrusted: boolean;
   /** Test/custom-session seam. Production callers normally leave this undefined. */
   readonly sessionDir?: string;
   readonly modelRuntime?: ModelRuntime;
@@ -103,14 +112,22 @@ export async function createChildSession(
     options.fffEntry === undefined ? resolveFffEntry() : (options.fffEntry ?? undefined);
   const notes: string[] = [];
   if (!fffEntry) {
-    notes.push(`${FFF_PACKAGE} is not installed; using Pi's read-only tools only`);
+    notes.push(`${FFF_PACKAGE} is not installed; using Pi's built-in tools only`);
   }
 
   const loader = new DefaultResourceLoader({
     cwd: options.cwd,
     agentDir: getAgentDir(),
+    settingsManager: SettingsManager.create(options.cwd, getAgentDir(), {
+      projectTrusted: options.projectTrusted,
+    }),
     noExtensions: true,
-    noSkills: true,
+    // Skills stay on. A skill is not a capability: Pi injects a name, a
+    // description and a path, and the model opens the body with `read`, which
+    // every child already has. Discovery is the package manager's, so this
+    // reaches `~/.agents/skills` and `.agents/skills` up to the git root,
+    // exactly what the parent sees. Project skills are trust-gated above.
+    noSkills: false,
     noPromptTemplates: true,
     noThemes: true,
     noContextFiles: true,

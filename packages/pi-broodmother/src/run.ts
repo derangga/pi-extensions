@@ -54,6 +54,8 @@ export interface StartRequest {
   readonly parent: ParentChoice;
   readonly parentSession: string | undefined;
   readonly source: ModelSource;
+  /** The parent's project-trust answer, carried so a child honours it too. */
+  readonly projectTrusted: boolean;
   /** Test seam. Production callers leave this undefined and get a real session. */
   readonly create?: ChildFactory;
 }
@@ -531,6 +533,7 @@ export class Manager extends Context.Service<
                     model: state.resolvedModel,
                     thinking: state.thinking,
                     ...(request.parentSession ? { parentSession: request.parentSession } : {}),
+                    projectTrusted: request.projectTrusted,
                     customTools: createIntercomTools(channel),
                   },
                   task: prompt,

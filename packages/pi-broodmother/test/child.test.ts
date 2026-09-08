@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -79,6 +79,7 @@ describe("child session", () => {
       cwd,
       sessionDir,
       parentSession: "/tmp/parent-session.jsonl",
+      projectTrusted: true,
       name: "researcher",
       prompt: "Find the answer.",
       model: model!,
@@ -134,6 +135,7 @@ describe("child session", () => {
     const created = await createChildSession({
       cwd,
       sessionDir,
+      projectTrusted: true,
       name: "reader",
       prompt: "Read.",
       model,
@@ -144,13 +146,59 @@ describe("child session", () => {
     try {
       expect(created.fffLoaded).toBe(false);
       expect(created.notes).toEqual([
-        "@ff-labs/pi-fff is not installed; using Pi's read-only tools only",
+        "@ff-labs/pi-fff is not installed; using Pi's built-in tools only",
       ]);
       expect(created.session.getActiveToolNames()).toEqual(
         expect.arrayContaining(["read", "grep", "find", "ls"]),
       );
     } finally {
       created.session.dispose();
+    }
+  });
+
+  it("loads a project skill only when the parent trusted the project", async () => {
+    const modelRuntime = await ModelRuntime.create({ refreshOnCreate: false });
+    // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+    const model = modelRuntime.getModels()[0] as PiModel;
+
+    /** A skill directory shaped the way Pi's package manager discovers them. */
+    const withSkill = (): string => {
+      const cwd = temporaryRoot("pi-broodmother-skill-");
+      const dir = join(cwd, ".agents", "skills", "spelunking");
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(
+        join(dir, "SKILL.md"),
+        "---\nname: spelunking\ndescription: PROJECT SKILL MARKER\n---\n\nGo deep.\n",
+        "utf8",
+      );
+      return cwd;
+    };
+
+    const open = async (cwd: string, projectTrusted: boolean) =>
+      createChildSession({
+        cwd,
+        sessionDir: temporaryRoot("pi-broodmother-sessions-"),
+        name: "spelunker",
+        prompt: "Look around.",
+        model,
+        thinking: "off",
+        projectTrusted,
+        modelRuntime,
+        fffEntry: null,
+      });
+
+    const trusted = await open(withSkill(), true);
+    try {
+      expect(trusted.session.systemPrompt).toContain("PROJECT SKILL MARKER");
+    } finally {
+      trusted.session.dispose();
+    }
+
+    const untrusted = await open(withSkill(), false);
+    try {
+      expect(untrusted.session.systemPrompt).not.toContain("PROJECT SKILL MARKER");
+    } finally {
+      untrusted.session.dispose();
     }
   });
 

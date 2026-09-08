@@ -158,6 +158,7 @@ function request(
     parent: { model, thinking: "off" },
     parentSession: "/sessions/parent.jsonl",
     source: source(),
+    projectTrusted: true,
     create,
     ...overrides,
   };
