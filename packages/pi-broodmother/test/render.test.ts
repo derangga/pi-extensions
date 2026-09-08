@@ -59,7 +59,15 @@ function taskView(fields: Partial<TaskView> = {}): TaskView {
 }
 
 function runView(tasks: readonly TaskView[], fields: Partial<RunView> = {}): RunView {
-  return { id: "run_1", startedAt: 0, finished: false, cancelled: false, tasks, ...fields };
+  return {
+    id: "run_1",
+    startedAt: 0,
+    finished: false,
+    cancelled: false,
+    permissions: "read-only",
+    tasks,
+    ...fields,
+  };
 }
 
 const settled = (fields: Partial<TaskView> = {}) =>

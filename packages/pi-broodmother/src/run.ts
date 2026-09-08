@@ -114,6 +114,12 @@ export interface RunView {
   readonly startedAt: number;
   readonly finished: boolean;
   readonly cancelled: boolean;
+  /**
+   * What this run's children were allowed to do. Carried so the text the
+   * orchestrator reads can name it: the tool description is fixed at load and
+   * cannot say which side of the switch the user is on right now.
+   */
+  readonly permissions: Permissions;
   readonly tasks: readonly TaskView[];
 }
 
@@ -338,6 +344,7 @@ function viewRun(run: RunState): RunView {
     startedAt: run.startedAt,
     finished: run.finished,
     cancelled: run.cancelled,
+    permissions: run.permissions,
     tasks: run.tasks.map(viewTask),
   };
 }

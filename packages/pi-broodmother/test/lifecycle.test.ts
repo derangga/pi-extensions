@@ -149,8 +149,11 @@ function fakeChild(
 }
 
 // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-const rawChildOptions: unknown = {};
+const rawChildOptions: unknown = { permissions: "read-only" };
 const childOptions = rawChildOptions as ChildSessionOptions;
+
+/** The same stub, but allowed to write, for the half-applied warning. */
+const writableChildOptions = { ...childOptions, permissions: "read-write" } as ChildSessionOptions;
 
 function options(
   created: CreatedChildSession,
@@ -244,6 +247,37 @@ describe("child lifecycle", () => {
 
     expect(result.outcome).toBe("stopped");
     expect(fake.abort).toHaveBeenCalled();
+    // A reader cut short leaves nothing behind, so it says nothing.
+    expect(result.notes.join(" ")).not.toContain("half applied");
+  });
+
+  it("warns that a writable child cut short may have half applied its changes", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const fake = fakeChild(async () => fake.aborted);
+
+    const result = await Effect.runPromise(
+      runChildLifecycle(
+        options(fake.created, { signal: controller.signal, child: writableChildOptions }),
+      ),
+    );
+
+    expect(result.partial).toBe(true);
+    expect(result.notes.join(" ")).toContain("half applied");
+    expect(result.notes.join(" ")).toContain("git diff");
+  });
+
+  it("says nothing about half applied changes when a writable child finishes", async () => {
+    const fake = fakeChild(({ messages }) => {
+      messages.push(assistant("landed the change"));
+    });
+
+    const result = await Effect.runPromise(
+      runChildLifecycle(options(fake.created, { child: writableChildOptions })),
+    );
+
+    expect(result.outcome).toBe("completed");
+    expect(result.notes.join(" ")).not.toContain("half applied");
   });
 
   it.each([

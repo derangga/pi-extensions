@@ -11,7 +11,7 @@ import type { ParentTraffic } from "./intercom.js";
 import type { ReplyOutcome } from "./intercom.js";
 import type { RunView, TaskRequest, TaskView, WaitOutcome } from "./run.js";
 import { callLines, formatCost, resultLines } from "./render.js";
-import { MAX_TASKS, MAX_TURNS, MIN_TURNS } from "./settings.js";
+import { MAX_TASKS, MAX_TURNS, MIN_TURNS, type Permissions } from "./settings.js";
 import { THINKING_LEVELS } from "./thinking.js";
 
 /**
@@ -131,11 +131,22 @@ export function formatStart(run: RunView): string {
   const graph = run.tasks.some((task) => task.needs.length > 0);
   const rows = run.tasks.map((task) => taskRow(task, graph)).join("\n");
   return [
-    `Started ${run.id} with ${plural(run.tasks.length, "task")}.`,
+    `Started ${run.id} with ${plural(run.tasks.length, "task")}. ${describePermissions(run.permissions)}`,
     rows,
     "",
     "End your turn. Each task reports back as it settles, and subagent_result returns the whole run.",
   ].join("\n");
+}
+
+/**
+ * The one place the live mode reaches the orchestrator. Delegating a change to
+ * a read-only child wastes a whole session on a refusal, and the fixed tool
+ * description cannot warn about a setting the user flipped after load.
+ */
+function describePermissions(permissions: Permissions): string {
+  return permissions === "read-write"
+    ? "These children are read-write: they can edit, write and run commands."
+    : "These children are read-only: they can read, search and list, nothing else.";
 }
 
 function statusOf(task: TaskView): string {
