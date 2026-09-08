@@ -41,6 +41,28 @@ function toolStart(toolName: string, args: ToolArgs): AgentSessionEvent {
   return raw as AgentSessionEvent;
 }
 
+function toolUpdate(toolName: string): AgentSessionEvent {
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+  const raw: unknown = {
+    type: "tool_execution_update",
+    toolCallId: "call-1",
+    toolName,
+    args: {},
+    partialResult: { content: [], details: undefined },
+  };
+  return raw as AgentSessionEvent;
+}
+
+function textDelta(delta: string): AgentSessionEvent {
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+  const raw: unknown = {
+    type: "message_update",
+    message: { role: "assistant", content: [] },
+    assistantMessageEvent: { type: "text_delta", delta },
+  };
+  return raw as AgentSessionEvent;
+}
+
 function messageEnd(usage: Record<string, number>, cost?: number): AgentSessionEvent {
   const usageRecord: Record<string, unknown> = { ...usage };
   if (cost !== undefined) {
@@ -362,6 +384,70 @@ describe("progress reporting", () => {
     );
 
     expect(seen.at(-1)).toMatchObject({ tokens: 132, cost: 0.01 });
+  });
+
+  it("pings activity for every sign of life, not only the ones that report", async () => {
+    // The four events that reset the quiet clock. Two of them (tool updates and
+    // token deltas) carry no progress at all, which is the whole reason this
+    // hook exists apart from onProgress.
+    const fake = fakeChild(({ emit, messages }) => {
+      emit(toolStart("bash", { command: "npm test" }));
+      emit(toolUpdate("bash"));
+      emit(textDelta("partial "));
+      emit(messageEnd({ input: 10, output: 2, cacheWrite: 0, cacheRead: 0 }));
+      messages.push(assistant("done"));
+    });
+
+    let pings = 0;
+    await Effect.runPromise(
+      runChildLifecycle(options(fake.created, { onActivity: () => (pings += 1) })),
+    );
+
+    expect(pings).toBe(4);
+  });
+
+  it("pings on a tool update even though nothing about the progress changed", async () => {
+    // A four minute build streaming output is alive. Reading that as silence is
+    // the false positive the quiet counter exists to avoid.
+    const progress: TaskProgress[] = [];
+    const fake = fakeChild(({ emit, messages }) => {
+      emit(toolUpdate("bash"));
+      emit(toolUpdate("bash"));
+      messages.push(assistant("built"));
+    });
+
+    let pings = 0;
+    await Effect.runPromise(
+      runChildLifecycle(
+        options(fake.created, {
+          onActivity: () => (pings += 1),
+          onProgress: (p) => progress.push(p),
+        }),
+      ),
+    );
+
+    expect(pings).toBe(2);
+    // The point of the split: two pings, and not one extra view rebuild.
+    expect(progress).toHaveLength(1);
+  });
+
+  it("does not let a throwing activity listener strand the child", async () => {
+    const fake = fakeChild(({ emit, messages }) => {
+      emit(toolStart("grep", { pattern: "x" }));
+      messages.push(assistant("done anyway"));
+    });
+
+    const result = await Effect.runPromise(
+      runChildLifecycle(
+        options(fake.created, {
+          onActivity: () => {
+            throw new Error("the widget blew up");
+          },
+        }),
+      ),
+    );
+
+    expect(result).toMatchObject({ outcome: "completed", output: "done anyway" });
   });
 
   it("does not let a throwing listener strand the child", async () => {

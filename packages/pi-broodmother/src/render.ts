@@ -2,6 +2,7 @@ import type { ExtensionContext, Theme, ThemeColor } from "@earendil-works/pi-cod
 import { type Component, truncateToWidth, type TUI } from "@earendil-works/pi-tui";
 import { Predicate } from "effect";
 
+import type { AskWaiting } from "./intercom.js";
 import { aggregateUsage, type RunView, type TaskStatus, type TaskView } from "./run.js";
 type JsonValue =
   | string
@@ -20,6 +21,14 @@ export const WIDGET_KEY = "pi-broodmother";
 /** Header plus tasks. Past this the widget is eating the transcript. */
 export const WIDGET_MAX_LINES = 9;
 const GOAL_MAX = 64;
+/**
+ * How long a child must show no sign of life before the widget says so. Not a
+ * verdict that anything is wrong: a command that writes nothing until it exits
+ * is silent and healthy. It is a floor on rendering, because every tool call,
+ * token and message resets the clock, so during ordinary work this number sits
+ * near zero and printing it would be noise on every line.
+ */
+const QUIET_AFTER_MS = 30_000;
 /**
  * How much of a prompt the expanded call row prints. Per task, not per call: a
  * shared budget would give a wide run two lines each, which is the truncation
@@ -129,11 +138,43 @@ export function widgetLine(task: TaskView, theme: Theme, now: number): string {
     !isDone(task) && !blocked && task.activity
       ? `${theme.fg("muted", `→ ${task.activity}`)} · `
       : "";
+  // Beside the activity rather than replacing it: when a child goes quiet, the
+  // tool it went quiet on is the most useful thing on the line. Ahead of the
+  // stats, so the narrow-terminal truncation eats the numbers first.
+  const quiet = quietSegment(task, blocked, theme, now);
   const waitsFor =
     task.status === "pending" && task.needs.length > 0
       ? `${theme.fg("muted", `↳ waits ${task.needs.join(", ")}`)} · `
       : "";
-  return `${icon} ${name} · ${waitsFor}${asks}${activity}${stats}`;
+  return `${icon} ${name} · ${waitsFor}${asks}${activity}${quiet}${stats}`;
+}
+
+/**
+ * How long the child has been silent, once that is long enough to be worth
+ * saying. "quiet" and not "idle" or "stuck": all this measures is an absence of
+ * output, and a child mid-build is neither idle nor stuck.
+ *
+ * A blocked child is skipped because the ask already carries its own elapsed,
+ * measured against the parent reply timeout, which says the same thing better
+ * and names the reason. A task that has not started is skipped because waiting
+ * on an upstream edge is the graph working, not a child going quiet.
+ */
+function quietSegment(
+  task: TaskView,
+  blocked: AskWaiting | undefined,
+  theme: Theme,
+  now: number,
+): string {
+  if (isDone(task) || blocked || task.status !== "running") {
+    return "";
+  }
+  // Falls back to startedAt: a child that has said nothing at all since
+  // dispatch is the case most worth surfacing, not the one to stay silent on.
+  const since = task.lastActivityAt ?? task.startedAt;
+  if (since === undefined || now - since < QUIET_AFTER_MS) {
+    return "";
+  }
+  return `${theme.fg("muted", `quiet ${formatDuration(now - since)}`)} · `;
 }
 
 export function widgetLines(runs: readonly RunView[], theme: Theme, now: number): string[] {

@@ -49,6 +49,7 @@ function taskView(fields: Partial<TaskView> = {}): TaskView {
     billedTokens: 9500,
     cost: 0.0123,
     activity: "Grep useEffect",
+    lastActivityAt: undefined,
     startedAt: NOW - 12_000,
     endedAt: undefined,
     missing: [],
@@ -152,6 +153,78 @@ describe("widgetLines", () => {
     expect(done).not.toContain("⏸");
     expect(done).not.toContain("asks");
     expect(done).toContain("✓");
+  });
+
+  it("stays silent about a child that is working normally", () => {
+    // Every tool call, token and message resets the clock, so during ordinary
+    // work this number sits near zero. Printing it would be noise on every row.
+    const [, busy] = widgetLines(
+      [runView([taskView({ lastActivityAt: NOW - 4_000 })])],
+      theme,
+      NOW,
+    );
+    expect(busy).not.toContain("quiet");
+    expect(busy).toContain("→ Grep useEffect");
+  });
+
+  it("says how long a child has been quiet, beside what it went quiet on", () => {
+    const [, hushed] = widgetLines(
+      [runView([taskView({ lastActivityAt: NOW - 192_000 })])],
+      theme,
+      NOW,
+    );
+    expect(hushed).toContain("quiet 3m12s");
+    // Beside the activity, not instead of it: the tool it stalled on is the
+    // most useful thing on the line.
+    expect(hushed).toContain("→ Grep useEffect");
+    // Ahead of the stats, so a narrow terminal eats the numbers first.
+    expect(hushed).toMatch(/quiet 3m12s.*3 tools/);
+  });
+
+  it("counts from the start for a child that has never said anything", () => {
+    // A child silent since dispatch is the case most worth surfacing, so an
+    // absent timestamp must not read as "no news is good news".
+    const [, mute] = widgetLines(
+      [runView([taskView({ lastActivityAt: undefined, startedAt: NOW - 61_000 })])],
+      theme,
+      NOW,
+    );
+    expect(mute).toContain("quiet 1m1s");
+  });
+
+  it("leaves a blocked child to its own elapsed", () => {
+    // A blocked child is silent by any definition, but the ask already says how
+    // long and names the reason. Two durations would just invite comparison.
+    const [, blocked] = widgetLines(
+      [
+        runView([
+          taskView({
+            waiting: { question: "which schema?", since: NOW - 521_000 },
+            lastActivityAt: NOW - 521_000,
+          }),
+        ]),
+      ],
+      theme,
+      NOW,
+    );
+    expect(blocked).toContain("asks · 8m41s");
+    expect(blocked).not.toContain("quiet");
+  });
+
+  it("says nothing about a task that has not started or has finished", () => {
+    const [, pending] = widgetLines(
+      [runView([taskView({ status: "pending", needs: ["up"], startedAt: undefined })])],
+      theme,
+      NOW,
+    );
+    expect(pending).not.toContain("quiet");
+
+    const [, done] = widgetLines(
+      [runView([settled({ lastActivityAt: NOW - 600_000 })])],
+      theme,
+      NOW,
+    );
+    expect(done).not.toContain("quiet");
   });
 
   it("says what a pending task is waiting for", () => {

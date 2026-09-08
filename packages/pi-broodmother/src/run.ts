@@ -93,6 +93,12 @@ export interface TaskView {
   readonly cost: number;
   /** The last tool the child called, as a short phrase. */
   readonly activity: string | undefined;
+  /**
+   * When the child last showed any sign of life. Undefined until it does,
+   * which is why a reader falls back to `startedAt`: a child that has said
+   * nothing at all since dispatch is the case most worth seeing.
+   */
+  readonly lastActivityAt: number | undefined;
   /** Undefined until the task starts. Elapsed is the caller's to compute. */
   readonly startedAt: number | undefined;
   readonly endedAt: number | undefined;
@@ -252,6 +258,9 @@ interface TaskState {
   waiting: AskWaiting | undefined;
   result: ChildRunResult | undefined;
   progress: TaskProgress;
+  /** See `TaskView.lastActivityAt`. Written without notifying: the widget
+   * pulls a fresh view on every repaint, so a ping needs no snapshot. */
+  lastActivityAt: number | undefined;
   startedAt: number | undefined;
   endedAt: number | undefined;
   missing: readonly string[];
@@ -295,6 +304,7 @@ function viewTask(state: TaskState): TaskView {
     billedTokens: state.progress.billedTokens,
     cost: state.progress.cost,
     activity: state.progress.activity,
+    lastActivityAt: state.lastActivityAt,
     startedAt: state.startedAt,
     endedAt: state.endedAt,
     missing: state.missing,
@@ -530,6 +540,12 @@ export class Manager extends Context.Service<
                     state.progress = progress;
                     changed();
                   },
+                  // No changed(): this fires per token, and changed() rebuilds
+                  // every view of every run. The widget pulls a fresh view on
+                  // each repaint, so the next heartbeat sees this anyway.
+                  onActivity: () => {
+                    state.lastActivityAt = Date.now();
+                  },
                   ...(request.create ? { create: request.create } : {}),
                 });
               }),
@@ -634,6 +650,7 @@ export class Manager extends Context.Service<
               waiting: undefined,
               result: undefined,
               progress: NO_PROGRESS,
+              lastActivityAt: undefined,
               startedAt: undefined,
               endedAt: undefined,
               missing: [],

@@ -34,6 +34,7 @@ function taskView(fields: Partial<TaskView> = {}): TaskView {
     billedTokens: 7200,
     cost: 0.0042,
     activity: "Grep useEffect",
+    lastActivityAt: undefined,
     startedAt: 1000,
     endedAt: 4000,
     missing: [],

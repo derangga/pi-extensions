@@ -114,6 +114,14 @@ export interface ChildRunOptions {
   readonly create?: ChildFactory;
   /** Called as the child works, for the widget. Never on the critical path. */
   readonly onProgress?: (progress: TaskProgress) => void;
+  /**
+   * Fired whenever the child shows any sign of life: a tool starting, a tool
+   * streaming output, a token arriving, a message ending. Deliberately separate
+   * from `onProgress`, which carries a whole `TaskProgress` and whose observer
+   * rebuilds every view. This one says only "something happened just now", so a
+   * per-token event costs a field write instead of a snapshot.
+   */
+  readonly onActivity?: () => void;
 }
 
 class PromptFailed extends Schema.TaggedError<PromptFailed>()("PromptFailed", {
@@ -242,17 +250,45 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
     }
   };
 
+  const touch = (): void => {
+    // Plain try/catch rather than Effect.try, for the same reason report() and
+    // intercom's safelyNotify use it: this runs inside session.subscribe, which
+    // is synchronous and outside the fiber. An Effect here would need runSync
+    // around it and would allocate once per token, to catch a throw that has no
+    // error channel to flow into. Avoiding that per-token cost is the whole
+    // reason this hook is separate from onProgress.
+    try {
+      options.onActivity?.();
+    } catch {
+      // A widget that throws must not strand the child that was feeding it.
+      // The ping is advisory: nothing downstream needs to know it was lost.
+    }
+  };
+
   report({ ...NO_PROGRESS, sessionFile: child.sessionFile });
 
   const unsubscribe = session.subscribe((event: AgentSessionEvent) => {
     if (event.type === "message_start" && event.message.role === "assistant") {
       Effect.runSync(Ref.set(streamedRef, ""));
     }
-    if (event.type === "message_update" && event.assistantMessageEvent.type === "text_delta") {
-      const delta = event.assistantMessageEvent.delta;
-      Effect.runSync(Ref.update(streamedRef, (current) => current + delta));
+    if (event.type === "message_update") {
+      // Any delta counts, not just text. A child deep in a reasoning block is
+      // working, and reading it as silence is the false positive this exists
+      // to avoid.
+      touch();
+      if (event.assistantMessageEvent.type === "text_delta") {
+        const delta = event.assistantMessageEvent.delta;
+        Effect.runSync(Ref.update(streamedRef, (current) => current + delta));
+      }
+    }
+    if (event.type === "tool_execution_update") {
+      // Only bash and powershell ever send these, which is exactly the case
+      // that matters: a long command writing output is visibly alive.
+      touch();
+      return;
     }
     if (event.type === "tool_execution_start") {
+      touch();
       const current = Effect.runSync(Ref.get(progressRef));
       report({
         ...current,
@@ -262,6 +298,9 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
       return;
     }
     if (event.type === "message_end") {
+      // Ahead of the usage check: a message ending is a sign of life whether or
+      // not the provider attached any numbers to it.
+      touch();
       // Accumulated here rather than from getSessionStats, which derives from
       // the message array compaction replaces and so resets when a child
       // compacts.
