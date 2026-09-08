@@ -20,6 +20,7 @@ const ENTER = "<ENTER>";
 const ESC = "\x1b";
 const CTRL_G = "\x07";
 const CTRL_U = "\x15";
+const BACKSPACE = "\x7f";
 const SHIFT_ENTER = "\x1b\r";
 const TAB = "\t";
 
@@ -685,5 +686,189 @@ describe("renders requested per keystroke", () => {
 
     session.dispatch("\x1b[Z");
     expect(requestRender.mock.calls.length).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("multi-select with a typed answer", () => {
+  // The reported bug, as keystrokes: tick some boxes, type your own value on the
+  // last row, and try to have it counted too. Enter on that row used to commit a
+  // custom answer and throw the ticks away, while the row drew a checkbox that
+  // could never fill in.
+  const checksParams: QuestionParams = {
+    questions: [
+      {
+        question: "Which checks should the pre-commit hook run?",
+        header: "Checks",
+        multiSelect: true,
+        options: [
+          { label: "fmt", description: "oxfmt --check" },
+          { label: "lint", description: "oxlint" },
+          { label: "typecheck", description: "tsc --noEmit" },
+          { label: "test", description: "vitest run" },
+        ],
+      },
+    ],
+  };
+
+  function itemsForMulti(value: QuestionParams): WrappingSelectItem[][] {
+    return value.questions.map((question) => [
+      ...question.options.map((option) => ({
+        kind: "option" as const,
+        label: option.label,
+        description: option.description,
+      })),
+      { kind: "other" as const, label: "Type something." },
+      { kind: "next" as const, label: "Next" },
+    ]);
+  }
+
+  function makeChecksSession() {
+    return makeSession({ params: checksParams, itemsByTab: itemsForMulti(checksParams) });
+  }
+
+  /** Walk down `count` rows from the top. */
+  function down(session: QuestionnaireSession, count: number): void {
+    for (let i = 0; i < count; i++) {
+      session.dispatch(DOWN);
+    }
+  }
+
+  it("submits the ticked options and the typed one together", () => {
+    const { session, done } = makeChecksSession();
+
+    session.dispatch(" "); // fmt
+    down(session, 1);
+    session.dispatch(" "); // lint
+    down(session, 2);
+    session.dispatch(" "); // test
+    down(session, 1); // the typed row
+    session.dispatch("bun");
+    down(session, 1); // Next
+    session.dispatch(ENTER);
+
+    expect(done).toHaveBeenCalledWith({
+      answers: [
+        {
+          questionIndex: 0,
+          question: checksParams.questions[0]?.question,
+          kind: "multi",
+          answer: null,
+          selected: ["fmt", "lint", "test", "bun"],
+        },
+      ],
+      cancelled: false,
+    });
+  });
+
+  it("ticks on the first character typed", () => {
+    const { session } = makeChecksSession();
+    down(session, 4);
+    expect(view(session)).toContain("[ ]");
+
+    session.dispatch("b");
+    expect(view(session)).toContain("[✔] b");
+  });
+
+  it("unticks when the text is deleted back to empty", () => {
+    const { session } = makeChecksSession();
+    down(session, 4);
+    session.dispatch("bu");
+    expect(view(session)).toContain("[✔]");
+
+    session.dispatch(BACKSPACE);
+    expect(view(session)).toContain("[✔] b");
+    session.dispatch(BACKSPACE);
+
+    // The active row renders the editor rather than its placeholder, so the
+    // emptied draft shows as a bare cursor next to an empty box. Asserted on
+    // that row alone — "Submit" further down the frame has a "b" in it.
+    const emptiedRow = view(session)
+      .split("\n")
+      .find((line) => line.includes("5."));
+    expect(emptiedRow).toBeDefined();
+    expect(emptiedRow).toContain("[ ]");
+    expect(emptiedRow).not.toContain("b");
+  });
+
+  it("stays unticked for a draft of nothing but spaces", () => {
+    const { session } = makeChecksSession();
+    down(session, 4);
+    session.dispatch("   ");
+    expect(view(session)).not.toContain("[✔]");
+  });
+
+  it("unticks when Ctrl+U clears the draft", () => {
+    const { session } = makeChecksSession();
+    down(session, 4);
+    session.dispatch("bun");
+    expect(view(session)).toContain("[✔] bun");
+
+    session.dispatch(CTRL_U);
+    expect(view(session)).not.toContain("[✔]");
+  });
+
+  it("keeps the boxes ticked while the typed row is being typed into", () => {
+    const { session } = makeChecksSession();
+    session.dispatch(" "); // fmt
+    down(session, 4);
+    session.dispatch("bun");
+
+    const painted = view(session);
+    expect(painted).toContain("[✔] fmt");
+    expect(painted).toContain("[✔] bun");
+  });
+
+  it("commits from the typed row itself, ticks included", () => {
+    // Enter here used to commit the typed text ALONE and discard the ticks.
+    const { session, done } = makeChecksSession();
+    session.dispatch(" "); // fmt
+    down(session, 4);
+    session.dispatch("bun");
+    session.dispatch(ENTER);
+
+    expect(done).toHaveBeenCalledWith({
+      answers: [
+        {
+          questionIndex: 0,
+          question: checksParams.questions[0]?.question,
+          kind: "multi",
+          answer: null,
+          selected: ["fmt", "bun"],
+        },
+      ],
+      cancelled: false,
+    });
+  });
+
+  it("submits without the typed text once the draft is cleared", () => {
+    const { session, done } = makeChecksSession();
+    session.dispatch(" "); // fmt
+    down(session, 4);
+    session.dispatch("bun");
+    session.dispatch(CTRL_U);
+    down(session, 1); // Next
+    session.dispatch(ENTER);
+
+    expect(done).toHaveBeenCalledWith({
+      answers: [
+        {
+          questionIndex: 0,
+          question: checksParams.questions[0]?.question,
+          kind: "multi",
+          answer: null,
+          selected: ["fmt"],
+        },
+      ],
+      cancelled: false,
+    });
+  });
+
+  it("types a space into the draft rather than ticking the row", () => {
+    const { session } = makeChecksSession();
+    down(session, 4);
+    session.dispatch("bun");
+    session.dispatch(" ");
+    session.dispatch("check");
+    expect(view(session)).toContain("bun check");
   });
 });

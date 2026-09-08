@@ -23,6 +23,7 @@ import {
   HINT_PART_NOTES,
   HINT_PART_NOTES_EDIT,
   HINT_PART_TAB,
+  HINT_PART_ENTER_CONFIRM,
   HINT_PART_TOGGLE,
   INCOMPLETE_WARNING_PREFIX,
   KEY_PLACEHOLDER,
@@ -431,8 +432,15 @@ export function buildHintText(
   state: DialogState,
   collapseKey: string,
 ): string {
-  const parts: string[] = [HINT_PART_ENTER, HINT_PART_NAV];
-  if (question?.multiSelect === true) {
+  const typingOnMulti = question?.multiSelect === true && state.inputMode;
+  // Typing on the multi-select free-text row: Enter ticks that row rather than
+  // choosing an answer, and Space belongs to the draft, so neither resting part
+  // is true here.
+  const parts: string[] = [
+    typingOnMulti ? HINT_PART_ENTER_CONFIRM : HINT_PART_ENTER,
+    HINT_PART_NAV,
+  ];
+  if (question?.multiSelect === true && !typingOnMulti) {
     parts.push(HINT_PART_TOGGLE);
   }
   if (question && !state.notesVisible && !state.inputMode) {

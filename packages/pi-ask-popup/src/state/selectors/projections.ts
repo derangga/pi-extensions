@@ -22,6 +22,7 @@ function emptyMultiSelectProps(ctx: PerTabBindingContext): MultiSelectViewProps 
     rows: [],
     other: {
       active: false,
+      checked: false,
       inputMode: false,
       inputBuffer: ctx.inputBuffer,
       inputCursorOffset: ctx.inputCursorOffset,
@@ -56,6 +57,11 @@ export const selectMultiSelectProps: PerTabSelector<MultiSelectViewProps> = (sta
     rows,
     other: {
       active: focused && state.optionIndex === question.options.length,
+      // Text in the row is the tick: it appears on the first character typed and
+      // goes on the first delete that empties the row, without a keystroke of
+      // its own. Read from the live editor text, because typing never reaches
+      // the reducer — `handleIgnoreInline` feeds the editor directly.
+      checked: ctx.inputBuffer.trim().length > 0,
       inputMode: state.inputMode,
       inputBuffer: ctx.inputBuffer,
       inputCursorOffset: ctx.inputCursorOffset,

@@ -416,7 +416,7 @@ describe("reduce — submit_nav / ignore", () => {
   });
 });
 
-describe("confirmHandler — custom answer clears multiSelectChecked (mutual exclusivity)", () => {
+describe("the typed row on a multi-select tab", () => {
   const multiQ: QuestionData = {
     question: "areas?",
     header: "H",
@@ -426,25 +426,103 @@ describe("confirmHandler — custom answer clears multiSelectChecked (mutual exc
       { label: "BE", description: "b" },
     ],
   };
+  const ctx = makeCtx({ questions: [multiQ] });
 
-  it("custom confirm on a multi-select tab clears pre-existing checks", () => {
+  /** Type `draft` on the typed row, then navigate off it — which is when the reducer sees it. */
+  function typeThenLeave(draft: string, checked: number[] = []) {
     const state = makeState({
       currentTab: 0,
-      multiSelectChecked: new Set([0, 1]),
+      optionIndex: multiQ.options.length,
+      inputMode: true,
+      multiSelectChecked: new Set(checked),
     });
-    const ctx = makeCtx({ questions: [multiQ] });
-    const result = reduce(
-      state,
-      {
-        kind: "confirm",
-        answer: { questionIndex: 0, question: "areas?", kind: "custom", answer: "custom-text" },
-      },
-      ctx,
-    );
-    expect(result.state.multiSelectChecked.size).toBe(0);
-    expect(result.state.answers.get(0)?.kind).toBe("custom");
+    return reduce(state, { kind: "nav", nextIndex: 0, inputValue: draft }, ctx);
+  }
+
+  it("joins the selection as soon as there is text", () => {
+    const result = typeThenLeave("bun", [0, 1]);
+    expect(result.state.answers.get(0)?.selected).toEqual(["FE", "BE", "bun"]);
+    expect(result.state.answers.get(0)?.kind).toBe("multi");
   });
 
+  it("counts as nothing when the draft is empty or only whitespace", () => {
+    for (const draft of ["", " ", "   ", "\n", " \n\t "]) {
+      const result = typeThenLeave(draft, [0]);
+      expect(result.state.answers.get(0)?.selected).toEqual(["FE"]);
+    }
+  });
+
+  it("leaves the question unanswered when a blank draft is all there is", () => {
+    for (const draft of ["", "  \n "]) {
+      expect(typeThenLeave(draft).state.answers.get(0)).toBeUndefined();
+    }
+  });
+
+  it("drops out of the selection once the text is deleted", () => {
+    const typed = typeThenLeave("bun", [0]);
+    expect(typed.state.answers.get(0)?.selected).toEqual(["FE", "bun"]);
+
+    const cleared = reduce(
+      { ...typed.state, optionIndex: multiQ.options.length, inputMode: true },
+      { kind: "nav", nextIndex: 0, inputValue: "" },
+      ctx,
+    );
+    expect(cleared.state.answers.get(0)?.selected).toEqual(["FE"]);
+  });
+
+  it("clearing the draft with Ctrl+U also clears it from the answer", () => {
+    const typed = typeThenLeave("bun", [0]);
+    const cleared = reduce(typed.state, { kind: "input_clear" }, ctx);
+    const afterToggle = reduce(cleared.state, { kind: "toggle", index: 1 }, ctx);
+    expect(afterToggle.state.answers.get(0)?.selected).toEqual(["FE", "BE"]);
+  });
+
+  it("is stored trimmed, and not twice when it repeats an option label", () => {
+    expect(typeThenLeave("  bun  ", [0]).state.answers.get(0)?.selected).toEqual(["FE", "bun"]);
+    expect(typeThenLeave("FE", [0]).state.answers.get(0)?.selected).toEqual(["FE"]);
+  });
+
+  it("rides along when a box is ticked afterwards", () => {
+    const typed = typeThenLeave("bun");
+    const result = reduce(typed.state, { kind: "toggle", index: 0 }, ctx);
+    expect(result.state.answers.get(0)?.selected).toEqual(["FE", "bun"]);
+  });
+
+  it("survives a trip to another tab and back", () => {
+    const twoTabCtx = makeCtx({ questions: [multiQ, multiQ] });
+    const typed = reduce(
+      makeState({
+        currentTab: 0,
+        optionIndex: multiQ.options.length,
+        inputMode: true,
+        multiSelectChecked: new Set([0]),
+      }),
+      { kind: "nav", nextIndex: 0, inputValue: "bun" },
+      twoTabCtx,
+    );
+    const away = reduce(typed.state, { kind: "tab_switch", nextTab: 1 }, twoTabCtx);
+    const back = reduce(away.state, { kind: "tab_switch", nextTab: 0 }, twoTabCtx);
+
+    expect(back.state.answers.get(0)?.selected).toEqual(["FE", "bun"]);
+    expect(back.state.multiSelectChecked.has(0)).toBe(true);
+    // The draft comes back with the tab, which is what re-draws the tick.
+    expect(back.effects).toContainEqual({ kind: "set_input_buffer", value: "bun" });
+  });
+
+  it("leaves a single-select tab's custom answer alone", () => {
+    const singleCtx = makeCtx({
+      questions: [{ question: "pick?", header: "H", options: [{ label: "A", description: "a" }] }],
+    });
+    const result = reduce(
+      makeState({ currentTab: 0, optionIndex: 1, inputMode: true }),
+      { kind: "nav", nextIndex: 0, inputValue: "typed" },
+      singleCtx,
+    );
+    expect(result.state.answers.get(0)).toBeUndefined();
+  });
+});
+
+describe("confirmHandler — single-select answers", () => {
   it("option confirm on a single-select tab leaves multiSelectChecked untouched (no spurious clear)", () => {
     const singleQ: QuestionData = {
       question: "pick?",

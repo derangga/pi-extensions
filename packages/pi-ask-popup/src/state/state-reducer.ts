@@ -116,6 +116,8 @@ function syncMultiSelectFromAnswers(
       indices.add(i);
     }
   }
+  // The typed row needs nothing here. Its tick is its text, and the text comes
+  // back with the tab's draft.
   return indices;
 }
 
@@ -132,6 +134,12 @@ function persistMultiSelectAnswer(
     if (state.multiSelectChecked.has(i)) {
       selected.push(q.options[i]!.label);
     }
+  }
+  // Text in the typed row is itself the tick, so a non-blank draft joins the
+  // selection. A draft that repeats an option label is not listed twice.
+  const typed = customDraftValueFor(state, state.currentTab).trim();
+  if (typed.length > 0 && !selected.includes(typed)) {
+    selected.push(typed);
   }
   const out = new Map(state.answers);
   if (selected.length === 0) {
@@ -258,6 +266,12 @@ const navHandler: Handler<"nav"> = (state, action, ctx) => {
     inputMode,
     customDraftsByTab,
   };
+  // Leaving the typed row: keystrokes never reached the reducer, so this is the
+  // first moment it sees the finished text. Re-state the answer here or the
+  // Submit review quotes a draft that is several characters out of date.
+  if (state.inputMode) {
+    next.answers = persistMultiSelectAnswer(next, ctx);
+  }
   if (!inputMode) {
     return { state: next, effects: [] };
   }
@@ -298,11 +312,6 @@ const confirmHandler: Handler<"confirm"> = (state, action, ctx) => {
   }
   const answers = new Map(state.answers);
   answers.set(answer.questionIndex, answer);
-  // Custom free-text on a multi-select tab is mutually exclusive with checkbox selections:
-  // clear the checked set immediately so [✔] glyphs vanish on Enter. (A custom answer
-  // carries no `selected` array, so syncMultiSelectFromAnswers keeps it empty on tab-back.)
-  const isCustomMulti =
-    answer.kind === "custom" && ctx.questions[answer.questionIndex]?.multiSelect === true;
   const customDraftsByTab =
     answer.kind === "custom"
       ? withoutCustomDraft(state, answer.questionIndex)
@@ -312,9 +321,6 @@ const confirmHandler: Handler<"confirm"> = (state, action, ctx) => {
     answers,
     customDraftsByTab,
   };
-  if (isCustomMulti) {
-    next.multiSelectChecked = new Set<number>();
-  }
   if (action.autoAdvanceTab !== undefined) {
     return switchTabResult(next, action.autoAdvanceTab, ctx);
   }

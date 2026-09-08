@@ -18,6 +18,13 @@ export const HINT_PART_NAV = "↑/↓ to navigate";
 export const HINT_PART_NEW_LINE = "Shift+Enter for newline";
 export const HINT_PART_CLEAR = "Ctrl+U to clear";
 export const HINT_PART_TOGGLE = "Space to toggle";
+/**
+ * Replaces ENTER while the typed row of a multi-select question has the
+ * keyboard. Enter there commits the question, the way the Next row does, rather
+ * than choosing a single answer — and Space belongs to the draft, so the resting
+ * "Space to toggle" is dropped alongside this.
+ */
+export const HINT_PART_ENTER_CONFIRM = "Enter to confirm";
 export const HINT_PART_NOTES = "n to add notes";
 /** Replaces the add form once the tab already has a note. See `buildHintText`. */
 export const HINT_PART_NOTES_EDIT = "n to edit notes";

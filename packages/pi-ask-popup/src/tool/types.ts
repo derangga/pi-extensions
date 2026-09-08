@@ -114,7 +114,10 @@ export type QuestionParams = Static<typeof QuestionParamsSchema>;
  * - `custom` — the user typed free text in the "Type something." row.
  *   `answer` is the text, or null when they committed nothing.
  * - `multi` — the user committed multi-select choices. `selected` carries the
- *   chosen labels and `answer` is null.
+ *   chosen labels and `answer` is null. Text typed on the "Type something." row
+ *   appears in `selected` too, as its own trimmed entry: on a multi-select
+ *   question that row counts as chosen whenever it holds text, so an answer can
+ *   be several authored labels plus one thing the user wrote.
  */
 export interface QuestionAnswer {
   questionIndex: number;

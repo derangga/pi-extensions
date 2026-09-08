@@ -427,10 +427,12 @@ describe("routeKey — multiSelect free-text ('Type something.')", () => {
     { kind: "next", label: "Next" },
   ];
 
-  it("Enter on the 'Type something.' row (inputMode) → confirm kind:'custom' with the buffer", () => {
+  it("Enter on the 'Type something.' row (inputMode) → multi_confirm carrying the typed text", () => {
+    // The typed text is part of the selection, not a replacement for it: this
+    // used to commit the text alone and discard every ticked box.
     const action = routeKey(
       sentinel(KEY.CONFIRM),
-      makeState({ optionIndex: 3, inputMode: true }),
+      makeState({ optionIndex: 3, inputMode: true, multiSelectChecked: new Set([1]) }),
       makeRuntime({
         questions: [multiQ],
         isMulti: false,
@@ -439,9 +441,69 @@ describe("routeKey — multiSelect free-text ('Type something.')", () => {
         inputBuffer: "typed answer",
       }),
     );
-    const narrowed = expectKind(action, "confirm");
-    expect(narrowed.answer.kind).toBe("custom");
-    expect(narrowed.answer.answer).toBe("typed answer");
+    expect(expectKind(action, "multi_confirm").selected).toEqual(["BE", "typed answer"]);
+  });
+
+  it("Enter with a blank draft commits only the ticked boxes", () => {
+    for (const draft of ["", "   ", "\n  \n"]) {
+      const action = routeKey(
+        sentinel(KEY.CONFIRM),
+        makeState({ optionIndex: 3, inputMode: true, multiSelectChecked: new Set([1]) }),
+        makeRuntime({
+          questions: [multiQ],
+          isMulti: false,
+          items,
+          currentItem: items[3],
+          inputBuffer: draft,
+        }),
+      );
+      expect(expectKind(action, "multi_confirm").selected).toEqual(["BE"]);
+    }
+  });
+
+  it("Next carries the typed text alongside the ticked labels, trimmed", () => {
+    const action = routeKey(
+      sentinel(KEY.CONFIRM),
+      makeState({ optionIndex: 4, multiSelectChecked: new Set([0]) }),
+      makeRuntime({
+        questions: [multiQ],
+        isMulti: false,
+        items,
+        currentItem: items[4],
+        inputBuffer: "  bun  ",
+      }),
+    );
+    expect(expectKind(action, "multi_confirm").selected).toEqual(["FE", "bun"]);
+  });
+
+  it("Next leaves an emptied draft out of the selection", () => {
+    const action = routeKey(
+      sentinel(KEY.CONFIRM),
+      makeState({ optionIndex: 4, multiSelectChecked: new Set([0]) }),
+      makeRuntime({
+        questions: [multiQ],
+        isMulti: false,
+        items,
+        currentItem: items[4],
+        inputBuffer: "   ",
+      }),
+    );
+    expect(expectKind(action, "multi_confirm").selected).toEqual(["FE"]);
+  });
+
+  it("does not list the typed text twice when it repeats an option label", () => {
+    const action = routeKey(
+      sentinel(KEY.CONFIRM),
+      makeState({ optionIndex: 4, multiSelectChecked: new Set([0]) }),
+      makeRuntime({
+        questions: [multiQ],
+        isMulti: false,
+        items,
+        currentItem: items[4],
+        inputBuffer: "FE",
+      }),
+    );
+    expect(expectKind(action, "multi_confirm").selected).toEqual(["FE"]);
   });
 
   it("Space on the 'Type something.' row (defensive, !inputMode) → ignore (no phantom toggle)", () => {
