@@ -24,9 +24,19 @@ npm run check        # fmt:check, lint, typecheck, test
 npm test
 npm run fmt          # rewrite formatting
 npm run lint:fix
+
+npm run release -- <package> <version|patch|minor|major> [--dry-run]
 ```
 
 `npm run check` is the gate. Run it before you call anything done.
+
+`npm run release` is the only way to cut a release. A package version is
+written in three places at once (the manifest, the assertion and title in
+`test/manifest.test.ts`, and the git tag), and the publish workflow rejects a
+tag whose manifest disagrees with it. The script writes all three, runs the
+gate, then pushes the tag that triggers `.github/workflows/release.yml`. It
+reverts the working tree if any step fails, so a failed gate leaves nothing
+behind. Use `--dry-run` to see the diff and the tag without pushing.
 
 ## Rules
 

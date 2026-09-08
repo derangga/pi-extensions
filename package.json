@@ -20,7 +20,8 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
-    "check": "npm run fmt:check && npm run lint && npm run typecheck && npm run test"
+    "check": "npm run fmt:check && npm run lint && npm run typecheck && npm run test",
+    "release": "bash scripts/release.sh"
   },
   "devDependencies": {
     "@earendil-works/pi-coding-agent": "0.84.4",
