@@ -1,5 +1,5 @@
 import type { ExtensionContext, Theme, ThemeColor } from "@earendil-works/pi-coding-agent";
-import { type Component, truncateToWidth, type TUI } from "@earendil-works/pi-tui";
+import { getKeybindings, type Component, truncateToWidth, type TUI } from "@earendil-works/pi-tui";
 import { Predicate } from "effect";
 
 import type { AskWaiting } from "./intercom.js";
@@ -498,16 +498,50 @@ function summaryLine(run: RunView, theme: Theme): string {
   return `${theme.fg(failed > 0 ? "warning" : "success", `${done}/${run.tasks.length} done`)} ${theme.fg("muted", state)} · ${tail}`;
 }
 
+function formatExpandKey(keys: readonly string[]): string {
+  if (keys.length === 0) {
+    return "ctrl+o";
+  }
+  const raw = keys.join("/");
+  return raw
+    .split("/")
+    .map((part) =>
+      part
+        .split("+")
+        .map((segment) =>
+          process.platform === "darwin" && segment.toLowerCase() === "alt" ? "option" : segment,
+        )
+        .join("+"),
+    )
+    .join("/");
+}
+
+function expandHint(theme: Theme): string {
+  let key = "ctrl+o";
+  try {
+    // SAFETY: pi-coding-agent registers "app.tools.expand" on the shared pi-tui KeybindingsManager, which the TUI type doesn't list; runtime getKeys accepts any string and returns string[].
+    const keys = (getKeybindings() as { getKeys: (id: string) => string[] }).getKeys(
+      "app.tools.expand",
+    );
+    if (Array.isArray(keys) && keys.length > 0) {
+      key = formatExpandKey(keys);
+    }
+  } catch {
+    // No keybindings available yet, keep the default.
+  }
+  return `${theme.fg("dim", key)}${theme.fg("muted", " to expand")}`;
+}
+
 export function resultLines(
   run: RunView,
   theme: Theme,
   expanded: boolean,
   now: number = Date.now(),
 ): string[] {
-  const lines = [summaryLine(run, theme)];
   if (!expanded) {
-    return lines;
+    return [`${summaryLine(run, theme)} · ${expandHint(theme)}`];
   }
+  const lines = [summaryLine(run, theme)];
 
   for (const task of run.tasks) {
     lines.push(`  ${widgetLine(task, theme, now)}`);

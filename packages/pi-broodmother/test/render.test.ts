@@ -470,7 +470,9 @@ describe("resultLines", () => {
       theme,
       false,
     );
-    expect(lines).toEqual(["2/2 done settled · 3.0k tok · $0.0246"]);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("2/2 done settled · 3.0k tok · $0.0246");
+    expect(lines[0]).toContain("ctrl+o to expand");
   });
 
   it("counts what did not finish cleanly", () => {
