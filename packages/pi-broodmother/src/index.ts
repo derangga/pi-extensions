@@ -65,7 +65,10 @@ export default function broodmotherExtension(pi: ExtensionAPI): void {
    * message, which is exactly where these belong.
    */
   const call = async <A>(
-    build: (manager: Manager["Service"]) => Effect.Effect<A, ManagerError>,
+    // start reads Settings from the runtime context, so a build may carry that
+    // requirement; the runtime wiring merges Settings into its environment, and
+    // every other manager call needs nothing.
+    build: (manager: Manager["Service"]) => Effect.Effect<A, ManagerError, Settings>,
   ): Promise<A> => {
     const outcome = await runtime.runPromise(
       Effect.gen(function* () {

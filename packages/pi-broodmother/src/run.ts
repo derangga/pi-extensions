@@ -396,7 +396,7 @@ const readAgentFile = Effect.fn("Manager.agentFile")(function* (
 export class Manager extends Context.Service<
   Manager,
   {
-    start(request: StartRequest): Effect.Effect<RunView, StartError>;
+    start(request: StartRequest): Effect.Effect<RunView, StartError, Settings>;
     view(runId: string | undefined): Effect.Effect<RunView, UnknownRun>;
     wait(
       runId: string | undefined,
@@ -621,17 +621,18 @@ export class Manager extends Context.Service<
           });
         });
 
-        const execute = Effect.fn("Manager.execute")(
-          function* (run: RunState, plan: readonly PlannedTask[], request: StartRequest) {
-            const settlements = yield* runGraph(plan, runOneTask(run, request));
-            yield* markSkipped(run, settlements);
-          },
-          Effect.provideService(Settings, settings),
-        );
+        const execute = Effect.fn("Manager.execute")(function* (
+          run: RunState,
+          plan: readonly PlannedTask[],
+          request: StartRequest,
+        ) {
+          const settlements = yield* runGraph(plan, runOneTask(run, request));
+          yield* markSkipped(run, settlements);
+        });
 
         const start = Effect.fn("Manager.start")(function* (
           request: StartRequest,
-        ): Effect.fn.Return<RunView, StartError> {
+        ): Effect.fn.Return<RunView, StartError, Settings> {
           const current = yield* settings.current;
           const plan = yield* planGraph(request.tasks, current.maxTasks);
 
@@ -659,9 +660,7 @@ export class Manager extends Context.Service<
             };
           });
 
-          const resolved = yield* resolveTasks(request.source, request.parent, choices).pipe(
-            Effect.provideService(Settings, settings),
-          );
+          const resolved = yield* resolveTasks(request.source, request.parent, choices);
 
           const states: TaskState[] = [];
           for (const task of plan) {

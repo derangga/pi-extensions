@@ -175,7 +175,9 @@ function request(
 /** Runs one program against a fresh manager and tears the layer down after. */
 function withManager<A, E>(
   sent: Sent[],
-  program: (manager: Manager["Service"]) => Effect.Effect<A, E>,
+  // start reads Settings from the manager's context, so a program may carry
+  // that requirement; the layers below merge Settings into the environment.
+  program: (manager: Manager["Service"]) => Effect.Effect<A, E, Settings>,
   overrides: Partial<SubagentSettings> = {},
   onChange?: (runs: readonly RunView[]) => void,
   onEvent?: (event: SubagentEvent) => void,
