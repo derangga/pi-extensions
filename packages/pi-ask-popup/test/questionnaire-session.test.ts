@@ -649,3 +649,41 @@ describe("a render that throws", () => {
     expect(session.component.render(120).join("\n")).not.toContain(RENDER_FAILED_TEXT);
   });
 });
+
+describe("renders requested per keystroke", () => {
+  // pi-tui coalesces: TUI.requestRender sets a flag and schedules on
+  // process.nextTick behind a 16 ms floor, so several requests in one tick
+  // still paint once. That makes this a count of intent rather than of paints
+  // — worth pinning anyway, because a second request per keystroke is the
+  // symptom of two components each thinking they own the tick.
+  it("asks for one render per keystroke while typing a custom answer", () => {
+    const { session, requestRender } = makeSession();
+    focusCustomAnswer(session);
+    requestRender.mockClear();
+
+    session.dispatch("a");
+    expect(requestRender).toHaveBeenCalledTimes(1);
+
+    session.dispatch("b");
+    expect(requestRender).toHaveBeenCalledTimes(2);
+  });
+
+  it("asks for one render per navigation keystroke", () => {
+    const { session, requestRender } = makeSession();
+    requestRender.mockClear();
+
+    session.dispatch(DOWN);
+    expect(requestRender).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks for at most one render when a keystroke is ignored", () => {
+    // `handleIgnoreInline` routes this into the inline editor after its timer
+    // branch, and the two paths must not both apply.
+    const { session, requestRender } = makeSession();
+    focusCustomAnswer(session);
+    requestRender.mockClear();
+
+    session.dispatch("\x1b[Z");
+    expect(requestRender.mock.calls.length).toBeLessThanOrEqual(1);
+  });
+});

@@ -387,6 +387,11 @@ export class QuestionnaireSession {
       }
       return;
     }
+    // One apply, and the editor adds none of its own: pi-tui's `Editor`
+    // requests a render from its setters and its autocomplete callbacks, never
+    // from `handleInput`, and this editor has no autocomplete provider. So a
+    // keystroke here asks for exactly one render — which the session's tests
+    // pin, since a second would mean two owners of one tick.
     this.inlineInput.handleInput(data);
     this.viewAdapter.apply(this.state);
   }
