@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import vm from "node:vm";
 import { type DialogUI, hasDialogUI, runRpcQuestionnaire } from "../src/rpc-fallback.js";
 import { ROW_INTENT_META } from "../src/state/row-intent.js";
 import type { QuestionData, QuestionParams } from "../src/tool/types.js";
@@ -63,6 +64,15 @@ describe("hasDialogUI", () => {
     // custom-answer row, so a host with only `select` would break mid-question.
     expect(hasDialogUI({ select: () => {} })).toBe(false);
     expect(hasDialogUI({ input: () => {} })).toBe(false);
+  });
+
+  it("accepts callables from another realm", () => {
+    // An Electron context bridge, a VM context, a proxy around a host object:
+    // callable here, but not an instance of this realm's Function. The check
+    // must ask whether it can be called, not where it was made.
+    const otherRealm = vm.runInNewContext("({ select() {}, input() {} })") as object;
+    expect(otherRealm).not.toBeInstanceOf(Object);
+    expect(hasDialogUI(otherRealm)).toBe(true);
   });
 
   it("rejects non-objects and non-function properties", () => {

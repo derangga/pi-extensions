@@ -162,7 +162,10 @@ export async function loadQuestionnaireSession(
       message: `${ERROR_SESSION_LOAD_FAILED} (cause: ${cause})`,
     };
   }
-  if (!(mod.QuestionnaireSession instanceof Function)) {
+  // jiti hands back a namespace built in its own realm, so this class can fail
+  // an `instanceof Function` here while being perfectly constructible. `typeof`
+  // asks the question that actually matters: is there something to call.
+  if (typeof mod.QuestionnaireSession !== "function") {
     const keys = JSON.stringify(Object.keys(mod));
     return {
       ok: false,
@@ -187,7 +190,7 @@ function registerCollapseKeyListener(
   sessionRef: SessionRef,
   overlayHandleRef: OverlayHandleRef,
 ): (() => void) | undefined {
-  if (collapseKey === COLLAPSE_KEY_OFF || !(ctx.ui.onTerminalInput instanceof Function)) {
+  if (collapseKey === COLLAPSE_KEY_OFF || typeof ctx.ui.onTerminalInput !== "function") {
     return undefined;
   }
   let hasAnnouncedHide = false;
@@ -415,8 +418,12 @@ export function registerAskPopupTool(pi: ExtensionAPI): void {
       // primitives is malformed, and calling `custom` on it throws a bare
       // TypeError that reaches the model as a broken tool rather than an
       // unsupported one. Answer honestly instead: nobody saw the questions.
+      //
+      // `typeof` rather than `instanceof Function`, for the same reason as
+      // `hasDialogUI`: a cross-realm `custom` is callable and must not be
+      // mistaken for a missing one.
       // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-      if (!((ctx.ui as { custom?: unknown }).custom instanceof Function)) {
+      if (typeof (ctx.ui as { custom?: unknown }).custom !== "function") {
         return resolveUndefinedResult(ctx, typed);
       }
 

@@ -56,11 +56,18 @@ export type DialogUI = {
   ) => Promise<string | undefined>;
 };
 
-/** Whether the host implements the select and input primitives. */
+/**
+ * Whether the host implements the select and input primitives.
+ *
+ * `typeof`, not `instanceof Function`: a method that arrives from another realm
+ * — an Electron context bridge, a VM context, a proxy around a host object — is
+ * callable but fails an `instanceof` against this realm's `Function`, and the
+ * walker would then decline a host that works.
+ */
 export function hasDialogUI(ui: unknown): ui is DialogUI {
   // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   const u = ui as Partial<DialogUI> | null | undefined;
-  return u?.select instanceof Function && u?.input instanceof Function;
+  return typeof u?.select === "function" && typeof u?.input === "function";
 }
 
 type Option = QuestionData["options"][number];
