@@ -38,6 +38,12 @@ export interface WrappingSelectOptions {
   totalItemsForNumbering?: number;
 }
 
+/** One width's worth of rendered rows, plus where each item sits in them. */
+interface RenderedRows {
+  lines: string[];
+  rangeByIndex: Map<number, [number, number]>;
+}
+
 export class WrappingSelect implements Component {
   private static readonly ACTIVE_POINTER = "❯ ";
   private static readonly INACTIVE_POINTER = "  ";
@@ -75,7 +81,8 @@ export class WrappingSelect implements Component {
    */
   private confirmedLabelOverride: string | undefined = undefined;
   /**
-   * Rendered rows per width, valid while `renderStateSignature()` holds.
+   * Rendered rows and row boundaries per width, valid while
+   * `renderStateSignature()` holds.
    *
    * One frame calls `render` two or three times at different widths — the
    * option list, the height probes in `PreviewPane`, the side-by-side left
@@ -83,7 +90,7 @@ export class WrappingSelect implements Component {
    * all the mutable state a row can read, so the props write that happens each
    * tick with unchanged values keeps the memo warm instead of dropping it.
    */
-  private readonly renderCache = new Map<number, string[]>();
+  private readonly renderCache = new Map<number, RenderedRows>();
   private renderCacheSignature: string | undefined = undefined;
 
   constructor(
@@ -151,7 +158,7 @@ export class WrappingSelect implements Component {
   render(width: number): string[] {
     // A copy, because callers own what they get back: `PreviewPane` hands this
     // array straight up to the dialog, which decorates rows in place.
-    return [...this.cachedRows(width)];
+    return [...this.cachedRows(width).lines];
   }
 
   /**
@@ -162,11 +169,11 @@ export class WrappingSelect implements Component {
    * relied on that parity while paying for an array copy to get it.
    */
   measureHeight(width: number): number {
-    return this.cachedRows(width).length;
+    return this.cachedRows(width).lines.length;
   }
 
-  /** The memo. Returns the stored array itself — callers must not mutate it. */
-  private cachedRows(width: number): string[] {
+  /** The memo. Returns the stored rows themselves — callers must not mutate them. */
+  private cachedRows(width: number): RenderedRows {
     const signature = this.renderStateSignature();
     if (signature !== this.renderCacheSignature) {
       this.renderCache.clear();
@@ -176,12 +183,12 @@ export class WrappingSelect implements Component {
     if (cached !== undefined) {
       return cached;
     }
-    const lines = this.renderRows(width);
+    const rendered = this.renderRows(width);
     if (this.renderCache.size >= WrappingSelect.RENDER_CACHE_MAX_WIDTHS) {
       this.renderCache.clear();
     }
-    this.renderCache.set(width, lines);
-    return lines;
+    this.renderCache.set(width, rendered);
+    return rendered;
   }
 
   /**
@@ -202,14 +209,20 @@ export class WrappingSelect implements Component {
     ].join("\u0000");
   }
 
-  private renderRows(width: number): string[] {
+  /**
+   * The single pass. Rows and the row range each item occupies come out
+   * together, because they are the same walk: counting an item's rows any other
+   * way means rendering it a second time and throwing the strings away.
+   */
+  private renderRows(width: number): RenderedRows {
     if (this.items.length === 0) {
-      return [];
+      return { lines: [], rangeByIndex: new Map() };
     }
 
     const { startIndex, endIndex } = this.computeVisibleWindow();
     const numberWidth = String(Math.max(1, this.totalItemsForNumbering)).length;
     const lines: string[] = [];
+    const rangeByIndex = new Map<number, [number, number]>();
 
     for (let i = startIndex; i < endIndex; i++) {
       const item = this.items[i];
@@ -217,55 +230,32 @@ export class WrappingSelect implements Component {
         continue;
       }
       const isActive = i === this.selectedIndex && this.focused;
+      const start = lines.length;
       lines.push(...this.renderItem(item, i, isActive, width, numberWidth));
+      rangeByIndex.set(i, [start, lines.length]);
     }
 
     if (this.hasItemsOutsideWindow(startIndex, endIndex)) {
       lines.push(this.theme.scrollInfo(`  (${this.selectedIndex + 1}/${this.items.length})`));
     }
-    return lines;
+    return { lines, rangeByIndex };
   }
 
   /**
-   * Returns the [startRow, endRow) range of the focused (selected) item within
-   * the output of `render(width)`. Computed by iterating the visible window and
-   * summing per-item row counts — O(maxVisible) per call.
+   * The [startRow, endRow) range the focused item occupies in `render(width)`.
+   *
+   * Read out of the same memo the rows come from. It used to re-render every
+   * item in the window to count their rows and drop the strings, on every frame
+   * the dialog anchored its scroll window — which was every frame.
+   *
+   * `[0, 1]` when the selection is outside the visible window: there is no
+   * range to report, and the first row is the safe thing to anchor on.
    */
   focusedItemRowRange(width: number): [number, number] {
     if (this.items.length === 0) {
       return [0, 0];
     }
-    const { startIndex, endIndex } = this.computeVisibleWindow();
-    const numberWidth = String(Math.max(1, this.totalItemsForNumbering)).length;
-    let row = 0;
-    for (let i = startIndex; i < endIndex; i++) {
-      const item = this.items[i];
-      if (!item) {
-        continue;
-      }
-      const isActive = i === this.selectedIndex && this.focused;
-      const itemRowCount = this.computeItemRowCount(item, i, isActive, width, numberWidth);
-      if (i === this.selectedIndex) {
-        return [row, row + itemRowCount];
-      }
-      row += itemRowCount;
-    }
-    return [0, 1];
-  }
-
-  /**
-   * Per-item row count. Delegates to `renderItem().length` so `renderItem` remains
-   * the single source of truth for per-item row math — eliminates the prior shadow-copy
-   * that risked silent miscounts when new `kind` values branch in `renderItem` but not here.
-   */
-  private computeItemRowCount(
-    item: WrappingSelectItem,
-    index: number,
-    isActive: boolean,
-    width: number,
-    numberWidth: number,
-  ): number {
-    return this.renderItem(item, index, isActive, width, numberWidth).length;
+    return this.cachedRows(width).rangeByIndex.get(this.selectedIndex) ?? [0, 1];
   }
 
   private computeVisibleWindow(): { startIndex: number; endIndex: number } {

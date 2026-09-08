@@ -761,3 +761,59 @@ describe("WrappingSelect.render — memo", () => {
     expect(calls()).toBeGreaterThan(afterFirst);
   });
 });
+
+describe("WrappingSelect.focusedItemRowRange — one pass", () => {
+  const items: WrappingSelectItem[] = [
+    { kind: "option", label: "alpha", description: "a description long enough to wrap somewhere" },
+    { kind: "option", label: "beta" },
+    { kind: "option", label: "gamma", description: "another one that will wrap at this width" },
+  ];
+
+  function countingTheme(): { theme: WrappingSelectTheme; calls: () => number } {
+    let calls = 0;
+    const tally = (t: string) => {
+      calls++;
+      return t;
+    };
+    return {
+      theme: { selectedText: tally, description: tally, scrollInfo: tally },
+      calls: () => calls,
+    };
+  }
+
+  it("reads the range out of the rows it already built", () => {
+    const { theme, calls } = countingTheme();
+    const s = new WrappingSelect(items, 10, theme);
+    s.setSelectedIndex(1);
+
+    s.render(30);
+    const afterRender = calls();
+    s.focusedItemRowRange(30);
+    s.focusedItemRowRange(30);
+    expect(calls()).toBe(afterRender);
+  });
+
+  it("asks for the range first without rendering twice", () => {
+    const { theme, calls } = countingTheme();
+    const s = new WrappingSelect(items, 10, theme);
+    s.setSelectedIndex(2);
+
+    s.focusedItemRowRange(30);
+    const afterRange = calls();
+    s.render(30);
+    expect(calls()).toBe(afterRange);
+  });
+
+  it.each([0, 1, 2])("still points at item %i's own rows", (selected) => {
+    const s = new WrappingSelect(items, 10, identityTheme);
+    s.setSelectedIndex(selected);
+    const [start, end] = s.focusedItemRowRange(30);
+    const rendered = s.render(30);
+    const label = items[selected]?.label ?? "";
+
+    expect(end).toBeGreaterThan(start);
+    expect(lineAt(rendered, start)).toContain(label);
+    // The row above belongs to the previous item, or does not exist.
+    expect(rendered.slice(0, start).join("\n")).not.toContain(label);
+  });
+});
