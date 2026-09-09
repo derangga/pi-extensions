@@ -124,7 +124,12 @@ export interface ChildRunOptions {
   readonly onActivity?: () => void;
 }
 
-class PromptFailed extends Schema.TaggedError<PromptFailed>()("PromptFailed", {
+/**
+ * Wraps both failure shapes of starting or prompting a child session: a
+ * rejected create and a rejected prompt. The tag names what a reader of a
+ * failed result actually lost, the child run, not the prompt specifically.
+ */
+class ChildRunFailed extends Schema.TaggedError<ChildRunFailed>()("ChildRunFailed", {
   message: Schema.String,
 }) {}
 
@@ -234,8 +239,16 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
   const wrapRequestedRef = yield* Ref.make(false);
   const abortedAfterGraceRef = yield* Ref.make(false);
   const stoppedByUserRef = yield* Ref.make(options.signal?.aborted === true);
-  const streamedRef = yield* Ref.make("");
   const progressRef = yield* Ref.make(NO_PROGRESS);
+  /**
+   * The partial text of the message still streaming. Unlike the refs above,
+   * nothing observes it live: it is read exactly once, after the terminal race
+   * below settles, by the same generator that owns this scope. A value with
+   * one reader after the callbacks stop never crosses a fiber boundary, so a
+   * plain closure is the whole cost: one string append per delta, no runSync
+   * fiber setup per token.
+   */
+  let streamedText = "";
 
   const report = (next: TaskProgress): void => {
     // The subscribe callback is synchronous and outside the Effect fiber, so
@@ -269,7 +282,7 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
 
   const unsubscribe = session.subscribe((event: AgentSessionEvent) => {
     if (event.type === "message_start" && event.message.role === "assistant") {
-      Effect.runSync(Ref.set(streamedRef, ""));
+      streamedText = "";
     }
     if (event.type === "message_update") {
       // Any delta counts, not just text. A child deep in a reasoning block is
@@ -277,8 +290,7 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
       // to avoid.
       touch();
       if (event.assistantMessageEvent.type === "text_delta") {
-        const delta = event.assistantMessageEvent.delta;
-        Effect.runSync(Ref.update(streamedRef, (current) => current + delta));
+        streamedText += event.assistantMessageEvent.delta;
       }
     }
     if (event.type === "tool_execution_update") {
@@ -361,12 +373,14 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
 
   const prompt = Effect.tryPromise({
     try: () => session.prompt(options.task, { source: "extension" }),
-    catch: (cause) => new PromptFailed({ message: messageFor(cause) }),
+    catch: (cause) => new ChildRunFailed({ message: messageFor(cause) }),
   }).pipe(
     Effect.as("settled" as const),
-    Effect.onInterrupt(() =>
-      Effect.promise(() => session.abort()).pipe(Effect.catch(() => Effect.void)),
-    ),
+    // tryPromise rather than promise, because a rejecting abort has to land in
+    // the error channel before Effect.ignore can drop it: a promise rejection
+    // is a defect, which ignore (and the Effect.catch this replaces) let
+    // through. Best-effort cleanup, so any failure ends in void either way.
+    Effect.onInterrupt(() => Effect.tryPromise(() => session.abort()).pipe(Effect.ignore)),
   );
 
   const terminal = yield* Effect.raceFirst(prompt, waitForStop).pipe(
@@ -382,8 +396,7 @@ const runAcquiredChild = Effect.fn("Lifecycle.runAcquired")(function* (
 
   const final = lastAssistant(session.messages, start);
   const finalText = final ? assistantText(final) : "";
-  const streamed = yield* Ref.get(streamedRef);
-  const raw = finalText || streamed.trim();
+  const raw = finalText || streamedText.trim();
 
   const turns = yield* Ref.get(turnsRef);
   const wrapRequested = yield* Ref.get(wrapRequestedRef);
@@ -456,14 +469,20 @@ export function runChildLifecycle(options: ChildRunOptions): Effect.Effect<Child
       const child = yield* Effect.acquireRelease(
         Effect.tryPromise({
           try: () => create(options.child),
-          catch: (cause) => new PromptFailed({ message: messageFor(cause) }),
+          catch: (cause) => new ChildRunFailed({ message: messageFor(cause) }),
         }),
+        // Same shape as the abort above: the rejection must be a failure, not
+        // a defect, before it can be dropped, or a throwing dispose escapes
+        // the release and takes the run's result with it.
         (acquired) =>
-          Effect.promise(() => shutdownChildSession(acquired.session)).pipe(
-            Effect.catch(() => Effect.void),
-          ),
+          Effect.tryPromise(() => shutdownChildSession(acquired.session)).pipe(Effect.ignore),
       );
       return yield* runAcquiredChild(child, options);
     }),
-  ).pipe(Effect.catch((failure) => Effect.succeed(startFailure(failure.message))));
+  ).pipe(
+    // By tag, not catchAll: ChildRunFailed is the whole error channel today,
+    // and naming it turns a future second error type into a visible type
+    // error instead of a silent fold into a failed result.
+    Effect.catchTag("ChildRunFailed", (failure) => Effect.succeed(startFailure(failure.message))),
+  );
 }

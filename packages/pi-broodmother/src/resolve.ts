@@ -86,6 +86,10 @@ export function modelKey(model: PiModel): string {
   return `${model.provider}/${model.id}`;
 }
 
+function describeCause(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
+}
+
 /** Pi's own header record: a null value means "drop this header". */
 type ProbeHeaders = Record<string, string | null>;
 
@@ -429,13 +433,11 @@ const probeAll = Effect.fn("Resolve.probe")(function* (
       const failure = yield* Effect.tryPromise({
         try: (signal) => source.probe(model, signal),
         // `probe` already reports a provider error as a string; reaching the
-        // catch means the call itself threw, which is the same news.
-        catch: (cause) => cause,
-      }).pipe(
-        Effect.catch((cause) =>
-          Effect.succeed(cause instanceof Error ? cause.message : String(cause)),
-        ),
-      );
+        // catch means the call itself threw, which is the same news. The cause
+        // becomes its message here, and the pipe below does nothing but turn
+        // that typed message back into data, so the mapping lives in one place.
+        catch: (cause): string => describeCause(cause),
+      }).pipe(Effect.catch((message) => Effect.succeed(message)));
       return [modelKey(model), failure] as const;
     }),
     { concurrency },

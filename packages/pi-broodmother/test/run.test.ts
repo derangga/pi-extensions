@@ -1,9 +1,11 @@
 import type { AgentSession, AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 import { Effect, Layer } from "effect";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import { loadAgentFile } from "../src/agent-file.js";
+import type * as agentFileModule from "../src/agent-file.js";
 import type { ChildSessionOptions } from "../src/child.js";
-import { Intercom, type ParentDeliveryMode } from "../src/intercom.js";
+import { Intercom, type ParentDeliveryMode, ParentDelivery } from "../src/intercom.js";
 import type { ChildFactory } from "../src/lifecycle.js";
 import type { ModelSource } from "../src/resolve.js";
 import {
@@ -13,6 +15,7 @@ import {
   EVENT_TASK_SETTLED,
   formatManagerError,
   Manager,
+  ManagerSurfaces,
   type RunView,
   type StartRequest,
   type SubagentEvent,
@@ -20,6 +23,12 @@ import {
 } from "../src/run.js";
 import { DEFAULT_SETTINGS, Settings, type SubagentSettings } from "../src/settings.js";
 import type { PiModel } from "../src/thinking.js";
+
+/** Wraps the real agent-file reader in a spy, so a test can count the reads. */
+vi.mock("../src/agent-file.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof agentFileModule>();
+  return { ...actual, loadAgentFile: vi.fn<typeof actual.loadAgentFile>(actual.loadAgentFile) };
+});
 
 // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
 const rawModel: unknown = {
@@ -63,14 +72,28 @@ function layers(
   onChange?: (runs: readonly RunView[]) => void,
   onEvent?: (event: SubagentEvent) => void,
 ) {
-  return Manager.layer({ ...(onChange ? { onChange } : {}), ...(onEvent ? { onEvent } : {}) }).pipe(
+  return Manager.layer.pipe(
     Layer.provideMerge(
       Layer.mergeAll(
         settingsLayer(overrides),
-        Intercom.layer(
-          { send: (message, mode) => sent.push({ message, mode }) },
-          // Short enough that a forgotten reply cannot hang the suite.
-          200,
+        Intercom.layer.pipe(
+          Layer.provide(
+            Layer.succeed(
+              ParentDelivery,
+              ParentDelivery.of({
+                send: (message, mode) => sent.push({ message, mode }),
+                // Short enough that a forgotten reply cannot hang the suite.
+                replyTimeoutMs: 200,
+              }),
+            ),
+          ),
+        ),
+        Layer.succeed(
+          ManagerSurfaces,
+          ManagerSurfaces.of({
+            onChange: onChange ?? (() => undefined),
+            onEvent: onEvent ?? (() => undefined),
+          }),
         ),
       ),
     ),
@@ -167,7 +190,9 @@ function request(
 /** Runs one program against a fresh manager and tears the layer down after. */
 function withManager<A, E>(
   sent: Sent[],
-  program: (manager: Manager["Service"]) => Effect.Effect<A, E>,
+  // start reads Settings from the manager's context, so a program may carry
+  // that requirement; the layers below merge Settings into the environment.
+  program: (manager: Manager["Service"]) => Effect.Effect<A, E, Settings>,
   overrides: Partial<SubagentSettings> = {},
   onChange?: (runs: readonly RunView[]) => void,
   onEvent?: (event: SubagentEvent) => void,
@@ -185,6 +210,28 @@ function outputs(run: RunView): Record<string, string | undefined> {
 }
 
 describe("Manager.start", () => {
+  it("reads each distinct agent file once per start", async () => {
+    const mocked = vi.mocked(loadAgentFile);
+    mocked.mockClear();
+    const sent: Sent[] = [];
+    await withManager(sent, (manager) =>
+      Effect.gen(function* () {
+        const started = yield* manager.start(
+          request(
+            Array.from({ length: 16 }, (_, index) =>
+              task({ id: `t${index + 1}`, agent: "same agent", prompt: `prompt ${index + 1}` }),
+            ),
+            childFactory((prompt) => `answered ${prompt}`),
+          ),
+        );
+        yield* manager.wait(started.id, undefined);
+      }),
+    );
+
+    expect(mocked).toHaveBeenCalledTimes(1);
+    expect(mocked).toHaveBeenCalledWith("same agent", "/repo");
+  });
+
   it("runs an edgeless batch in parallel and reports every output", async () => {
     const sent: Sent[] = [];
     const run = await withManager(sent, (manager) =>
@@ -351,11 +398,28 @@ describe("Manager.start", () => {
         return [yield* manager.view(first.id), yield* manager.view(second.id)] as const;
       }).pipe(
         Effect.provide(
-          Manager.layer({}).pipe(
+          Manager.layer.pipe(
             Layer.provideMerge(
               Layer.mergeAll(
                 mutableSettings,
-                Intercom.layer({ send: (message, mode) => sent.push({ message, mode }) }, 200),
+                Intercom.layer.pipe(
+                  Layer.provide(
+                    Layer.succeed(
+                      ParentDelivery,
+                      ParentDelivery.of({
+                        send: (message, mode) => sent.push({ message, mode }),
+                        replyTimeoutMs: 200,
+                      }),
+                    ),
+                  ),
+                ),
+                Layer.succeed(
+                  ManagerSurfaces,
+                  ManagerSurfaces.of({
+                    onChange: () => undefined,
+                    onEvent: () => undefined,
+                  }),
+                ),
               ),
             ),
           ),

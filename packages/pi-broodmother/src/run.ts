@@ -1,4 +1,4 @@
-import { Context, Deferred, Effect, Layer, Schema } from "effect";
+import { Clock, Context, Deferred, Effect, Layer, Schema } from "effect";
 
 import { loadAgentFile, type AgentFile } from "./agent-file.js";
 import {
@@ -215,11 +215,21 @@ export class UnknownTask extends Schema.TaggedError<UnknownTask>()("UnknownTask"
   known: Schema.Array(Schema.String),
 }) {}
 
-/** How the manager tells a surface that something moved. */
-export interface ManagerOptions {
-  readonly onChange?: (runs: readonly RunView[]) => void;
-  readonly onEvent?: (event: SubagentEvent) => void;
-}
+/**
+ * The surfaces a manager pushes to, injected by the runtime that hosts the
+ * extension. A bare key is the right shape here: the widget push and the event
+ * bus are Pi callbacks, nothing constructs them, and every embedding provides
+ * its own.
+ */
+export class ManagerSurfaces extends Context.Service<
+  ManagerSurfaces,
+  {
+    /** Everything a surface renders, pushed rather than polled. */
+    readonly onChange: (runs: readonly RunView[]) => void;
+    /** Three events, fire and forget. A subscriber is not part of the run. */
+    readonly onEvent: (event: SubagentEvent) => void;
+  }
+>()("pi-broodmother/ManagerSurfaces") {}
 
 export type StartError = GraphError | ResolveError | AgentFileUnreadable;
 export type ManagerError = StartError | UnknownRun | UnknownTask;
@@ -379,7 +389,7 @@ const readAgentFile = Effect.fn("Manager.agentFile")(function* (
   agent: string,
   cwd: string,
 ): Effect.fn.Return<AgentFile | undefined, AgentFileUnreadable> {
-  return yield* Effect.try({
+  return yield* Effect.tryPromise({
     try: () => loadAgentFile(agent, cwd),
     catch: (cause) =>
       new AgentFileUnreadable({
@@ -396,7 +406,7 @@ const readAgentFile = Effect.fn("Manager.agentFile")(function* (
 export class Manager extends Context.Service<
   Manager,
   {
-    start(request: StartRequest): Effect.Effect<RunView, StartError>;
+    start(request: StartRequest): Effect.Effect<RunView, StartError, Settings>;
     view(runId: string | undefined): Effect.Effect<RunView, UnknownRun>;
     wait(
       runId: string | undefined,
@@ -409,372 +419,375 @@ export class Manager extends Context.Service<
     ): Effect.Effect<ReplyOutcome, UnknownRun | UnknownTask>;
     cancel(runId: string | undefined): Effect.Effect<RunView, UnknownRun>;
   }
->()("pi-broodmother/Manager") {
-  static layer(options: ManagerOptions = {}) {
-    return Layer.effect(
-      Manager,
-      Effect.gen(function* () {
-        const settings = yield* Settings;
-        const intercom = yield* Intercom;
-        /**
-         * Captured once so `start` can fork into it later without carrying Scope
-         * in its own signature. Closing it interrupts every run in flight.
-         */
-        const scope = yield* Effect.scope;
+>()("pi-broodmother/Manager", {
+  make: Effect.gen(function* () {
+    const settings = yield* Settings;
+    const intercom = yield* Intercom;
+    const surfaces = yield* ManagerSurfaces;
+    /**
+     * Captured once so `start` can fork into it later without carrying Scope
+     * in its own signature. Closing it interrupts every run in flight.
+     */
+    const scope = yield* Effect.scope;
+    /**
+     * The one Clock instance, kept for the two places that stamp time from
+     * a plain callback rather than a generator. Every generator reads
+     * Clock.currentTimeMillis directly instead.
+     */
+    const clock = yield* Clock.Clock;
 
-        const runs = new Map<string, RunState>();
-        const order: string[] = [];
-        let counter = 0;
+    const runs = new Map<string, RunState>();
+    const order: string[] = [];
+    let counter = 0;
 
-        yield* Effect.addFinalizer(() =>
-          Effect.sync(() => {
-            for (const run of runs.values()) {
-              run.controller.abort();
-            }
+    yield* Effect.addFinalizer(() =>
+      Effect.sync(() => {
+        for (const run of runs.values()) {
+          run.controller.abort();
+        }
+      }),
+    );
+
+    /**
+     * Everything a surface renders, pushed rather than polled. It is called
+     * on every tool call a child makes, so the throttling belongs to whoever
+     * is drawing rather than here.
+     */
+    const changed = (): void => {
+      try {
+        surfaces.onChange(order.map((id) => viewRun(runs.get(id)!)));
+      } catch {
+        // A surface that throws must not take a run down with it.
+      }
+    };
+
+    /** Three events, fire and forget. A subscriber is not part of the run. */
+    const publish = (event: SubagentEvent): void => {
+      try {
+        surfaces.onEvent(event);
+      } catch {
+        // Same reasoning as `changed`: a listener cannot fail a run.
+      }
+    };
+
+    const lookup = Effect.fn("Manager.lookup")(function* (
+      runId: string | undefined,
+    ): Effect.fn.Return<RunState, UnknownRun> {
+      // No id addresses the newest run, which is the one the orchestrator
+      // just started and almost always means.
+      const id = runId ?? order[order.length - 1];
+      const run = id === undefined ? undefined : runs.get(id);
+      if (!run) {
+        return yield* new UnknownRun({ runId: id ?? "", known: [...order] });
+      }
+      return run;
+    });
+
+    const lookupTask = Effect.fn("Manager.lookupTask")(function* (
+      run: RunState,
+      taskId: string,
+    ): Effect.fn.Return<TaskState, UnknownTask> {
+      const task = run.byId.get(taskId);
+      if (!task) {
+        return yield* new UnknownTask({
+          runId: run.id,
+          taskId,
+          known: run.tasks.map((state) => state.id),
+        });
+      }
+      return task;
+    });
+
+    const settleTask = Effect.fn("Manager.settleTask")(function* (
+      runId: string,
+      state: TaskState,
+      result: ChildRunResult,
+    ) {
+      state.status = "settled";
+      state.result = result;
+      state.endedAt = yield* Clock.currentTimeMillis;
+      state.notes = [...state.notes, ...result.notes];
+      yield* Deferred.succeed(state.settled, undefined);
+      yield* Effect.sync(() => {
+        const view = viewTask(state);
+        publish({
+          channel: EVENT_TASK_SETTLED,
+          runId,
+          task: summarize(view),
+          turns: view.turns,
+          usage: usageOf(view),
+        });
+        changed();
+      });
+    });
+
+    const runOneTask = (run: RunState, request: StartRequest): RunTask =>
+      Effect.fn("Manager.runTask")(function* (task: PlannedTask, prompt: string) {
+        const state = run.byId.get(task.id);
+        if (!state) {
+          return undefined;
+        }
+
+        if (run.controller.signal.aborted) {
+          yield* settleTask(run.id, state, stoppedBeforeStart());
+          return undefined;
+        }
+
+        const address: TaskAddress = { runId: run.id, taskId: state.id, task: state.task };
+        state.status = "running";
+        state.prompt = prompt;
+        state.startedAt = yield* Clock.currentTimeMillis;
+        yield* Effect.sync(changed);
+
+        const result = yield* Effect.scoped(
+          Effect.gen(function* () {
+            const channel = yield* intercom.openTask(address, {
+              onWaitingChange: (ask) => {
+                state.waiting = ask;
+                changed();
+              },
+            });
+            return yield* runChildLifecycle({
+              child: {
+                cwd: request.cwd,
+                name: state.task,
+                prompt: state.systemPrompt,
+                model: state.resolvedModel,
+                thinking: state.thinking,
+                ...(request.parentSession ? { parentSession: request.parentSession } : {}),
+                permissions: run.permissions,
+                projectTrusted: request.projectTrusted,
+                customTools: createIntercomTools(channel),
+              },
+              task: prompt,
+              maxTurns: state.maxTurns,
+              signal: run.controller.signal,
+              onProgress: (progress) => {
+                state.progress = progress;
+                changed();
+              },
+              // No changed(): this fires per token, and changed() rebuilds
+              // every view of every run. The widget pulls a fresh view on
+              // each repaint, so the next heartbeat sees this anyway.
+              // The unsafe read is the price of living in a plain callback:
+              // a generator could not be here, and the captured Clock makes
+              // the stamp testable along with every other timestamp.
+              onActivity: () => {
+                state.lastActivityAt = clock.currentTimeMillisUnsafe();
+              },
+              ...(request.create ? { create: request.create } : {}),
+            });
           }),
         );
 
-        /**
-         * Everything a surface renders, pushed rather than polled. It is called
-         * on every tool call a child makes, so the throttling belongs to whoever
-         * is drawing rather than here.
-         */
-        const changed = (): void => {
-          if (!options.onChange) {
-            return;
-          }
-          try {
-            options.onChange(order.map((id) => viewRun(runs.get(id)!)));
-          } catch {
-            // A surface that throws must not take a run down with it.
-          }
-        };
+        yield* settleTask(run.id, state, result);
+        yield* intercom.settle(address, result);
+        // Only real output flows down an edge. A child that died without
+        // saying anything leaves its dependents to skip rather than run
+        // against a prompt with a hole in it.
+        return result.producedOutput ? result.output : undefined;
+      });
 
-        /** Three events, fire and forget. A subscriber is not part of the run. */
-        const publish = (event: SubagentEvent): void => {
-          if (!options.onEvent) {
-            return;
-          }
-          try {
-            options.onEvent(event);
-          } catch {
-            // Same reasoning as `changed`: a listener cannot fail a run.
-          }
-        };
-
-        const lookup = Effect.fn("Manager.lookup")(function* (
-          runId: string | undefined,
-        ): Effect.fn.Return<RunState, UnknownRun> {
-          // No id addresses the newest run, which is the one the orchestrator
-          // just started and almost always means.
-          const id = runId ?? order[order.length - 1];
-          const run = id === undefined ? undefined : runs.get(id);
-          if (!run) {
-            return yield* new UnknownRun({ runId: id ?? "", known: [...order] });
-          }
-          return run;
-        });
-
-        const lookupTask = Effect.fn("Manager.lookupTask")(function* (
-          run: RunState,
-          taskId: string,
-        ): Effect.fn.Return<TaskState, UnknownTask> {
-          const task = run.byId.get(taskId);
-          if (!task) {
-            return yield* new UnknownTask({
-              runId: run.id,
-              taskId,
-              known: run.tasks.map((state) => state.id),
-            });
-          }
-          return task;
-        });
-
-        const settleTask = Effect.fn("Manager.settleTask")(function* (
-          runId: string,
-          state: TaskState,
-          result: ChildRunResult,
-        ) {
-          state.status = "settled";
-          state.result = result;
-          state.endedAt = Date.now();
-          state.notes = [...state.notes, ...result.notes];
+    const markSkipped = (run: RunState, settlements: readonly Settlement[]) =>
+      Effect.forEach(
+        settlements.filter((settlement) => run.byId.get(settlement.id)?.status === "pending"),
+        Effect.fn("Manager.markSkipped")(function* (settlement: Settlement) {
+          const state = run.byId.get(settlement.id)!;
+          state.status = "skipped";
+          state.missing = settlement.missing;
+          state.endedAt = yield* Clock.currentTimeMillis;
           yield* Deferred.succeed(state.settled, undefined);
-          yield* Effect.sync(() => {
-            const view = viewTask(state);
-            publish({
-              channel: EVENT_TASK_SETTLED,
-              runId,
-              task: summarize(view),
-              turns: view.turns,
-              usage: usageOf(view),
-            });
-            changed();
-          });
-        });
+        }),
+        { discard: true },
+      );
 
-        const runOneTask = (run: RunState, request: StartRequest): RunTask =>
-          Effect.fn("Manager.runTask")(function* (task: PlannedTask, prompt: string) {
-            const state = run.byId.get(task.id);
-            if (!state) {
+    const finish = Effect.fn("Manager.finish")(function* (run: RunState) {
+      run.finished = true;
+      // Defensive: an interrupted run leaves tasks that never settled, and a
+      // parent blocked on one of them would wait for a fiber that is gone.
+      yield* Effect.forEach(run.tasks, (state) => Deferred.succeed(state.settled, undefined), {
+        discard: true,
+      });
+      yield* Deferred.succeed(run.done, undefined);
+      yield* intercom.finishRun(run.id);
+      yield* Effect.sync(() => {
+        const view = viewRun(run);
+        publish({
+          channel: EVENT_RUN_SETTLED,
+          runId: run.id,
+          cancelled: run.cancelled,
+          tasks: view.tasks.map(summarize),
+          usage: aggregateUsage(view.tasks),
+        });
+        changed();
+      });
+    });
+
+    const execute = Effect.fn("Manager.execute")(function* (
+      run: RunState,
+      plan: readonly PlannedTask[],
+      request: StartRequest,
+    ) {
+      const settlements = yield* runGraph(plan, runOneTask(run, request));
+      yield* markSkipped(run, settlements);
+    });
+
+    const start = Effect.fn("Manager.start")(function* (
+      request: StartRequest,
+    ): Effect.fn.Return<RunView, StartError, Settings> {
+      const current = yield* settings.current;
+      const plan = yield* planGraph(request.tasks, current.maxTasks);
+
+      // One read per distinct name: a batch often names the same agent
+      // twice, and every read is a filesystem round trip the start path
+      // waits on before a single child exists.
+      const agents = [...new Set(request.tasks.map((task) => task.agent))];
+      const loaded = yield* Effect.forEach(agents, (agent) => readAgentFile(agent, request.cwd));
+      const byAgent = new Map<string, AgentFile | undefined>(
+        agents.map((agent, index) => [agent, loaded[index]] as const),
+      );
+      const files = request.tasks.map((task) => byAgent.get(task.agent));
+
+      const choices: TaskChoice[] = plan.map((task) => {
+        const request_ = request.tasks[task.index]!;
+        const file = files[task.index];
+        return {
+          id: task.id,
+          agent: request_.agent,
+          ...(file ? { agentFile: file.choice } : {}),
+          ...(request_.model ? { model: request_.model } : {}),
+          ...(request_.thinking ? { thinking: request_.thinking } : {}),
+        };
+      });
+
+      const resolved = yield* resolveTasks(request.source, request.parent, choices);
+
+      const states: TaskState[] = [];
+      for (const task of plan) {
+        const choice = resolved[task.index]!;
+        const request_ = request.tasks[task.index]!;
+        states.push({
+          id: task.id,
+          index: task.index,
+          wave: task.wave,
+          agent: request_.agent,
+          task: task.task,
+          needs: task.needs,
+          systemPrompt: systemPromptFor(request_.agent, files[task.index]),
+          resolvedModel: choice.model,
+          model: modelKey(choice.model),
+          thinking: choice.thinking,
+          maxTurns: request_.maxTurns ?? current.maxTurns,
+          settled: yield* Deferred.make<void>(),
+          status: "pending",
+          prompt: undefined,
+          waiting: undefined,
+          result: undefined,
+          progress: NO_PROGRESS,
+          lastActivityAt: undefined,
+          startedAt: undefined,
+          endedAt: undefined,
+          missing: [],
+          notes: choice.notes,
+        });
+      }
+
+      counter += 1;
+      const run: RunState = {
+        id: `run_${counter}`,
+        startedAt: yield* Clock.currentTimeMillis,
+        tasks: states,
+        permissions: current.permissions,
+        byId: new Map(states.map((state) => [state.id, state])),
+        controller: new AbortController(),
+        done: yield* Deferred.make<void>(),
+        cancelled: false,
+        finished: false,
+      };
+      runs.set(run.id, run);
+      order.push(run.id);
+      publish({
+        channel: EVENT_RUN_STARTED,
+        runId: run.id,
+        tasks: viewRun(run).tasks.map(summarize),
+      });
+      changed();
+
+      yield* Effect.forkIn(execute(run, plan, request).pipe(Effect.ensuring(finish(run))), scope);
+      return viewRun(run);
+    });
+
+    const view = Effect.fn("Manager.view")(function* (runId: string | undefined) {
+      return viewRun(yield* lookup(runId));
+    });
+
+    const wait = Effect.fn("Manager.wait")(function* (
+      runId: string | undefined,
+      taskId: string | undefined,
+    ): Effect.fn.Return<WaitOutcome, UnknownRun | UnknownTask> {
+      const run = yield* lookup(runId);
+      const target = taskId === undefined ? undefined : yield* lookupTask(run, taskId);
+
+      const done = () =>
+        target ? target.status === "settled" || target.status === "skipped" : run.finished;
+
+      /**
+       * A task settling is not what this call is waiting for: its output
+       * comes back in the run result either way. So a wake carrying only
+       * settlements parks again, and only an ask or a notification cuts the
+       * wait short. Traffic published during the gap between two parks
+       * reaches the parent as an ordinary message instead, which is what the
+       * unparked path already does.
+       */
+      while (!done()) {
+        const collected = yield* Effect.scoped(
+          Effect.gen(function* () {
+            const waiter = yield* intercom.park(run.id);
+            if (done()) {
               return undefined;
             }
 
-            if (run.controller.signal.aborted) {
-              yield* settleTask(run.id, state, stoppedBeforeStart());
-              return undefined;
-            }
+            const settled = (
+              target ? Deferred.await(target.settled) : Deferred.await(run.done)
+            ).pipe(Effect.as(undefined));
+            const traffic = waiter.wait;
 
-            const address: TaskAddress = { runId: run.id, taskId: state.id, task: state.task };
-            state.status = "running";
-            state.prompt = prompt;
-            state.startedAt = Date.now();
-            yield* Effect.sync(changed);
-
-            const result = yield* Effect.scoped(
-              Effect.gen(function* () {
-                const channel = yield* intercom.openTask(address, {
-                  onWaitingChange: (ask) => {
-                    state.waiting = ask;
-                    changed();
-                  },
-                });
-                return yield* runChildLifecycle({
-                  child: {
-                    cwd: request.cwd,
-                    name: state.task,
-                    prompt: state.systemPrompt,
-                    model: state.resolvedModel,
-                    thinking: state.thinking,
-                    ...(request.parentSession ? { parentSession: request.parentSession } : {}),
-                    permissions: run.permissions,
-                    projectTrusted: request.projectTrusted,
-                    customTools: createIntercomTools(channel),
-                  },
-                  task: prompt,
-                  maxTurns: state.maxTurns,
-                  signal: run.controller.signal,
-                  onProgress: (progress) => {
-                    state.progress = progress;
-                    changed();
-                  },
-                  // No changed(): this fires per token, and changed() rebuilds
-                  // every view of every run. The widget pulls a fresh view on
-                  // each repaint, so the next heartbeat sees this anyway.
-                  onActivity: () => {
-                    state.lastActivityAt = Date.now();
-                  },
-                  ...(request.create ? { create: request.create } : {}),
-                });
-              }),
-            );
-
-            yield* settleTask(run.id, state, result);
-            yield* intercom.settle(address, result);
-            // Only real output flows down an edge. A child that died without
-            // saying anything leaves its dependents to skip rather than run
-            // against a prompt with a hole in it.
-            return result.producedOutput ? result.output : undefined;
-          });
-
-        const markSkipped = (run: RunState, settlements: readonly Settlement[]) =>
-          Effect.forEach(
-            settlements.filter((settlement) => run.byId.get(settlement.id)?.status === "pending"),
-            Effect.fn("Manager.markSkipped")(function* (settlement: Settlement) {
-              const state = run.byId.get(settlement.id)!;
-              state.status = "skipped";
-              state.missing = settlement.missing;
-              state.endedAt = Date.now();
-              yield* Deferred.succeed(state.settled, undefined);
-            }),
-            { discard: true },
-          );
-
-        const finish = Effect.fn("Manager.finish")(function* (run: RunState) {
-          run.finished = true;
-          // Defensive: an interrupted run leaves tasks that never settled, and a
-          // parent blocked on one of them would wait for a fiber that is gone.
-          yield* Effect.forEach(run.tasks, (state) => Deferred.succeed(state.settled, undefined), {
-            discard: true,
-          });
-          yield* Deferred.succeed(run.done, undefined);
-          yield* intercom.finishRun(run.id);
-          yield* Effect.sync(() => {
-            const view = viewRun(run);
-            publish({
-              channel: EVENT_RUN_SETTLED,
-              runId: run.id,
-              cancelled: run.cancelled,
-              tasks: view.tasks.map(summarize),
-              usage: aggregateUsage(view.tasks),
-            });
-            changed();
-          });
-        });
-
-        const execute = Effect.fn("Manager.execute")(
-          function* (run: RunState, plan: readonly PlannedTask[], request: StartRequest) {
-            const settlements = yield* runGraph(plan, runOneTask(run, request));
-            yield* markSkipped(run, settlements);
-          },
-          Effect.provideService(Settings, settings),
+            const first = yield* Effect.raceFirst(settled, traffic);
+            return first?.filter((message) => message.kind !== "settled");
+          }),
         );
+        if (collected && collected.length > 0) {
+          return {
+            kind: "traffic",
+            run: viewRun(run),
+            messages: collected,
+          } satisfies WaitOutcome;
+        }
+      }
 
-        const start = Effect.fn("Manager.start")(function* (
-          request: StartRequest,
-        ): Effect.fn.Return<RunView, StartError> {
-          const current = yield* settings.current;
-          const plan = yield* planGraph(request.tasks, current.maxTasks);
+      return { kind: "settled", run: viewRun(run) } satisfies WaitOutcome;
+    });
 
-          const files = yield* Effect.forEach(request.tasks, (task) =>
-            readAgentFile(task.agent, request.cwd),
-          );
+    const reply = Effect.fn("Manager.reply")(function* (
+      runId: string | undefined,
+      taskId: string,
+      message: string,
+    ): Effect.fn.Return<ReplyOutcome, UnknownRun | UnknownTask> {
+      const run = yield* lookup(runId);
+      yield* lookupTask(run, taskId);
+      return yield* intercom.reply(run.id, taskId, message);
+    });
 
-          const choices: TaskChoice[] = plan.map((task) => {
-            const request_ = request.tasks[task.index]!;
-            const file = files[task.index];
-            return {
-              id: task.id,
-              agent: request_.agent,
-              ...(file ? { agentFile: file.choice } : {}),
-              ...(request_.model ? { model: request_.model } : {}),
-              ...(request_.thinking ? { thinking: request_.thinking } : {}),
-            };
-          });
+    const cancel = Effect.fn("Manager.cancel")(function* (runId: string | undefined) {
+      const run = yield* lookup(runId);
+      run.cancelled = true;
+      run.controller.abort();
+      changed();
+      return viewRun(run);
+    });
 
-          const resolved = yield* resolveTasks(request.source, request.parent, choices).pipe(
-            Effect.provideService(Settings, settings),
-          );
-
-          const states: TaskState[] = [];
-          for (const task of plan) {
-            const choice = resolved[task.index]!;
-            const request_ = request.tasks[task.index]!;
-            states.push({
-              id: task.id,
-              index: task.index,
-              wave: task.wave,
-              agent: request_.agent,
-              task: task.task,
-              needs: task.needs,
-              systemPrompt: systemPromptFor(request_.agent, files[task.index]),
-              resolvedModel: choice.model,
-              model: modelKey(choice.model),
-              thinking: choice.thinking,
-              maxTurns: request_.maxTurns ?? current.maxTurns,
-              settled: yield* Deferred.make<void>(),
-              status: "pending",
-              prompt: undefined,
-              waiting: undefined,
-              result: undefined,
-              progress: NO_PROGRESS,
-              lastActivityAt: undefined,
-              startedAt: undefined,
-              endedAt: undefined,
-              missing: [],
-              notes: choice.notes,
-            });
-          }
-
-          counter += 1;
-          const run: RunState = {
-            id: `run_${counter}`,
-            startedAt: Date.now(),
-            tasks: states,
-            permissions: current.permissions,
-            byId: new Map(states.map((state) => [state.id, state])),
-            controller: new AbortController(),
-            done: yield* Deferred.make<void>(),
-            cancelled: false,
-            finished: false,
-          };
-          runs.set(run.id, run);
-          order.push(run.id);
-          publish({
-            channel: EVENT_RUN_STARTED,
-            runId: run.id,
-            tasks: viewRun(run).tasks.map(summarize),
-          });
-          changed();
-
-          yield* Effect.forkIn(
-            execute(run, plan, request).pipe(Effect.ensuring(finish(run))),
-            scope,
-          );
-          return viewRun(run);
-        });
-
-        const view = Effect.fn("Manager.view")(function* (runId: string | undefined) {
-          return viewRun(yield* lookup(runId));
-        });
-
-        const wait = Effect.fn("Manager.wait")(function* (
-          runId: string | undefined,
-          taskId: string | undefined,
-        ): Effect.fn.Return<WaitOutcome, UnknownRun | UnknownTask> {
-          const run = yield* lookup(runId);
-          const target = taskId === undefined ? undefined : yield* lookupTask(run, taskId);
-
-          const done = () =>
-            target ? target.status === "settled" || target.status === "skipped" : run.finished;
-
-          /**
-           * A task settling is not what this call is waiting for: its output
-           * comes back in the run result either way. So a wake carrying only
-           * settlements parks again, and only an ask or a notification cuts the
-           * wait short. Traffic published during the gap between two parks
-           * reaches the parent as an ordinary message instead, which is what the
-           * unparked path already does.
-           */
-          while (!done()) {
-            const collected = yield* Effect.scoped(
-              Effect.gen(function* () {
-                const waiter = yield* intercom.park(run.id);
-                if (done()) {
-                  return undefined;
-                }
-
-                const settled = (
-                  target ? Deferred.await(target.settled) : Deferred.await(run.done)
-                ).pipe(Effect.as(undefined));
-                const traffic = waiter.wait;
-
-                const first = yield* Effect.raceFirst(settled, traffic);
-                return first?.filter((message) => message.kind !== "settled");
-              }),
-            );
-            if (collected && collected.length > 0) {
-              return {
-                kind: "traffic",
-                run: viewRun(run),
-                messages: collected,
-              } satisfies WaitOutcome;
-            }
-          }
-
-          return { kind: "settled", run: viewRun(run) } satisfies WaitOutcome;
-        });
-
-        const reply = Effect.fn("Manager.reply")(function* (
-          runId: string | undefined,
-          taskId: string,
-          message: string,
-        ): Effect.fn.Return<ReplyOutcome, UnknownRun | UnknownTask> {
-          const run = yield* lookup(runId);
-          yield* lookupTask(run, taskId);
-          return yield* intercom.reply(run.id, taskId, message);
-        });
-
-        const cancel = Effect.fn("Manager.cancel")(function* (runId: string | undefined) {
-          const run = yield* lookup(runId);
-          run.cancelled = true;
-          run.controller.abort();
-          changed();
-          return viewRun(run);
-        });
-
-        return Manager.of({ start, view, wait, reply, cancel });
-      }),
-    );
-  }
+    return { start, view, wait, reply, cancel };
+  }),
+}) {
+  static readonly layer = Layer.effect(this, this.make);
 }

@@ -1,5 +1,6 @@
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
-import { Effect, Fiber, type Scope } from "effect";
+import { Clock, Context, Effect, Exit, Fiber, Layer, Scope } from "effect";
+import { TestClock } from "effect/testing";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -8,6 +9,7 @@ import {
   Intercom,
   PARKED_MESSAGE_CAP,
   PARENT_REPLY_TIMEOUT,
+  ParentDelivery,
   TASK_ENDED_REPLY,
   type AskWaiting,
   type ParentDeliveryMode,
@@ -32,9 +34,16 @@ function runIntercom<A>(
   return Effect.runPromise(
     Effect.scoped(body).pipe(
       Effect.provide(
-        Intercom.layer(
-          { send: (message, mode) => deliveries.push({ message, mode }) },
-          replyTimeoutMs,
+        Intercom.layer.pipe(
+          Layer.provide(
+            Layer.succeed(
+              ParentDelivery,
+              ParentDelivery.of({
+                send: (message, mode) => deliveries.push({ message, mode }),
+                replyTimeoutMs,
+              }),
+            ),
+          ),
         ),
       ),
     ),
@@ -58,15 +67,22 @@ describe("Intercom", () => {
   it("makes an ask replyable before invoking parent delivery", async () => {
     let service: Intercom["Service"] | undefined;
     let reply: Promise<"delivered" | "not_waiting"> | undefined;
-    const layer = Intercom.layer(
-      {
-        send: () => {
-          if (service) {
-            reply = Effect.runPromise(service.reply(address.runId, address.taskId, "immediate"));
-          }
-        },
-      },
-      5,
+    const layer = Intercom.layer.pipe(
+      Layer.provide(
+        Layer.succeed(
+          ParentDelivery,
+          ParentDelivery.of({
+            send: () => {
+              if (service) {
+                reply = Effect.runPromise(
+                  service.reply(address.runId, address.taskId, "immediate"),
+                );
+              }
+            },
+            replyTimeoutMs: 5,
+          }),
+        ),
+      ),
     );
 
     const answer = await Effect.runPromise(
@@ -190,7 +206,7 @@ describe("Intercom", () => {
     expect(observed[0]).toHaveLength(1);
   });
 
-  it("drops excess notifications but lets an ask displace the oldest one", async () => {
+  it("keeps the newest traffic when a parked waiter overflows", async () => {
     const traffic = await runIntercom(
       Effect.gen(function* () {
         const intercom = yield* Intercom;
@@ -207,10 +223,14 @@ describe("Intercom", () => {
       }),
     );
 
+    // The two oldest notices lose their seats to the newest one and to the ask,
+    // which is the point: a blocked child's question is never refused, and what
+    // the parent reads is the freshest state of the run.
     expect(traffic).toHaveLength(PARKED_MESSAGE_CAP);
     expect(traffic.some((message) => message.kind === "ask")).toBe(true);
+    expect(traffic.some((message) => message.text === `note-${PARKED_MESSAGE_CAP}`)).toBe(true);
     expect(traffic.some((message) => message.text === "note-0")).toBe(false);
-    expect(traffic.some((message) => message.text === `note-${PARKED_MESSAGE_CAP}`)).toBe(false);
+    expect(traffic.some((message) => message.text === "note-1")).toBe(false);
   });
 
   it("wakes a parked waiter when its run finishes without traffic", async () => {
@@ -310,6 +330,87 @@ describe("Intercom", () => {
 
     expect(transitions[0]?.question).toBe("Continue?");
     expect(transitions.at(-1)).toBeUndefined();
+  });
+
+  it("answers a waiting child and frees a parked reader when the intercom shuts down", async () => {
+    const deliveries: Delivery[] = [];
+    const observed = await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const layerScope = yield* Scope.make();
+          const context = yield* Layer.buildWithScope(
+            Intercom.layer.pipe(
+              Layer.provide(
+                Layer.succeed(
+                  ParentDelivery,
+                  ParentDelivery.of({
+                    send: (message, mode) => deliveries.push({ message, mode }),
+                    // Long enough that only the shutdown can end the wait.
+                    replyTimeoutMs: 60_000,
+                  }),
+                ),
+              ),
+            ),
+            layerScope,
+          );
+          const intercom = Context.get(context, Intercom);
+          // Parked on another run, so the ask below takes the direct path and
+          // this reader has nothing buffered to return.
+          const waiter = yield* intercom.park("run-2");
+          const channel = yield* intercom.openTask(address);
+          const pending = yield* channel.ask("Anyone there?").pipe(Effect.forkChild);
+          yield* Effect.yieldNow;
+
+          // Only the layer's scope closes here. The channel and the parked
+          // reader still hold theirs, which is the case ManagedRuntime hits at
+          // extension teardown and nothing else exercises.
+          yield* Scope.close(layerScope, Exit.succeed(undefined));
+          return { answer: yield* Fiber.join(pending), traffic: yield* waiter.wait };
+        }),
+      ),
+    );
+
+    expect(observed).toEqual({ answer: TASK_ENDED_REPLY, traffic: [] });
+    expect(deliveries).toHaveLength(1);
+  });
+
+  it("stamps an ask with the Clock's current time", async () => {
+    const transitions: (AskWaiting | undefined)[] = [];
+    const deliveries: Delivery[] = [];
+    const stamped = await Effect.runPromise(
+      Effect.gen(function* () {
+        const intercom = yield* Intercom;
+        yield* TestClock.adjust("10 minutes");
+        const expected = yield* Clock.currentTimeMillis;
+        const channel = yield* intercom.openTask(address, {
+          onWaitingChange: (ask) => transitions.push(ask),
+        });
+        const pending = yield* channel.ask("Continue?").pipe(Effect.forkChild);
+        yield* Effect.yieldNow;
+        yield* intercom.reply(address.runId, address.taskId, "yes");
+        return yield* Fiber.join(pending).pipe(Effect.as(expected));
+      }).pipe(
+        Effect.scoped,
+        Effect.provide(
+          Intercom.layer.pipe(
+            Layer.provide(
+              Layer.succeed(
+                ParentDelivery,
+                ParentDelivery.of({
+                  send: (message, mode) => deliveries.push({ message, mode }),
+                  replyTimeoutMs: 100,
+                }),
+              ),
+            ),
+          ),
+        ),
+        Effect.provide(TestClock.layer()),
+      ),
+    );
+
+    // Virtual time, not the wall clock: on a direct Date.now this would be
+    // a real epoch and could never equal the test clock's reading.
+    expect(transitions[0]?.since).toBe(stamped);
   });
 });
 

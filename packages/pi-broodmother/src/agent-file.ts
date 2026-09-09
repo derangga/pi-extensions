@@ -1,10 +1,11 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 
 import { getAgentDir, parseFrontmatter } from "@earendil-works/pi-coding-agent";
-import { Option, Schema } from "effect";
+import { Option, Predicate, Schema } from "effect";
 
 import type { AgentChoice } from "./resolve.js";
+import { isMissingFile } from "./settings.js";
 import { THINKING_LEVELS } from "./thinking.js";
 
 const SAFE_NAME = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9_-]+$/));
@@ -20,30 +21,48 @@ export interface AgentFile {
 /**
  * Resolves only the file the caller named. Project-local Pi files outrank the
  * shared agents workspace, which outranks the user's global Pi agent file.
+ *
+ * Async all the way down: a start call reads one file per distinct agent name
+ * on the path between the orchestrator's tool call and the run starting, and
+ * sync reads there would hold the manager's fiber on every filesystem hop.
  */
-export function loadAgentFile(
+export async function loadAgentFile(
   name: string | undefined,
   cwd: string,
   agentDir = getAgentDir(),
-): AgentFile | undefined {
+): Promise<AgentFile | undefined> {
   const decoded = decodeName(name?.trim());
   if (Option.isNone(decoded)) {
     return undefined;
   }
 
   const filename = `${decoded.value}.md`;
-  const path = [
+  for (const path of [
     join(cwd, ".pi", "agents", filename),
     join(cwd, ".agents", "agents", filename),
     join(agentDir, "agents", filename),
-  ].find(existsSync);
-  if (!path) {
-    return undefined;
+  ]) {
+    let text: string;
+    try {
+      text = await readFile(path, "utf8");
+    } catch (cause) {
+      // A location that does not have the file is the normal case; anything
+      // else the filesystem can do to a read is a failure the caller reports.
+      if (isMissingFile(cause)) {
+        continue;
+      }
+      const message = cause instanceof Error ? cause.message : String(cause);
+      throw new Error(`Could not read agent file ${basename(path)}: ${message}`, { cause });
+    }
+    return decodeAgentFile(path, text);
   }
+  return undefined;
+}
 
+function decodeAgentFile(path: string, text: string): AgentFile {
   try {
-    const { frontmatter, body } = parseFrontmatter(readFileSync(path, "utf8"));
-    const model = typeof frontmatter.model === "string" ? frontmatter.model.trim() : "";
+    const { frontmatter, body } = parseFrontmatter(text);
+    const model = Predicate.isString(frontmatter.model) ? frontmatter.model.trim() : "";
     const thinking = decodeThinking(frontmatter.thinking);
 
     return {

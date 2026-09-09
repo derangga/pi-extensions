@@ -53,6 +53,15 @@ function toolUpdate(toolName: string): AgentSessionEvent {
   return raw as AgentSessionEvent;
 }
 
+function messageStart(): AgentSessionEvent {
+  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
+  const raw: unknown = {
+    type: "message_start",
+    message: { role: "assistant", content: [] },
+  };
+  return raw as AgentSessionEvent;
+}
+
 function textDelta(delta: string): AgentSessionEvent {
   // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
   const raw: unknown = {
@@ -251,6 +260,35 @@ describe("child lifecycle", () => {
     expect(result.notes.join(" ")).not.toContain("half applied");
   });
 
+  it("survives an abort that rejects while the prompt is being interrupted", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const fake = fakeChild(() => new Promise<void>(() => undefined));
+    fake.abort.mockImplementation(async () => {
+      throw new Error("abort exploded");
+    });
+
+    const result = await Effect.runPromise(
+      runChildLifecycle(options(fake.created, { signal: controller.signal })),
+    );
+
+    expect(result.outcome).toBe("stopped");
+    expect(fake.abort).toHaveBeenCalled();
+  });
+
+  it("survives a dispose that throws while the session is released", async () => {
+    const fake = fakeChild(({ messages }) => {
+      messages.push(assistant("answer first"));
+    });
+    fake.dispose.mockImplementation(() => {
+      throw new Error("dispose exploded");
+    });
+
+    const result = await Effect.runPromise(runChildLifecycle(options(fake.created)));
+
+    expect(result).toMatchObject({ outcome: "completed", output: "answer first" });
+  });
+
   it("warns that a writable child cut short may have half applied its changes", async () => {
     const controller = new AbortController();
     controller.abort();
@@ -314,6 +352,35 @@ describe("child lifecycle", () => {
 
     expect(result).toMatchObject({ outcome: "failed", error: "request failed", partial: true });
     expect(result.output).toContain("Partial output before termination:\nwork before failure");
+  });
+
+  it("salvages every streamed delta when the child dies mid-message", async () => {
+    const fake = fakeChild(({ emit }) => {
+      for (let index = 0; index < 500; index++) {
+        emit(textDelta("streamed answer "));
+      }
+      throw new Error("request failed");
+    });
+
+    const result = await Effect.runPromise(runChildLifecycle(options(fake.created)));
+
+    expect(result).toMatchObject({ outcome: "failed", producedOutput: true, partial: true });
+    expect(result.output).toContain("Partial output before termination:");
+    expect(result.output).toContain(`streamed answer ${"streamed answer ".repeat(499).trim()}`);
+  });
+
+  it("keeps only the newest message's streamed text", async () => {
+    const fake = fakeChild(({ emit }) => {
+      emit(textDelta("first attempt "));
+      emit(messageStart());
+      emit(textDelta("second attempt "));
+      throw new Error("request failed");
+    });
+
+    const result = await Effect.runPromise(runChildLifecycle(options(fake.created)));
+
+    expect(result.output).toContain("second attempt");
+    expect(result.output).not.toContain("first attempt");
   });
 
   it("turns creation failures into failed values", async () => {
