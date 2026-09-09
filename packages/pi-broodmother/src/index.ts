@@ -58,7 +58,7 @@ export default function broodmotherExtension(pi: ExtensionAPI): void {
   );
 
   const runtime = ManagedRuntime.make(
-    Manager.layer().pipe(
+    Manager.layer.pipe(
       Layer.provideMerge(
         Layer.mergeAll(
           Settings.layer,

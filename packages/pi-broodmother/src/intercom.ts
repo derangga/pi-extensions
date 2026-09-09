@@ -345,87 +345,86 @@ export class Intercom extends Context.Service<
     finishRun(runId: string): Effect.Effect<void>;
     settle(address: TaskAddress, result: ChildRunResult): Effect.Effect<void>;
   }
->()("pi-broodmother/Intercom") {
-  static readonly layer = Layer.effect(
-    Intercom,
-    Effect.gen(function* () {
-      const delivery = yield* ParentDelivery;
-      // Bus first, so on teardown the book's finalizer answers every waiting
-      // child before the bus tears down the queues those answers travel on.
-      const bus = yield* makeTrafficBus(delivery);
-      const book = yield* makeAskBook();
+>()("pi-broodmother/Intercom", {
+  make: Effect.gen(function* () {
+    const delivery = yield* ParentDelivery;
+    // Bus first, so on teardown the book's finalizer answers every waiting
+    // child before the bus tears down the queues those answers travel on.
+    const bus = yield* makeTrafficBus(delivery);
+    const book = yield* makeAskBook();
 
-      const openTask = Effect.fn("Intercom.openTask")(function* (
-        address: TaskAddress,
-        options: TaskChannelOptions = {},
-      ) {
-        const slot = yield* book.open(address, options);
+    const openTask = Effect.fn("Intercom.openTask")(function* (
+      address: TaskAddress,
+      options: TaskChannelOptions = {},
+    ) {
+      const slot = yield* book.open(address, options);
 
-        const ask = Effect.fn("Intercom.ask")(function* (question: string) {
-          return yield* Effect.scoped(
-            Effect.gen(function* () {
-              const claim = yield* book.claim(slot, question);
-              if (claim === "closed") {
-                return TASK_ENDED_REPLY;
-              }
-              if (claim === "duplicate") {
-                return DUPLICATE_ASK_REPLY;
-              }
+      const ask = Effect.fn("Intercom.ask")(function* (question: string) {
+        return yield* Effect.scoped(
+          Effect.gen(function* () {
+            const claim = yield* book.claim(slot, question);
+            if (claim === "closed") {
+              return TASK_ENDED_REPLY;
+            }
+            if (claim === "duplicate") {
+              return DUPLICATE_ASK_REPLY;
+            }
 
-              // Claimed before published: a parent that answers inside `send`
-              // finds a seat to answer into.
-              yield* bus.publish({ kind: "ask", address, text: question });
-              const answer = yield* Deferred.await(claim).pipe(
-                Effect.timeoutOrElse({
-                  duration: delivery.replyTimeoutMs,
-                  orElse: () => Effect.succeed(PARENT_REPLY_TIMEOUT),
-                }),
-              );
-              return slot.closed ? TASK_ENDED_REPLY : answer;
-            }),
-          );
-        });
-
-        const notify = Effect.fn("Intercom.notify")(function* (
-          message: string,
-          level: NotificationLevel,
-        ) {
-          if (slot.closed) {
-            return;
-          }
-          yield* bus.publish({ kind: "notify", address, text: message, level });
-        });
-
-        return { ask, notify } satisfies TaskChannel;
-      });
-
-      const settle = Effect.fn("Intercom.settle")(function* (
-        address: TaskAddress,
-        result: ChildRunResult,
-      ) {
-        const traffic: ParentTraffic = {
-          kind: "settled",
-          address,
-          text: result.output,
-          outcome: result.outcome,
-        };
-        const startupFailure = result.outcome === "failed" && !result.producedOutput;
-        yield* bus.publish(
-          traffic,
-          startupFailure ? "steer" : "followUp",
-          startupFailure ? formatStartupFailure(address, result) : formatTraffic(traffic),
+            // Claimed before published: a parent that answers inside `send`
+            // finds a seat to answer into.
+            yield* bus.publish({ kind: "ask", address, text: question });
+            const answer = yield* Deferred.await(claim).pipe(
+              Effect.timeoutOrElse({
+                duration: delivery.replyTimeoutMs,
+                orElse: () => Effect.succeed(PARENT_REPLY_TIMEOUT),
+              }),
+            );
+            return slot.closed ? TASK_ENDED_REPLY : answer;
+          }),
         );
       });
 
-      return Intercom.of({
-        openTask,
-        park: bus.park,
-        reply: book.answer,
-        finishRun: bus.finish,
-        settle,
+      const notify = Effect.fn("Intercom.notify")(function* (
+        message: string,
+        level: NotificationLevel,
+      ) {
+        if (slot.closed) {
+          return;
+        }
+        yield* bus.publish({ kind: "notify", address, text: message, level });
       });
-    }),
-  );
+
+      return { ask, notify } satisfies TaskChannel;
+    });
+
+    const settle = Effect.fn("Intercom.settle")(function* (
+      address: TaskAddress,
+      result: ChildRunResult,
+    ) {
+      const traffic: ParentTraffic = {
+        kind: "settled",
+        address,
+        text: result.output,
+        outcome: result.outcome,
+      };
+      const startupFailure = result.outcome === "failed" && !result.producedOutput;
+      yield* bus.publish(
+        traffic,
+        startupFailure ? "steer" : "followUp",
+        startupFailure ? formatStartupFailure(address, result) : formatTraffic(traffic),
+      );
+    });
+
+    return {
+      openTask,
+      park: bus.park,
+      reply: book.answer,
+      finishRun: bus.finish,
+      settle,
+    };
+  }),
+}) {
+  static readonly layer = Layer.effect(this, this.make);
 }
 
 export type RunEffect = <A>(effect: Effect.Effect<A>) => Promise<A>;
@@ -446,7 +445,11 @@ export function createIntercomTools(
         "Ask one focused question at a time. Do not wait for a task in a later dependency wave.",
       ],
       parameters: Type.Object(
-        { question: Type.String({ description: "One focused question for the parent" }) },
+        {
+          question: Type.String({
+            description: "One focused question for the parent",
+          }),
+        },
         { additionalProperties: false },
       ),
       async execute(_toolCallId, params) {
@@ -454,7 +457,12 @@ export function createIntercomTools(
         const { question } = params as { question: string };
         const answer = await runEffect(channel.ask(question));
         return {
-          content: [{ type: "text" as const, text: answer || "(parent gave no answer)" }],
+          content: [
+            {
+              type: "text" as const,
+              text: answer || "(parent gave no answer)",
+            },
+          ],
           details: {},
         };
       },
@@ -483,7 +491,10 @@ export function createIntercomTools(
           level?: NotificationLevel;
         };
         await runEffect(channel.notify(message, level ?? "info"));
-        return { content: [{ type: "text" as const, text: "Sent." }], details: {} };
+        return {
+          content: [{ type: "text" as const, text: "Sent." }],
+          details: {},
+        };
       },
     },
   ];

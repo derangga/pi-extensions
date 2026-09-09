@@ -72,7 +72,7 @@ function layers(
   onChange?: (runs: readonly RunView[]) => void,
   onEvent?: (event: SubagentEvent) => void,
 ) {
-  return Manager.layer().pipe(
+  return Manager.layer.pipe(
     Layer.provideMerge(
       Layer.mergeAll(
         settingsLayer(overrides),
@@ -398,7 +398,7 @@ describe("Manager.start", () => {
         return [yield* manager.view(first.id), yield* manager.view(second.id)] as const;
       }).pipe(
         Effect.provide(
-          Manager.layer().pipe(
+          Manager.layer.pipe(
             Layer.provideMerge(
               Layer.mergeAll(
                 mutableSettings,

@@ -217,32 +217,31 @@ export class Settings extends Context.Service<
     readonly path: string;
     update(next: SubagentSettings): Effect.Effect<void, SettingsWriteError>;
   }
->()("pi-broodmother/Settings") {
-  static readonly layer = Layer.effect(
-    Settings,
-    Effect.gen(function* () {
-      const path = getSettingsPath();
-      const loaded = yield* loadSettings(path);
-      const ref = yield* Ref.make(loaded.settings);
+>()("pi-broodmother/Settings", {
+  make: Effect.gen(function* () {
+    const path = getSettingsPath();
+    const loaded = yield* loadSettings(path);
+    const ref = yield* Ref.make(loaded.settings);
 
-      /**
-       * Memory first, then disk. A failed write leaves the panel showing what
-       * the user chose and reports the failure, which beats silently reverting
-       * a row under their cursor.
-       */
-      const update = Effect.fn("Settings.update")(function* (next: SubagentSettings) {
-        yield* Ref.set(ref, next);
-        yield* saveSettings(next, path);
-      });
+    /**
+     * Memory first, then disk. A failed write leaves the panel showing what
+     * the user chose and reports the failure, which beats silently reverting
+     * a row under their cursor.
+     */
+    const update = Effect.fn("Settings.update")(function* (next: SubagentSettings) {
+      yield* Ref.set(ref, next);
+      yield* saveSettings(next, path);
+    });
 
-      return Settings.of({
-        current: Ref.get(ref),
-        warnings: loaded.warnings,
-        path,
-        update,
-      });
-    }),
-  );
+    return {
+      current: Ref.get(ref),
+      warnings: loaded.warnings,
+      path,
+      update,
+    };
+  }),
+}) {
+  static readonly layer = Layer.effect(this, this.make);
 }
 
 /** A Node fs error for a path that does not exist, as opposed to one that is broken. */
