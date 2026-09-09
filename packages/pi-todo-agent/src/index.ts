@@ -11,7 +11,11 @@
  * render pointer, and shutdown evicts. Todo state survives compaction and
  * reload because the last tool result snapshot is replayed from the branch.
  */
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionContext,
+  ExtensionUIContext,
+} from "@earendil-works/pi-coding-agent";
 import { replayFromBranch } from "./state/replay.js";
 import {
   clearActiveRenderSession,
@@ -21,6 +25,8 @@ import {
   setActiveRenderSession,
   sid,
 } from "./state/store.js";
+import { TOOL_NAME } from "./tool/types.js";
+import { TodoOverlay } from "./todo-overlay.js";
 import { registerTodoTool } from "./todo.js";
 
 /**
@@ -54,7 +60,20 @@ function replaySessionSlot(ctx: ExtensionContext): string | undefined {
 export default function (pi: ExtensionAPI): void {
   registerTodoTool(pi);
 
-  pi.on("session_start", async (_event, ctx) => {
+  let todoOverlay: TodoOverlay | undefined;
+  let uiCtx: ExtensionUIContext | undefined;
+
+  /** Register/refresh the foreground overlay; a no-op until a UI session claims it. */
+  function updateTodoOverlay(): void {
+    if (!uiCtx) {
+      return;
+    }
+    todoOverlay ??= new TodoOverlay();
+    todoOverlay.setUICtx(uiCtx);
+    todoOverlay.update();
+  }
+
+  pi.on("session_start", (_event, ctx) => {
     const id = replaySessionSlot(ctx);
     if (id === undefined) {
       return;
@@ -63,10 +82,12 @@ export default function (pi: ExtensionAPI): void {
       return;
     }
     // First UI-bearing session_start claims the foreground render pointer
-    // without eagerly loading the overlay; later (child) sessions keep
-    // their own slots and never rebind the shared widget.
+    // and binds the overlay; later (child) sessions keep their own slots
+    // and never rebind the shared widget.
     if (getActiveRenderSession() === "") {
       setActiveRenderSession(id);
+      uiCtx = ctx.ui;
+      updateTodoOverlay();
     }
   });
 
@@ -80,7 +101,7 @@ export default function (pi: ExtensionAPI): void {
     replaySessionSlot(ctx);
   });
 
-  pi.on("session_shutdown", async (_event, ctx) => {
+  pi.on("session_shutdown", (_event, ctx) => {
     // Best-effort sid: disposal can race a stale ctx. An unknown/stale sid
     // resolves to "" and is treated as foreground — the safe default that
     // clears the render pointer instead of leaking it.
@@ -95,6 +116,34 @@ export default function (pi: ExtensionAPI): void {
     evictSession(s);
     if (s === "" || s === getActiveRenderSession()) {
       clearActiveRenderSession();
+      // Only the foreground's own shutdown tears the overlay down; a child
+      // shutdown must not dispose the shared widget.
+      try {
+        todoOverlay?.dispose();
+      } finally {
+        todoOverlay = undefined;
+        uiCtx = undefined;
+      }
     }
+  });
+
+  // The overlay re-renders after every successful todo call. Reads happen at
+  // render time from the foreground slot; the branch is stale by now.
+  pi.on("tool_execution_end", (event) => {
+    if (event.toolName !== TOOL_NAME || event.isError) {
+      return;
+    }
+    try {
+      updateTodoOverlay();
+    } catch {
+      // The tool itself succeeded and there is no user-facing log channel in
+      // this package; a transient refresh failure costs this one update and
+      // the next todo call retries.
+    }
+  });
+
+  // Completed tasks from previous turns fade out when new work begins.
+  pi.on("agent_start", () => {
+    todoOverlay?.hideCompletedTasksFromPreviousTurn();
   });
 }
