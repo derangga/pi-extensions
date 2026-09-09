@@ -27,6 +27,7 @@ jobs:
           - pi-catppuccin-themes
           - pi-unslop-rules
           - pi-broodmother
+          - pi-todo-agent
 
     env:
       PI_TELEMETRY: "0"
