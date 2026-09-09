@@ -40,10 +40,22 @@ export interface TaskDetails {
 }
 
 /**
- * Input bag the reducer accepts. Typed against the schema's static shape so
- * the host's validated object passes through without casts at the boundary.
+ * Input bag the reducer accepts: the schema's mutable fields without `action`,
+ * which the reducer takes as its own argument. The host passes the validated
+ * call params here; the extra `action` field on the full shape is ignored by
+ * structural assignment.
  */
-export type TaskMutationParams = TodoParams;
+export interface TaskMutationParams {
+  subject?: string;
+  description?: string;
+  activeForm?: string;
+  status?: TaskStatus;
+  blockedBy?: number[];
+  addBlockedBy?: number[];
+  removeBlockedBy?: number[];
+  id?: number;
+  includeDeleted?: boolean;
+}
 
 // ---------------------------------------------------------------------------
 // TypeBox parameter schema — every `description` doubles as LLM-facing prompt
