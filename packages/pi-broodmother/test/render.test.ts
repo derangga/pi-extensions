@@ -13,6 +13,7 @@ import {
   SubagentWidget,
   WIDGET_KEY,
   WIDGET_MAX_LINES,
+  widgetLine,
   widgetLines,
 } from "../src/render.js";
 import type { RunView, TaskView } from "../src/run.js";
@@ -135,6 +136,29 @@ describe("widgetLines", () => {
 
     const [, done] = widgetLines([runView([settled()])], theme, NOW);
     expect(done).not.toContain("→ Grep useEffect");
+  });
+
+  it("bolds the running agent name, leaves other states plain", () => {
+    // Weight survives muted accents and color-blind palettes that wash out
+    // the accent color, same as the in-progress row in the todo overlay.
+    const marking = {
+      fg: (_color: string, value: string) => value,
+      bold: (value: string) => `<b>${value}</b>`,
+    } as unknown as Theme;
+    expect(widgetLine(taskView({ agent: "reader" }), marking, NOW)).toContain("<b>reader</b>");
+    expect(
+      widgetLine(
+        taskView({
+          agent: "reader",
+          status: "pending",
+          needs: ["up"],
+          startedAt: undefined,
+        }),
+        marking,
+        NOW,
+      ),
+    ).not.toContain("<b>");
+    expect(widgetLine(settled({ agent: "reader" }), marking, NOW)).not.toContain("<b>");
   });
 
   it("shows that a child is blocked on a question, and for how long", () => {

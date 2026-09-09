@@ -52,7 +52,7 @@ export function statusIcon(task: TaskView): string {
     case "pending":
       return "○";
     case "running":
-      return "•";
+      return "◎";
     case "skipped":
       return "⊘";
     case "settled":
@@ -122,7 +122,12 @@ function isDone(task: TaskView): boolean {
  */
 export function widgetLine(task: TaskView, theme: Theme, now: number): string {
   const icon = theme.fg(statusColor(task), statusIcon(task));
-  const name = theme.fg(isDone(task) ? "dim" : "accent", task.agent);
+  // Bold survives muted accents and color-blind palettes the way color alone
+  // does not, same as the in-progress row in the todo overlay.
+  const name = theme.fg(
+    isDone(task) ? "dim" : "accent",
+    task.status === "running" ? theme.bold(task.agent) : task.agent,
+  );
   const cost = formatCost(task.cost);
   const stats = theme.fg(
     "dim",
