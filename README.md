@@ -12,9 +12,9 @@ its own README. Install one without installing the others.
 | [`pi-ask-popup`](packages/pi-ask-popup) | A tabbed terminal questionnaire the model opens instead of guessing | Published |
 | [`pi-status-widget`](packages/pi-status-widget) | A footer with three presets, emoji or nerd icons, twelve color schemes, and a thinking level that colors itself | Published |
 | [`pi-catppuccin-themes`](packages/pi-catppuccin-themes) | The four Catppuccin flavors (latte, frappe, macchiato, mocha) vendored in-house | Published |
-| [`pi-unslop-rules`](packages/pi-unslop-rules) | Appends the pstack unslop writing rules to the system prompt every turn, so the prose stays free of AI tells | In progress |
-| [`pi-broodmother`](packages/pi-broodmother) | Hands research to read-only child agents in one batched call, with dependency edges between the tasks and a model and thinking effort you pick | In progress |
-| [`pi-todo-agent`](packages/pi-todo-agent) | A todo list the model manages through a `todo` tool and you watch in a live overlay above the editor; zero runtime dependencies | In progress |
+| [`pi-unslop-rules`](packages/pi-unslop-rules) | Appends the pstack unslop writing rules to the system prompt every turn, so the prose stays free of AI tells | Published |
+| [`pi-broodmother`](packages/pi-broodmother) | Hands research to read-only child agents in one batched call, with dependency edges between the tasks and a model and thinking effort you pick | Published |
+| [`pi-todo-agent`](packages/pi-todo-agent) | A todo list the model manages through a `todo` tool and you watch in a live overlay above the editor; zero runtime dependencies | Published |
 
 ## Working in this repo
 
