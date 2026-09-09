@@ -88,10 +88,10 @@ describe("pi-ask-popup manifest", () => {
     expect(files).not.toContain("test/");
   });
 
-  it("is public, MIT, and starts at 0.1.1", () => {
+  it("is public, MIT, and starts at 0.2.0", () => {
     const manifest = readManifest();
     expect(manifest.name).toBe("pi-ask-popup");
-    expect(manifest.version).toBe("0.1.1");
+    expect(manifest.version).toBe("0.2.0");
     expect(manifest.license).toBe("MIT");
     expect(manifest.publishConfig?.access).toBe("public");
   });
