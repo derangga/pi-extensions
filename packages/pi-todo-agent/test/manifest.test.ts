@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -18,6 +18,7 @@ interface Manifest {
   type: string;
   dependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
+  files?: string[];
   pi?: { extensions?: string[] };
 }
 
@@ -44,5 +45,33 @@ describe("pi-todo-agent manifest", () => {
     const entry = manifest.pi?.extensions?.[0];
     expect(entry).toBe("./src/index.ts");
     expect(existsSync(join(packageRoot, entry ?? ""))).toBe(true);
+  });
+
+  it("ships every source module under the files globs", () => {
+    // A module outside the files list publishes fine but is missing from the
+    // tarball, so the installed extension cannot resolve it at runtime.
+    const files = readManifest().files ?? [];
+    const uncovered: string[] = [];
+    const walk = (dir: string): void => {
+      for (const name of readdirSync(dir)) {
+        const full = join(dir, name);
+        if (statSync(full).isDirectory()) {
+          walk(full);
+          continue;
+        }
+        const rel = relative(packageRoot, full);
+        const covered = files.some(
+          (pattern) => rel.startsWith(pattern.replace(/\/$/, "")) || rel === pattern,
+        );
+        if (!covered) {
+          uncovered.push(rel);
+        }
+      }
+    };
+    walk(join(packageRoot, "src"));
+    expect(uncovered).toEqual([]);
+    expect(files).toContain("src/");
+    expect(files).toContain("README.md");
+    expect(files).toContain("LICENSE");
   });
 });
