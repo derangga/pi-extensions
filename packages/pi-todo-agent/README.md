@@ -7,7 +7,7 @@ The model plans multi-step work as tasks, marks each one in progress and complet
 ## Install
 
 ```sh
-npm install pi-todo-agent
+pi install pi-todo-agent
 ```
 
 The package declares no `dependencies`. It needs three host-provided peers, which any Pi install already ships: `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, and `typebox`.
