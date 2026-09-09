@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { TodoOverlay } from "../src/todo-overlay.js";
+import { TodoOverlay, WIDGET_KEY } from "../src/todo-overlay.js";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { __resetState, commitState, setActiveRenderSession } from "../src/state/store.js";
 import type { TaskDetails } from "../src/tool/types.js";
@@ -67,7 +67,7 @@ function makeUICtx(overrides?: Partial<Theme>): MockUICtx {
 }
 
 function renderWidget(ui: MockUICtx, width = 80): string[] {
-  const widget = ui.widgets.find((w) => w.key === "rpiv-todos");
+  const widget = ui.widgets.find((w) => w.key === WIDGET_KEY);
   if (!widget?.factory) {
     throw new Error("widget not registered");
   }
@@ -104,7 +104,7 @@ describe("registration lifecycle", () => {
     overlay.setUICtx(ui as never);
     commitSnapshot([{ id: 1, subject: "gone", status: "deleted" }]);
     overlay.update();
-    const widget = ui.widgets.find((w) => w.key === "rpiv-todos");
+    const widget = ui.widgets.find((w) => w.key === WIDGET_KEY);
     expect(widget?.factory).toBeUndefined();
   });
 
@@ -136,7 +136,7 @@ describe("registration lifecycle", () => {
     commitSnapshot([{ id: 1, subject: "one", status: "pending" }]);
     overlay.update();
     overlay.dispose();
-    const widget = ui.widgets.find((w) => w.key === "rpiv-todos");
+    const widget = ui.widgets.find((w) => w.key === WIDGET_KEY);
     expect(widget?.factory).toBeUndefined();
     expect(overlay.isRegistered()).toBe(false);
   });
@@ -302,7 +302,7 @@ describe("completed fade-out", () => {
     expect(renderWidget(ui).join("\n")).not.toContain("done");
     // Everything hidden means the widget unregisters.
     overlay.update();
-    expect(ui.widgets.find((w) => w.key === "rpiv-todos")?.factory).toBeUndefined();
+    expect(ui.widgets.find((w) => w.key === WIDGET_KEY)?.factory).toBeUndefined();
   });
 
   it("keeps completed tasks visible within the current turn, then fades them", () => {
@@ -334,7 +334,7 @@ describe("completed fade-out", () => {
     overlay.hideCompletedTasksFromPreviousTurn();
     overlay.update();
     // Nothing visible means the widget unregisters.
-    expect(ui.widgets.find((w) => w.key === "rpiv-todos")?.factory).toBeUndefined();
+    expect(ui.widgets.find((w) => w.key === WIDGET_KEY)?.factory).toBeUndefined();
   });
 
   it("forgets hidden ids after a clear (nextId reset)", () => {

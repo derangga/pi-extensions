@@ -16,9 +16,6 @@
 # need the TUI and will not work under -p. Each Given block that quotes a
 # prompt is meant to be pasted verbatim.
 #
-# This extension registers a tool named `todo`. Do not load
-# @juicesharp/rpiv-todo in the same run: the two would collide on the name.
-
 Feature: A todo list the model manages and you watch
 
   Background:

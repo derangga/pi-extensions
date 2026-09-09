@@ -1,9 +1,9 @@
 import { Type } from "typebox";
 
 // ---------------------------------------------------------------------------
-// Tool identity. The name "todo" is the tool the model calls; it is free of
-// conflicts with Pi's built-in tools but clashes with @juicesharp/rpiv-todo
-// (same name), so the two extensions are not co-installable.
+// Tool identity. The name "todo" is free of conflicts with Pi's built-in
+// tools, but it is not namespaced: any other extension registering the same
+// name cannot coexist with this one.
 // ---------------------------------------------------------------------------
 
 export const TOOL_NAME = "todo";

@@ -15,7 +15,8 @@ import { getRenderState } from "./state/store.js";
 import { sanitizeTerminalText } from "./tool/sanitize.js";
 import type { Task, TaskStatus } from "./tool/types.js";
 
-const WIDGET_KEY = "rpiv-todos";
+/** Widget registry key. Ours, not inherited from any upstream package. */
+export const WIDGET_KEY = "pi-todo-agent";
 
 /** Content-row budget: heading + task rows + optional summary. */
 const MAX_WIDGET_LINES = 12;
