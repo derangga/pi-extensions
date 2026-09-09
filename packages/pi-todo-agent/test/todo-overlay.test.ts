@@ -143,6 +143,25 @@ describe("registration lifecycle", () => {
 });
 
 describe("rendering", () => {
+  it("renders the in_progress subject bold, pending plain", () => {
+    // Weight survives themes and color-blind palettes that mute accent.
+    const ui = makeUICtx({
+      bold: (text) => `<b>${text}</b>`,
+      strikethrough: (text) => `<s>${text}</s>`,
+    });
+    const overlay = new TodoOverlay();
+    overlay.setUICtx(ui as never);
+    commitSnapshot([
+      { id: 1, subject: "writing tests", status: "in_progress", activeForm: "testing" },
+      { id: 2, subject: "queued", status: "pending" },
+    ]);
+    overlay.update();
+    const text = renderWidget(ui).join("\n");
+    expect(text).toContain("<b>writing tests</b>");
+    expect(text).not.toContain("<b>queued</b>");
+    expect(text).not.toContain("<b><b>");
+  });
+
   it("renders heading with completion counts and per-task rows", () => {
     const ui = makeUICtx();
     const overlay = new TodoOverlay();

@@ -58,7 +58,7 @@ Feature: A todo list the model manages and you watch
     Given the list holds a pending task
     When I paste "Start the pending task, then complete it when done."
     Then the transcript shows an update to in_progress before any work output
-    And the widget row reads ◐ with the activeForm in parens
+    And the widget row reads ◉ with the activeForm in parens
     Then when the work lands, a further update sets it completed
     And the row reads ✓ struck through
 

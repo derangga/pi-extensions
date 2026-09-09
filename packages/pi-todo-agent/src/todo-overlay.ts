@@ -238,7 +238,7 @@ function statusGlyph(status: TaskStatus): string {
     case "pending":
       return "○";
     case "in_progress":
-      return "◐";
+      return "◎";
     case "completed":
       return "✓";
     case "deleted":
@@ -258,7 +258,12 @@ interface Counts {
 }
 
 function countByStatus(tasks: OverlayTaskLine[]): Counts {
-  const counts: Counts = { total: tasks.length, pending: 0, in_progress: 0, completed: 0 };
+  const counts: Counts = {
+    total: tasks.length,
+    pending: 0,
+    in_progress: 0,
+    completed: 0,
+  };
   for (const t of tasks) {
     if (t.status === "pending") {
       counts.pending += 1;
@@ -306,6 +311,11 @@ function formatTaskLine(t: OverlayTaskLine, theme: Theme, showId: boolean): stri
   if (t.status === "completed") {
     subject = theme.strikethrough(subject);
   }
+  if (t.status === "in_progress") {
+    // A weight difference, like the strike on completed, reads even where
+    // accent colors are muted or color-blind palettes collapse them.
+    subject = theme.bold(subject);
+  }
   let line = t.glyph;
   if (showId) {
     line += ` ${theme.fg("dim", `#${t.id}`)}`;
@@ -350,7 +360,11 @@ function layOut(tasks: OverlayTaskLine[], budget: number): Layout {
     }
     const visible = tasks.filter((t) => kept.has(t));
     const shownCompleted = visible.filter((t) => t.status === "completed").length;
-    return { visible, hiddenCompleted: totalCompleted - shownCompleted, truncatedTail: 0 };
+    return {
+      visible,
+      hiddenCompleted: totalCompleted - shownCompleted,
+      truncatedTail: 0,
+    };
   }
   const visible = nonCompleted.slice(0, innerBudget);
   return {
