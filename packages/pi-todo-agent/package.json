@@ -1,0 +1,53 @@
+{
+  "name": "pi-todo-agent",
+  "version": "0.1.0",
+  "description": "Pi extension. A todo list the model manages through a `todo` tool, rendered as a live overlay above the editor. Zero runtime dependencies.",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "pi",
+    "todo",
+    "tasks",
+    "tui"
+  ],
+  "type": "module",
+  "license": "MIT",
+  "author": "derangga <contact@rangga.site>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/derangga/pi-extensions.git",
+    "directory": "packages/pi-todo-agent"
+  },
+  "homepage": "https://github.com/derangga/pi-extensions/tree/master/packages/pi-todo-agent#readme",
+  "bugs": {
+    "url": "https://github.com/derangga/pi-extensions/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": ">=0.80",
+    "@earendil-works/pi-tui": ">=0.80",
+    "typebox": "*"
+  }
+}
