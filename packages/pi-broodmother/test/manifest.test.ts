@@ -97,10 +97,10 @@ describe("pi-broodmother manifest", () => {
     expect(files).not.toContain("test/");
   });
 
-  it("is public, MIT, and starts at 0.2.0", () => {
+  it("is public, MIT, and starts at 0.3.0", () => {
     const manifest = readManifest();
     expect(manifest.name).toBe("pi-broodmother");
-    expect(manifest.version).toBe("0.2.0");
+    expect(manifest.version).toBe("0.3.0");
     expect(manifest.license).toBe("MIT");
     expect(manifest.publishConfig?.access).toBe("public");
   });
