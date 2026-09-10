@@ -1,6 +1,6 @@
 {
   "name": "pi-todo-agent",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Pi extension. A todo list the model manages through a `todo` tool, rendered as a live overlay above the editor. Zero runtime dependencies.",
   "keywords": [
     "pi-package",
