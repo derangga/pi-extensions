@@ -1,9 +1,9 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 
+import { formatResolveError } from "../src/errors.js";
 import {
-  formatResolveError,
   modelKey,
   modelSourceFrom,
   resolveModelRef,
@@ -13,7 +13,7 @@ import {
   type ResolvedTask,
   type TaskChoice,
 } from "../src/resolve.js";
-import { DEFAULT_SETTINGS, Settings, type SubagentSettings } from "../src/settings.js";
+import { DEFAULT_SETTINGS, type SubagentSettings } from "../src/settings.js";
 import type { PiModel, ThinkingLevel } from "../src/thinking.js";
 
 function model(fields: Partial<PiModel> & Pick<PiModel, "id" | "provider">): PiModel {
@@ -48,17 +48,8 @@ function source(overrides: Partial<ModelSource> = {}): ModelSource {
   };
 }
 
-function settingsLayer(overrides: Partial<SubagentSettings> = {}) {
-  const value: SubagentSettings = { ...DEFAULT_SETTINGS, ...overrides };
-  return Layer.succeed(
-    Settings,
-    Settings.of({
-      current: Effect.succeed(value),
-      warnings: [],
-      path: "/dev/null",
-      update: () => Effect.void,
-    }),
-  );
+function settingsFor(overrides: Partial<SubagentSettings> = {}) {
+  return { ...DEFAULT_SETTINGS, ...overrides } satisfies SubagentSettings;
 }
 
 const parentOn = (model: PiModel, thinking?: ThinkingLevel): ParentChoice => ({ model, thinking });
@@ -70,11 +61,14 @@ interface RunOptions {
 }
 
 function resolving(tasks: readonly TaskChoice[], options: RunOptions) {
+  // The settings object arrives as an argument now; the R swap is that the
+  // resolver itself needs no context at all.
   return resolveTasks(
     source(options.source),
     options.parent ?? parentOn(anthropicOpus, "medium"),
     tasks,
-  ).pipe(Effect.provide(settingsLayer(options.settings)));
+    settingsFor(options.settings),
+  );
 }
 
 function run(

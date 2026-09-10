@@ -7,9 +7,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   DEFAULT_SETTINGS,
+  Settings,
   decodeSettings,
   loadSettings,
   saveSettings,
+  settingsLayerFor,
   type SubagentSettings,
 } from "../src/settings.js";
 
@@ -131,5 +133,28 @@ describe("loadSettings", () => {
     const path = join(await mkdtemp(join(tmpdir(), "pi-broodmother-")), "nested", "deep.json");
     await Effect.runPromise(saveSettings(DEFAULT_SETTINGS, path));
     expect((await Effect.runPromise(loadSettings(path))).settings).toEqual(DEFAULT_SETTINGS);
+  });
+});
+
+describe("settingsLayerFor", () => {
+  // The R swap for the layer itself: one explicit path, no environment read.
+  it("serves the file it is pointed at, and updates it", async () => {
+    const path = await tempFile();
+    await writeFile(path, JSON.stringify({ model: "claude-sonnet-5", concurrency: 4 }), "utf8");
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const settings = yield* Settings;
+        const before = yield* settings.current;
+        yield* settings.update({ ...before, permissions: "read-write" });
+        return before;
+      }).pipe(Effect.provide(settingsLayerFor(path))),
+    );
+
+    expect(result.model).toBe("claude-sonnet-5");
+    // The file's 4, not the default 3: the layer reads where it was pointed.
+    expect(result.concurrency).toBe(4);
+    // The update reached the file the layer was pointed at, not the default one.
+    expect(await readFile(path, "utf8")).toContain('"permissions": "read-write"');
   });
 });

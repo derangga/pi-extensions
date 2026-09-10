@@ -7,10 +7,11 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 
 import { inChildSessionContext } from "./child-context.js";
 import { registerSubagentCommand } from "./command.js";
-import { Intercom, PARENT_REPLY_TIMEOUT_MS, ParentDelivery } from "./intercom.js";
+import { formatManagerError, type ManagerError } from "./errors.js";
+import { PARENT_REPLY_TIMEOUT_MS, ParentDelivery } from "./intercom.js";
 import { createWidgetHost, createWidgetRuns } from "./render.js";
 import { modelSourceFrom } from "./resolve.js";
-import { formatManagerError, Manager, ManagerSurfaces, type ManagerError } from "./run.js";
+import { Manager, ManagerSurfaces } from "./run.js";
 import { DEFAULT_SETTINGS, getSettingsPath, Settings, type SubagentSettings } from "./settings.js";
 import { registerSubagentTools } from "./tools.js";
 
@@ -59,13 +60,9 @@ export default function broodmotherExtension(pi: ExtensionAPI): void {
 
   const runtime = ManagedRuntime.make(
     Manager.layer.pipe(
-      Layer.provideMerge(
-        Layer.mergeAll(
-          Settings.layer,
-          surfaces,
-          Intercom.layer.pipe(Layer.provide(parentDelivery)),
-        ),
-      ),
+      // Manager.layer wires Intercom itself. What is left for the embedding is
+      // exactly what Pi owns: the two bare push targets and the settings file.
+      Layer.provideMerge(Layer.mergeAll(Settings.layer, surfaces, parentDelivery)),
     ),
   );
 
@@ -75,10 +72,9 @@ export default function broodmotherExtension(pi: ExtensionAPI): void {
    * message, which is exactly where these belong.
    */
   const call = async <A>(
-    // start reads Settings from the runtime context, so a build may carry that
-    // requirement; the runtime wiring merges Settings into its environment, and
-    // every other manager call needs nothing.
-    build: (manager: Manager["Service"]) => Effect.Effect<A, ManagerError, Settings>,
+    // Manager.layer satisfies its own construction dependencies, so every
+    // manager call arrives with an empty requirements channel.
+    build: (manager: Manager["Service"]) => Effect.Effect<A, ManagerError>,
   ): Promise<A> => {
     const outcome = await runtime.runPromise(
       Effect.gen(function* () {

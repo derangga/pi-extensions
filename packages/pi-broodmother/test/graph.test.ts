@@ -1,9 +1,9 @@
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 
+import { formatGraphError } from "../src/errors.js";
 import {
   composePrompt,
-  formatGraphError,
   planGraph,
   PREVIOUS,
   runGraph,
@@ -11,23 +11,10 @@ import {
   type Settlement,
   type TaskInput,
 } from "../src/graph.js";
-import { DEFAULT_SETTINGS, MAX_TASKS, Settings, type SubagentSettings } from "../src/settings.js";
+import { DEFAULT_SETTINGS, MAX_TASKS } from "../src/settings.js";
 
 function task(fields: Partial<TaskInput> = {}): TaskInput {
   return { task: "look", prompt: "look at the thing", ...fields };
-}
-
-function settingsLayer(overrides: Partial<SubagentSettings> = {}) {
-  const value: SubagentSettings = { ...DEFAULT_SETTINGS, ...overrides };
-  return Layer.succeed(
-    Settings,
-    Settings.of({
-      current: Effect.succeed(value),
-      warnings: [],
-      path: "/dev/null",
-      update: () => Effect.void,
-    }),
-  );
 }
 
 function plan(inputs: readonly TaskInput[]): Promise<readonly PlannedTask[]> {
@@ -224,21 +211,24 @@ describe("runGraph", () => {
     const settlements = await Effect.runPromise(
       Effect.gen(function* () {
         const planned = yield* planGraph(inputs);
-        return yield* runGraph(planned, (task, prompt) =>
-          Effect.gen(function* () {
-            live++;
-            liveHighWater = Math.max(liveHighWater, live);
-            dispatched.push(task.id);
-            prompts.set(task.id, prompt);
-            // Suspends on purpose. A synchronous stub finishes inside its own
-            // tick, so every task looks sequential and the concurrency bound
-            // would never be observed either way.
-            yield* Effect.sleep("1 millis");
-            live--;
-            return outputFor(task.id);
-          }),
+        return yield* runGraph(
+          planned,
+          (task, prompt) =>
+            Effect.gen(function* () {
+              live++;
+              liveHighWater = Math.max(liveHighWater, live);
+              dispatched.push(task.id);
+              prompts.set(task.id, prompt);
+              // Suspends on purpose. A synchronous stub finishes inside its own
+              // tick, so every task looks sequential and the concurrency bound
+              // would never be observed either way.
+              yield* Effect.sleep("1 millis");
+              live--;
+              return outputFor(task.id);
+            }),
+          concurrency,
         );
-      }).pipe(Effect.provide(settingsLayer({ concurrency }))),
+      }),
     );
 
     return { settlements, dispatched, prompts, liveHighWater };

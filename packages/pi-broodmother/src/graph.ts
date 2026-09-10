@@ -1,6 +1,16 @@
 import { Effect, Option, Schema } from "effect";
 
-import { MAX_TASKS, Settings } from "./settings.js";
+import {
+  CyclicGraph,
+  DuplicateTaskId,
+  EmptyTaskList,
+  type GraphError,
+  InvalidTaskId,
+  SelfEdge,
+  TooManyTasks,
+  UnknownNeed,
+} from "./errors.js";
+import { MAX_TASKS } from "./settings.js";
 
 /** What the task text writes to ask for its first upstream's output. */
 export const PREVIOUS = "{previous}";
@@ -32,67 +42,6 @@ export interface Settlement {
   readonly output: string | undefined;
   /** The needs that produced no output. Non-empty means the task never ran. */
   readonly missing: readonly string[];
-}
-
-export class EmptyTaskList extends Schema.TaggedError<EmptyTaskList>()("EmptyTaskList", {}) {}
-
-export class TooManyTasks extends Schema.TaggedError<TooManyTasks>()("TooManyTasks", {
-  count: Schema.Number,
-  limit: Schema.Number,
-}) {}
-
-export class InvalidTaskId extends Schema.TaggedError<InvalidTaskId>()("InvalidTaskId", {
-  id: Schema.String,
-  position: Schema.Number,
-}) {}
-
-export class DuplicateTaskId extends Schema.TaggedError<DuplicateTaskId>()("DuplicateTaskId", {
-  id: Schema.String,
-  /** True when the clash is with an id this module generated rather than a second explicit one. */
-  generated: Schema.Boolean,
-}) {}
-
-export class UnknownNeed extends Schema.TaggedError<UnknownNeed>()("UnknownNeed", {
-  task: Schema.String,
-  need: Schema.String,
-}) {}
-
-export class SelfEdge extends Schema.TaggedError<SelfEdge>()("SelfEdge", {
-  task: Schema.String,
-}) {}
-
-export class CyclicGraph extends Schema.TaggedError<CyclicGraph>()("CyclicGraph", {
-  tasks: Schema.Array(Schema.String),
-}) {}
-
-export type GraphError =
-  | EmptyTaskList
-  | TooManyTasks
-  | InvalidTaskId
-  | DuplicateTaskId
-  | UnknownNeed
-  | SelfEdge
-  | CyclicGraph;
-
-export function formatGraphError(error: GraphError): string {
-  switch (error._tag) {
-    case "EmptyTaskList":
-      return "No tasks were given. Pass at least one.";
-    case "TooManyTasks":
-      return `Too many tasks (${error.count}). The limit is ${error.limit}. Split the work, or ask the user to raise max tasks in /broodmother.`;
-    case "InvalidTaskId":
-      return `Task ${error.position} has the id "${error.id}". Ids may only contain letters, digits, underscore and hyphen.`;
-    case "DuplicateTaskId":
-      return error.generated
-        ? `Task id "${error.id}" clashes with the id generated for a task that declared none. Give that task an explicit id, or rename this one.`
-        : `Two tasks share the id "${error.id}". Ids address tasks in needs, so they have to be unique.`;
-    case "UnknownNeed":
-      return `Task "${error.task}" needs "${error.need}", which is not a task in this call.`;
-    case "SelfEdge":
-      return `Task "${error.task}" needs itself.`;
-    case "CyclicGraph":
-      return `These tasks need each other in a cycle, so none of them can start: ${error.tasks.join(", ")}.`;
-  }
 }
 
 /**
@@ -170,7 +119,7 @@ export const planGraph = Effect.fn("Graph.plan")(function* (
     edges.push(needs);
   }
 
-  return yield* layer(inputs, ids, edges);
+  return yield* kahnLayering(inputs, ids, edges);
 });
 
 /**
@@ -178,7 +127,7 @@ export const planGraph = Effect.fn("Graph.plan")(function* (
  * each task belongs to, and whether the graph has a cycle. A pass that assigns
  * nothing while tasks remain is the cycle, so there is no second walk.
  */
-const layer = Effect.fn("Graph.layer")(function* (
+const kahnLayering = Effect.fn("Graph.layer")(function* (
   inputs: readonly TaskInput[],
   ids: readonly string[],
   edges: readonly (readonly string[])[],
@@ -244,6 +193,9 @@ export function composePrompt(
 /** Runs one task and reports what a dependent can use, or nothing. */
 export type RunTask = (task: PlannedTask, prompt: string) => Effect.Effect<string | undefined>;
 
+/** How many tasks of one wave may run at once. Captured when the run starts. */
+export type WaveConcurrency = number;
+
 /**
  * The wave loop. Single, parallel and chain are three shapes of it rather than
  * three code paths.
@@ -259,9 +211,8 @@ export type RunTask = (task: PlannedTask, prompt: string) => Effect.Effect<strin
 export const runGraph = Effect.fn("Graph.run")(function* (
   plan: readonly PlannedTask[],
   runTask: RunTask,
+  concurrency: WaveConcurrency,
 ) {
-  const settings = yield* (yield* Settings).current;
-
   const outputs = new Map<string, string>();
   const settlements: Settlement[] = [];
   const lastWave = plan.reduce((highest, task) => Math.max(highest, task.wave), 0);
@@ -287,7 +238,7 @@ export const runGraph = Effect.fn("Graph.run")(function* (
         const output = yield* runTask(task, composePrompt(task.prompt, task.needs, outputs));
         return { id: task.id, index: task.index, output, missing: [] } satisfies Settlement;
       }),
-      { concurrency: settings.concurrency },
+      { concurrency },
     );
 
     for (const settlement of settled) {
@@ -298,6 +249,5 @@ export const runGraph = Effect.fn("Graph.run")(function* (
     }
   }
 
-  // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
-  return settlements.sort((left, right) => left.index - right.index) as readonly Settlement[];
+  return settlements.sort((left, right) => left.index - right.index);
 });

@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { Context, Effect, Layer, Option, Predicate, Ref, Schema } from "effect";
 
+import { SettingsReadError, SettingsWriteError } from "./errors.js";
 import { THINKING_LEVELS, type ThinkingLevel } from "./thinking.js";
 
 /** Both choice fields use this to mean "whatever the parent session is on". */
@@ -62,11 +63,6 @@ const CONFIG_ENV = "PI_BROODMOTHER_CONFIG";
 export function getSettingsPath(): string {
   return process.env[CONFIG_ENV] ?? join(getAgentDir(), "extensions", "pi-broodmother.json");
 }
-
-export class SettingsWriteError extends Schema.TaggedError<SettingsWriteError>()(
-  "SettingsWriteError",
-  { path: Schema.String, message: Schema.String },
-) {}
 
 /**
  * A model id is any non-empty string here. Whether it names a model that
@@ -168,18 +164,24 @@ export function decodeSettings(input: unknown): LoadedSettings {
 export const loadSettings = Effect.fn("Settings.load")(function* (path: string) {
   const read = yield* Effect.tryPromise({
     try: async (): Promise<ReadOutcome> => ({ kind: "read", text: await readFile(path, "utf8") }),
-    catch: (cause) => cause,
+    catch: (cause): SettingsReadError =>
+      new SettingsReadError({
+        path,
+        message: messageFor(cause),
+        missing: isMissingFile(cause),
+      }),
   }).pipe(
     // Handled here rather than in a transform below because the two failures
     // part ways: a missing file is the first run and says nothing, while any
     // other read failure is worth a warning. An outer pipe cannot tell them
     // apart from the same error channel.
-    Effect.catch((cause) =>
-      Effect.succeed<ReadOutcome>(
-        isMissingFile(cause)
-          ? { kind: "missing" }
-          : { kind: "failed", warning: `could not read ${path}: ${messageFor(cause)}` },
-      ),
+    Effect.catchTag("SettingsReadError", (failure): Effect.Effect<ReadOutcome> =>
+      failure.missing
+        ? Effect.succeed({ kind: "missing" })
+        : Effect.succeed({
+            kind: "failed",
+            warning: `could not read ${path}: ${failure.message}`,
+          }),
     ),
   );
 
@@ -206,6 +208,35 @@ export const saveSettings = Effect.fn("Settings.save")(function* (
   });
 });
 
+/**
+ * Builds the settings service for one file path. The path arrives as an
+ * argument so an embedding or a test can point the service somewhere else; the
+ * default resolves it the way the session always has. This is the only place
+ * that read happens, so the environment lookup stays in `getSettingsPath` and
+ * nowhere else in the package.
+ */
+const makeSettings = Effect.fn("Settings.make")(function* (path: string = getSettingsPath()) {
+  const loaded = yield* loadSettings(path);
+  const ref = yield* Ref.make(loaded.settings);
+
+  /**
+   * Memory first, then disk. A failed write leaves the panel showing what
+   * the user chose and reports the failure, which beats silently reverting
+   * a row under their cursor.
+   */
+  const update = Effect.fn("Settings.update")(function* (next: SubagentSettings) {
+    yield* Ref.set(ref, next);
+    yield* saveSettings(next, path);
+  });
+
+  return {
+    current: Ref.get(ref),
+    warnings: loaded.warnings,
+    path,
+    update,
+  };
+});
+
 export class Settings extends Context.Service<
   Settings,
   {
@@ -217,32 +248,17 @@ export class Settings extends Context.Service<
     readonly path: string;
     update(next: SubagentSettings): Effect.Effect<void, SettingsWriteError>;
   }
->()("pi-broodmother/Settings", {
-  make: Effect.gen(function* () {
-    const path = getSettingsPath();
-    const loaded = yield* loadSettings(path);
-    const ref = yield* Ref.make(loaded.settings);
-
-    /**
-     * Memory first, then disk. A failed write leaves the panel showing what
-     * the user chose and reports the failure, which beats silently reverting
-     * a row under their cursor.
-     */
-    const update = Effect.fn("Settings.update")(function* (next: SubagentSettings) {
-      yield* Ref.set(ref, next);
-      yield* saveSettings(next, path);
-    });
-
-    return {
-      current: Ref.get(ref),
-      warnings: loaded.warnings,
-      path,
-      update,
-    };
-  }),
-}) {
-  static readonly layer = Layer.effect(this, this.make);
+>()("pi-broodmother/Settings") {
+  /** The layer for the session's settings file, resolved once at build. */
+  static readonly layer: Layer.Layer<Settings> = Layer.effect(this, makeSettings());
 }
+
+/**
+ * A settings service backed by one explicit file. Tests point it at a temp
+ * path; an embedding that keeps its settings elsewhere does the same.
+ */
+export const settingsLayerFor = (path: string): Layer.Layer<Settings> =>
+  Layer.effect(Settings, makeSettings(path));
 
 /** A Node fs error for a path that does not exist, as opposed to one that is broken. */
 export function isMissingFile(cause: unknown): boolean {

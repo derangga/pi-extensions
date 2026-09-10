@@ -5,7 +5,8 @@ import { describe, expect, it, vi } from "vitest";
 import { loadAgentFile } from "../src/agent-file.js";
 import type * as agentFileModule from "../src/agent-file.js";
 import type { ChildSessionOptions } from "../src/child.js";
-import { Intercom, type ParentDeliveryMode, ParentDelivery } from "../src/intercom.js";
+import { formatManagerError } from "../src/errors.js";
+import { type ParentDeliveryMode, ParentDelivery } from "../src/intercom.js";
 import type { ChildFactory } from "../src/lifecycle.js";
 import type { ModelSource } from "../src/resolve.js";
 import {
@@ -13,7 +14,6 @@ import {
   EVENT_RUN_SETTLED,
   EVENT_RUN_STARTED,
   EVENT_TASK_SETTLED,
-  formatManagerError,
   Manager,
   ManagerSurfaces,
   type RunView,
@@ -76,17 +76,15 @@ function layers(
     Layer.provideMerge(
       Layer.mergeAll(
         settingsLayer(overrides),
-        Intercom.layer.pipe(
-          Layer.provide(
-            Layer.succeed(
-              ParentDelivery,
-              ParentDelivery.of({
-                send: (message, mode) => sent.push({ message, mode }),
-                // Short enough that a forgotten reply cannot hang the suite.
-                replyTimeoutMs: 200,
-              }),
-            ),
-          ),
+        // Manager.layer wires Intercom itself, so only the bare delivery key
+        // the intercom requires is provided here.
+        Layer.succeed(
+          ParentDelivery,
+          ParentDelivery.of({
+            send: (message, mode) => sent.push({ message, mode }),
+            // Short enough that a forgotten reply cannot hang the suite.
+            replyTimeoutMs: 200,
+          }),
         ),
         Layer.succeed(
           ManagerSurfaces,
@@ -190,9 +188,7 @@ function request(
 /** Runs one program against a fresh manager and tears the layer down after. */
 function withManager<A, E>(
   sent: Sent[],
-  // start reads Settings from the manager's context, so a program may carry
-  // that requirement; the layers below merge Settings into the environment.
-  program: (manager: Manager["Service"]) => Effect.Effect<A, E, Settings>,
+  program: (manager: Manager["Service"]) => Effect.Effect<A, E>,
   overrides: Partial<SubagentSettings> = {},
   onChange?: (runs: readonly RunView[]) => void,
   onEvent?: (event: SubagentEvent) => void,
@@ -402,16 +398,12 @@ describe("Manager.start", () => {
             Layer.provideMerge(
               Layer.mergeAll(
                 mutableSettings,
-                Intercom.layer.pipe(
-                  Layer.provide(
-                    Layer.succeed(
-                      ParentDelivery,
-                      ParentDelivery.of({
-                        send: (message, mode) => sent.push({ message, mode }),
-                        replyTimeoutMs: 200,
-                      }),
-                    ),
-                  ),
+                Layer.succeed(
+                  ParentDelivery,
+                  ParentDelivery.of({
+                    send: (message, mode) => sent.push({ message, mode }),
+                    replyTimeoutMs: 200,
+                  }),
                 ),
                 Layer.succeed(
                   ManagerSurfaces,

@@ -1,11 +1,10 @@
-import { Clock, Context, Deferred, Effect, Layer, Schema } from "effect";
+import { Clock, Context, Deferred, Effect, Layer } from "effect";
 
 import { loadAgentFile, type AgentFile } from "./agent-file.js";
+import { AgentFileUnreadable, type StartError, UnknownRun, UnknownTask } from "./errors.js";
 import {
-  formatGraphError,
   planGraph,
   runGraph,
-  type GraphError,
   type PlannedTask,
   type RunTask,
   type Settlement,
@@ -28,12 +27,10 @@ import {
   type TaskProgress,
 } from "./lifecycle.js";
 import {
-  formatResolveError,
   modelKey,
   resolveTasks,
   type ModelSource,
   type ParentChoice,
-  type ResolveError,
   type TaskChoice,
 } from "./resolve.js";
 import { type Permissions, Settings } from "./settings.js";
@@ -199,22 +196,6 @@ export type WaitOutcome =
       readonly messages: readonly ParentTraffic[];
     };
 
-export class AgentFileUnreadable extends Schema.TaggedError<AgentFileUnreadable>()(
-  "AgentFileUnreadable",
-  { agent: Schema.String, message: Schema.String },
-) {}
-
-export class UnknownRun extends Schema.TaggedError<UnknownRun>()("UnknownRun", {
-  runId: Schema.String,
-  known: Schema.Array(Schema.String),
-}) {}
-
-export class UnknownTask extends Schema.TaggedError<UnknownTask>()("UnknownTask", {
-  runId: Schema.String,
-  taskId: Schema.String,
-  known: Schema.Array(Schema.String),
-}) {}
-
 /**
  * The surfaces a manager pushes to, injected by the runtime that hosts the
  * extension. A bare key is the right shape here: the widget push and the event
@@ -230,28 +211,6 @@ export class ManagerSurfaces extends Context.Service<
     readonly onEvent: (event: SubagentEvent) => void;
   }
 >()("pi-broodmother/ManagerSurfaces") {}
-
-export type StartError = GraphError | ResolveError | AgentFileUnreadable;
-export type ManagerError = StartError | UnknownRun | UnknownTask;
-
-export function formatManagerError(error: ManagerError): string {
-  switch (error._tag) {
-    case "AgentFileUnreadable":
-      return `Agent "${error.agent}": ${error.message}`;
-    case "UnknownRun":
-      return error.known.length === 0
-        ? "No subagent run has been started in this session."
-        : `No run "${error.runId}". Runs in this session: ${error.known.join(", ")}.`;
-    case "UnknownTask":
-      return `Run "${error.runId}" has no task "${error.taskId}". Its tasks are: ${error.known.join(", ")}.`;
-    case "ModelNotFound":
-    case "ThinkingUnsupported":
-    case "NoModelAvailable":
-      return formatResolveError(error);
-    default:
-      return formatGraphError(error);
-  }
-}
 
 interface TaskState {
   readonly id: string;
@@ -406,7 +365,7 @@ const readAgentFile = Effect.fn("Manager.agentFile")(function* (
 export class Manager extends Context.Service<
   Manager,
   {
-    start(request: StartRequest): Effect.Effect<RunView, StartError, Settings>;
+    start(request: StartRequest): Effect.Effect<RunView, StartError>;
     view(runId: string | undefined): Effect.Effect<RunView, UnknownRun>;
     wait(
       runId: string | undefined,
@@ -627,14 +586,15 @@ export class Manager extends Context.Service<
       run: RunState,
       plan: readonly PlannedTask[],
       request: StartRequest,
+      concurrency: number,
     ) {
-      const settlements = yield* runGraph(plan, runOneTask(run, request));
+      const settlements = yield* runGraph(plan, runOneTask(run, request), concurrency);
       yield* markSkipped(run, settlements);
     });
 
     const start = Effect.fn("Manager.start")(function* (
       request: StartRequest,
-    ): Effect.fn.Return<RunView, StartError, Settings> {
+    ): Effect.fn.Return<RunView, StartError> {
       const current = yield* settings.current;
       const plan = yield* planGraph(request.tasks, current.maxTasks);
 
@@ -660,7 +620,7 @@ export class Manager extends Context.Service<
         };
       });
 
-      const resolved = yield* resolveTasks(request.source, request.parent, choices);
+      const resolved = yield* resolveTasks(request.source, request.parent, choices, current);
 
       const states: TaskState[] = [];
       for (const task of plan) {
@@ -713,7 +673,10 @@ export class Manager extends Context.Service<
       });
       changed();
 
-      yield* Effect.forkIn(execute(run, plan, request).pipe(Effect.ensuring(finish(run))), scope);
+      yield* Effect.forkIn(
+        execute(run, plan, request, current.concurrency).pipe(Effect.ensuring(finish(run))),
+        scope,
+      );
       return viewRun(run);
     });
 
@@ -789,5 +752,11 @@ export class Manager extends Context.Service<
     return { start, view, wait, reply, cancel };
   }),
 }) {
-  static readonly layer = Layer.effect(this, this.make);
+  /**
+   * Intercom is a construction dependency, so it is provided here and the
+   * layer's requirements carry only what the embedding owns: the bare
+   * `ManagerSurfaces` push target, and `Settings`, which tests swap for an
+   * in-memory fake so it deliberately stays a requirement.
+   */
+  static readonly layer = Layer.effect(this, this.make).pipe(Layer.provide(Intercom.layer));
 }

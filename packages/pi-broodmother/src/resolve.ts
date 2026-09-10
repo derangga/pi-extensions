@@ -1,7 +1,13 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { Effect, Schema } from "effect";
+import { Effect } from "effect";
 
-import { INHERIT, Settings, type SubagentSettings } from "./settings.js";
+import {
+  ModelNotFound,
+  NoModelAvailable,
+  type ResolveError,
+  ThinkingUnsupported,
+} from "./errors.js";
+import { INHERIT, type SubagentSettings } from "./settings.js";
 import {
   supportedThinkingLevels,
   THINKING_LEVELS,
@@ -47,30 +53,6 @@ export interface ResolvedTask {
   /** Every degradation, in the order it happened. The caller shows these. */
   readonly notes: readonly string[];
 }
-
-export class ModelNotFound extends Schema.TaggedError<ModelNotFound>()("ModelNotFound", {
-  task: Schema.String,
-  ref: Schema.String,
-  available: Schema.Array(Schema.String),
-}) {}
-
-export class ThinkingUnsupported extends Schema.TaggedError<ThinkingUnsupported>()(
-  "ThinkingUnsupported",
-  {
-    task: Schema.String,
-    agent: Schema.String,
-    model: Schema.String,
-    level: Schema.String,
-    supported: Schema.Array(Schema.String),
-  },
-) {}
-
-export class NoModelAvailable extends Schema.TaggedError<NoModelAvailable>()("NoModelAvailable", {
-  task: Schema.String,
-  reason: Schema.String,
-}) {}
-
-export type ResolveError = ModelNotFound | ThinkingUnsupported | NoModelAvailable;
 
 /**
  * Everything resolution needs from Pi, narrowed to two calls so a test can
@@ -146,22 +128,6 @@ export function modelSourceFrom(
       }
     },
   };
-}
-
-export function formatResolveError(error: ResolveError): string {
-  switch (error._tag) {
-    case "ModelNotFound":
-      return `Task "${error.task}": model not found: "${error.ref}".\n\nAvailable models:\n${error.available
-        .map((id) => `  ${id}`)
-        .join("\n")}`;
-    case "ThinkingUnsupported": {
-      const who = error.agent ? `agent "${error.agent}"` : "no agent";
-      const supported = error.supported.length > 0 ? error.supported.join(" | ") : "none";
-      return `Task "${error.task}" (${who}): thinking level "${error.level}" is not supported by ${error.model}. Supported: ${supported}.`;
-    }
-    case "NoModelAvailable":
-      return `Task "${error.task}": ${error.reason}`;
-  }
 }
 
 // --- picking, before anything is looked up -----------------------------------
@@ -450,14 +416,16 @@ const probeAll = Effect.fn("Resolve.probe")(function* (
 /**
  * The one resolver every spawn path goes through. It runs over the whole task
  * list before the run exists, so an unusable pair fails the call with zero
- * children spawned and the message names the task.
+ * children spawned and the message names the task. Settings arrive as an
+ * argument rather than from the context, because the caller has already read
+ * them and the resolver is otherwise a pure function of its inputs.
  */
 export const resolveTasks = Effect.fn("Resolve.tasks")(function* (
   source: ModelSource,
   parent: ParentChoice,
   tasks: readonly TaskChoice[],
-): Effect.fn.Return<readonly ResolvedTask[], ResolveError, Settings> {
-  const settings = yield* (yield* Settings).current;
+  settings: SubagentSettings,
+): Effect.fn.Return<readonly ResolvedTask[], ResolveError> {
   const available = source.available();
 
   const resolved = yield* Effect.forEach(tasks, (task) =>
