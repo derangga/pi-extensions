@@ -2,20 +2,37 @@
 
 Core behaviors in Effect v4 that shape daily code. Each section describes the meaning and the pattern to use.
 
-## Yieldable: Ref, Deferred, and Fiber Are Not Effects
+## Ref, Deferred, Fiber, and Option Are Not Effects
 
-The **Yieldable** trait permits `yield*` in generators without making the type assignable to `Effect`.
+`Effect.gen` accepts one thing: a value that is an `Effect`. There is no separate trait that
+makes a non-Effect yieldable. `Effect.gen` types its body as
+`Generator<Eff extends Effect<any, any, any>, ...>`, so anything else is a compile error.
+
+### What can be yielded
+
+`Effect` itself, and the types that extend it. `Config<T>` is declared as
+`interface Config<out T> extends Effect.Effect<T, ConfigError>`, so `yield* Config.String("X")`
+works. A `Context.Service` key is an Effect that yields the service.
+
+Custom values join that set through the `Effectable` module rather than a trait. Extend
+`Effectable.Class` or wrap a constructor with `Effectable.Mixin`, implement `asEffect()`, and the
+resulting values *are* `Effect` values, assignable anywhere an `Effect` is expected:
 
 ```typescript
-interface Yieldable<Self, A, E = never, R = never> {
-    asEffect(): Effect<A, E, R>
-    [Symbol.iterator](): EffectIterator<Self>
+import { Effect, Effectable } from "effect"
+
+class Box {
+    constructor(readonly value: number) {}
 }
+
+class EffectBox extends Effectable.Mixin(Box) {
+    asEffect() {
+        return Effect.succeed(this.value)
+    }
+}
+
+Effect.isEffect(new EffectBox(2)) // true
 ```
-
-### Yieldable values
-
-`Effect`, `Option` (fails with `NoSuchElementError`), `AsyncResult` (fails with its error), `Config` (fails with `ConfigError`), `Context.Service` (yields the service).
 
 ### Not Effects, use the module function
 
@@ -24,27 +41,18 @@ interface Yieldable<Self, A, E = never, R = never> {
 const value = yield* ref
 const result = yield* deferred
 const output = yield* fiber
+const n = yield* Option.some(42)
 
 // CORRECT
 const value = yield* Ref.get(ref)
 const result = yield* Deferred.await(deferred)
 const output = yield* Fiber.join(fiber)
+const n = yield* Effect.fromOption(Option.some(42))  // fails with NoSuchElementError
 ```
 
-### Combinators need an explicit `.asEffect()`
-
-`yield*` works on any `Yieldable`, but passing one to a combinator does not:
-
-```typescript
-// Option is not assignable to Effect
-const program = Effect.map(Option.some(42).asEffect(), (n) => n + 1)
-
-// ...or use a generator, which is idiomatic
-const program = Effect.gen(function* () {
-    const n = yield* Option.some(42)
-    return n + 1
-})
-```
+`Option`, `Result`, and `AsyncResult` all fall in this group. `Effect.fromOption(option)` fails
+with `NoSuchElementError` by default, or with your own error via
+`Effect.fromOption(option, () => new MyError())`.
 
 **Why it matters:** `Effect.all([refA, refB])` with an array of `Ref`s is a compile error. Read each ref explicitly with `Ref.get`.
 
@@ -103,7 +111,10 @@ Use `runMain` for any real application entry point. Scripts and tests stay alive
 
 `effect/unstable/*` holds modules under active development. Modules outside `unstable/` follow **strict semver**; modules inside it **may receive breaking changes in minor releases**.
 
-Currently unstable: `ai`, `cli`, `cluster`, `devtools`, `eventlog`, `http`, `httpapi`, `jsonschema`, `observability`, `persistence`, `process`, `reactivity`, `rpc`, `schema`, `socket`, `sql`, `workflow`, `workers`.
+Currently unstable: `ai`, `arbitrary`, `cli`, `cluster`, `devtools`, `encoding`, `eventlog`, `http`, `httpapi`, `net`, `observability`, `persistence`, `process`, `reactivity`, `rpc`, `schema`, `socket`, `sql`, `workflow`, `workers`.
+
+`effect/unstable/schema` is the small one: it holds only `Model` and `VariantSchema`. The `Schema`
+module itself is stable, at `effect/Schema`. `JsonSchema` is stable too, at `effect/JsonSchema`.
 
 These are standard import paths. Modules graduate to the top-level `effect/*` namespace as they stabilize.
 

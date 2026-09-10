@@ -117,12 +117,13 @@ HttpApiEndpoint.post('createUser', '/users', {
 // Status code defined ONCE on the error class
 export class UserNotFoundError extends Schema.TaggedError<UserNotFoundError>()(
   'UserNotFoundError',
-  { userId: UserId, message: Schema.String }
-).pipe(HttpApiSchema.status(404)) {}
+  { userId: UserId, message: Schema.String },
+  { httpApiStatus: 404 }
+) {}
 
 export class UserCreateError extends Schema.TaggedError<UserCreateError>()('UserCreateError', {
   message: Schema.String,
-}).pipe(HttpApiSchema.status(400)) {}
+}, { httpApiStatus: 400 }) {}
 
 // Reference it on the endpoint. Status mapping is automatic
 const getUser = HttpApiEndpoint.get('getUser', '/users/:id', {
@@ -131,15 +132,22 @@ const getUser = HttpApiEndpoint.get('getUser', '/users/:id', {
 })
 ```
 
-Two forms attach a status to a schema:
+On an error **class**, pass the status as the third argument, the annotations object:
 
 ```typescript
-// Preferred: pipe the status onto the schema
-Schema.TaggedError<E>()('E', { ... }).pipe(HttpApiSchema.status(404))
-
-// Also valid: the annotation directly
-Schema.TaggedError<E>()('E', { ... }, { httpApiStatus: 404 })
+class E extends Schema.TaggedError<E>()('E', { ... }, { httpApiStatus: 404 }) {}
 ```
+
+`HttpApiSchema.status(code)` is the same annotation applied through `.pipe`, so it works on any
+plain schema value:
+
+```typescript
+success: User.pipe(HttpApiSchema.status(201))
+```
+
+It does not work in a class heritage clause. `status` returns `S["Rebuild"]`, so
+`class E extends Schema.TaggedError<E>()('E', { ... }).pipe(HttpApiSchema.status(404)) {}` makes
+`E` reference itself in its own base expression and fails to compile.
 
 > See also: [Duplicating Error Handling in Every Route Handler] in `anti-patterns.md`
 > See also: [HTTP Status Codes (Without Generic Errors)] in `error-patterns.md`
@@ -387,7 +395,9 @@ const withRequestId = HttpMiddleware.make((handler) =>
   Effect.gen(function* () {
     const requestId = yield* Effect.sync(() => crypto.randomUUID())
 
-    const response = yield* handler.pipe(Effect.annotateCurrentSpan('requestId', requestId))
+    // annotateCurrentSpan returns Effect<void>, so yield it, do not pipe it onto the handler
+    yield* Effect.annotateCurrentSpan('requestId', requestId)
+    const response = yield* handler
 
     return HttpServerResponse.setHeader(response, 'X-Request-Id', requestId)
   })
@@ -417,7 +427,7 @@ Middleware composes inside out, so the last applied middleware runs first:
 ```typescript
 const ServerLive = HttpRouter.serve(MyApiLive).pipe(
   Layer.provide(HttpRouter.cors({ allowedOrigins: ['http://localhost:3000'] })),
-  Layer.provide(NodeHttpServer.layer({ port: 3000 }))
+  Layer.provide(NodeHttpServer.layer(() => createServer(), { port: 3000 }))
 )
 ```
 
@@ -444,7 +454,7 @@ class CurrentUser extends Context.Service<CurrentUser, User>()('CurrentUser') {}
 
 class Unauthorized extends Schema.TaggedError<Unauthorized>()('Unauthorized', {
   message: Schema.String,
-}).pipe(HttpApiSchema.status(401)) {}
+}, { httpApiStatus: 401 }) {}
 
 class Authentication extends HttpApiMiddleware.Service<
   Authentication,
@@ -540,11 +550,12 @@ handlers.handle('deleteUser', ({ params }) =>
 `HttpRouter.cors` returns a `Layer`:
 
 ```typescript
+import { createServer } from 'node:http'
 import { HttpRouter } from 'effect/unstable/http'
 
 const ServerLive = HttpRouter.serve(MyApiLive).pipe(
   Layer.provide(HttpRouter.cors({ allowedOrigins: ['http://localhost:3000'] })),
-  Layer.provide(NodeHttpServer.layer({ port: 3000 }))
+  Layer.provide(NodeHttpServer.layer(() => createServer(), { port: 3000 }))
 )
 ```
 
@@ -662,8 +673,9 @@ export class RateLimitExceededError extends Schema.TaggedError<RateLimitExceeded
   {
     message: Schema.String,
     retryAfter: Schema.optional(Schema.Number),
-  }
-).pipe(HttpApiSchema.status(429)) {}
+  },
+  { httpApiStatus: 429 }
+) {}
 ```
 
 ## Request Validation
@@ -738,7 +750,7 @@ import { HttpApiSwagger } from 'effect/unstable/httpapi'
 
 const ServerLive = HttpRouter.serve(MyApiLive).pipe(
   Layer.provide(HttpApiSwagger.layer(MyApi, { path: '/docs' })),
-  Layer.provide(NodeHttpServer.layer({ port: 3000 }))
+  Layer.provide(NodeHttpServer.layer(() => createServer(), { port: 3000 }))
 )
 // Swagger UI available at http://localhost:3000/docs
 ```
@@ -748,6 +760,7 @@ const ServerLive = HttpRouter.serve(MyApiLive).pipe(
 ### Full Server Setup
 
 ```typescript
+import { createServer } from 'node:http'
 import { HttpRouter } from 'effect/unstable/http'
 import { HttpApiBuilder, HttpApiSwagger } from 'effect/unstable/httpapi'
 import { NodeHttpServer, NodeRuntime } from '@effect/platform-node'
@@ -761,7 +774,7 @@ const MyApiLive = HttpApiBuilder.layer(MyApi).pipe(
 const ServerLive = HttpRouter.serve(MyApiLive).pipe(
   Layer.provide(HttpRouter.cors({ allowedOrigins: ['http://localhost:3000'] })),
   Layer.provide(HttpApiSwagger.layer(MyApi, { path: '/docs' })),
-  Layer.provide(NodeHttpServer.layer({ port: 3000 }))
+  Layer.provide(NodeHttpServer.layer(() => createServer(), { port: 3000 }))
 )
 
 // Run with graceful shutdown
@@ -809,11 +822,12 @@ it.effect('returns the user', () =>
 | `HttpApiBuilder.layer(api)`              | `effect/unstable/httpapi` | Register API with the router        |
 | `HttpRouter.serve(appLayer)`             | `effect/unstable/http`    | Serve the application               |
 | `HttpRouter.cors(config)`                | `effect/unstable/http`    | CORS layer                          |
+| `NodeHttpServer.layer(factory, opts)`    | `@effect/platform-node`   | Node server, factory builds the server |
 | `HttpApiMiddleware.Service<Self, Cfg>()` | `effect/unstable/httpapi` | Define middleware                   |
 | `HttpApiSecurity.bearer`                 | `effect/unstable/httpapi` | Bearer token security scheme        |
 | `HttpApiSwagger.layer(api, { path })`    | `effect/unstable/httpapi` | Serve Swagger UI                    |
 | `OpenApi.Title` / `.Version`             | `effect/unstable/httpapi` | OpenAPI annotation keys             |
-| `HttpApiSchema.status(code)`             | `effect/unstable/httpapi` | HTTP status on a schema or error    |
+| `HttpApiSchema.status(code)`             | `effect/unstable/httpapi` | HTTP status on a plain schema value |
 | `HttpApiClient.make(api, options)`       | `effect/unstable/httpapi` | Derive a fully typed client         |
 | `HttpApiClient.makeWith(api, options)`   | `effect/unstable/httpapi` | Derive a client with custom client  |
 | `HttpApiTest.groups(api, names)`         | `effect/unstable/httpapi` | In process test client              |

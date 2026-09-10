@@ -21,7 +21,7 @@ Two facts that shape everything below:
 - **Package layout.** HTTP, RPC, cluster, workflow, and related modules live in core `effect` under `effect/unstable/*`. Separate packages: `@effect/platform-*`, `@effect/sql-*`, `@effect/ai-*`, `@effect/atom-*`, `@effect/opentelemetry`, `@effect/vitest`.
 - **Single version number.** Every `effect` / `@effect/*` package shares one version. If you use `effect@4.0.0-rc.113`, use the same version for `@effect/sql-pg`.
 
-See `references/v4-semantics.md` for core semantics (Yieldable, structural equality, fiber keep-alive, unstable-module policy).
+See `references/v4-semantics.md` for core semantics (what can be yielded, structural equality, fiber keep-alive, unstable-module policy).
 
 ## Effect Language Server (Required)
 
@@ -32,10 +32,11 @@ See `references/v4-semantics.md` for core semantics (Yieldable, structural equal
 1. Install:
 
 ```bash
-npm install @effect/language-service --save-dev
+npm install @effect/tsgo --save-dev
 ```
 
-1. Add to `tsconfig.json`:
+1. Add to `tsconfig.json`. The plugin name stays `@effect/language-service` even though the
+   installed package is `@effect/tsgo`:
 
 ```json
 {
@@ -61,7 +62,7 @@ npm install @effect/language-service --save-dev
 For CI enforcement:
 
 ```bash
-npx effect-language-service patch
+npx effect-tsgo patch
 ```
 
 See `references/language-server.md` for configuration options and CLI tools.
@@ -87,7 +88,7 @@ See `references/language-server.md` for configuration options and CLI tools.
 | Config              | `Config.*` with schema checks                           | `process.env` directly                           |
 | Options             | `Option.match` with both cases                          | `Option.getOrThrow`                              |
 | Nullability         | `Option<T>` in domain types                             | `null`/`undefined`                               |
-| Yieldable           | `yield* Ref.get(ref)` / `Deferred.await(d)`             | Yielding `Ref`, `Deferred`, `Fiber` directly     |
+| Yielding            | `yield* Ref.get(ref)` / `Deferred.await(d)`             | Yielding `Ref`, `Deferred`, `Fiber`, `Option`    |
 | Atoms               | `Atom.make` outside components                          | Creating atoms inside render                     |
 | Atom State          | `Atom.keepAlive` for global state                       | Forgetting keepAlive for persistent state        |
 | Atom Updates        | `useAtomSet` in React components                        | `Atom.update` imperatively from React            |
@@ -99,7 +100,7 @@ See `references/language-server.md` for configuration options and CLI tools.
 | Resources           | `Effect.acquireRelease` + `Effect.scoped`               | `try/finally` for cleanup                        |
 | Resource Layers     | `Layer.effect` for scoped resources                     | Global mutable singletons                        |
 | HTTP Endpoints      | `HttpApiEndpoint` + `HttpApiGroup` + `HttpApiBuilder`   | Manual URL parsing / JSON serialization          |
-| HTTP Errors         | `error:` on the endpoint + `HttpApiSchema.status`       | Manual `catchTag` in every handler               |
+| HTTP Errors         | `error:` on the endpoint + `{ httpApiStatus: n }`       | Manual `catchTag` in every handler               |
 | HTTP Auth           | `HttpApiSecurity.bearer` + middleware                   | Manual header parsing per route                  |
 | HTTP Client         | `HttpApiClient.make(AppApi)` derived from the contract  | Hand-rolled `fetch` / manual URL + JSON wrappers |
 | Client Interceptors | `HttpClient.transformResponse` / `transformClient`      | Ad-hoc retry/refresh logic per call site         |
@@ -168,16 +169,20 @@ export class UserNotFoundError extends Schema.TaggedError<UserNotFoundError>()(
   {
     userId: UserId,
     message: Schema.String,
-  }
-).pipe(HttpApiSchema.status(404)) {}
+  },
+  { httpApiStatus: 404 }
+) {}
 
 export class UserCreateError extends Schema.TaggedError<UserCreateError>()('UserCreateError', {
   message: Schema.String,
   cause: Schema.optional(Schema.String),
-}).pipe(HttpApiSchema.status(400)) {}
+}, { httpApiStatus: 400 }) {}
 ```
 
-Status is applied with `HttpApiSchema.status(404)` through `.pipe`.
+Status is the third argument, the annotations object. `HttpApiSchema.status(404)` writes the same
+annotation through `.pipe`, but only on plain schema values such as
+`User.pipe(HttpApiSchema.status(201))`. Piping it in a class heritage clause makes the class
+reference itself in its own base expression and fails to compile.
 
 **Error handling with `catchTag` and `catchTags`:**
 
@@ -215,7 +220,7 @@ Avoid blanket `Effect.catch`. It discards type information.
 // WRONG - Generic errors lose information
 export class NotFoundError extends Schema.TaggedError<NotFoundError>()('NotFoundError', {
   message: Schema.String,
-}).pipe(HttpApiSchema.status(404)) {}
+}, { httpApiStatus: 404 }) {}
 
 // Then mapping everything to it:
 Effect.catchTags({
@@ -231,18 +236,21 @@ Effect.catchTags({
 // CORRECT - Explicit domain errors with rich context
 export class UserNotFoundError extends Schema.TaggedError<UserNotFoundError>()(
   'UserNotFoundError',
-  { userId: UserId, message: Schema.String }
-).pipe(HttpApiSchema.status(404)) {}
+  { userId: UserId, message: Schema.String },
+  { httpApiStatus: 404 }
+) {}
 
 export class ChannelNotFoundError extends Schema.TaggedError<ChannelNotFoundError>()(
   'ChannelNotFoundError',
-  { channelId: ChannelId, message: Schema.String }
-).pipe(HttpApiSchema.status(404)) {}
+  { channelId: ChannelId, message: Schema.String },
+  { httpApiStatus: 404 }
+) {}
 
 export class SessionExpiredError extends Schema.TaggedError<SessionExpiredError>()(
   'SessionExpiredError',
-  { sessionId: SessionId, expiredAt: Schema.DateTimeUtcFromString, message: Schema.String }
-).pipe(HttpApiSchema.status(401)) {}
+  { sessionId: SessionId, expiredAt: Schema.DateTimeUtcFromString, message: Schema.String },
+  { httpApiStatus: 401 }
+) {}
 
 // Frontend can show specific UI:
 // - UserNotFoundError → "User doesn't exist"
@@ -436,7 +444,7 @@ const name = Option.getOrElse(maybeName, () => 'Anonymous')
 const upperName = Option.map(maybeName, (n) => n.toUpperCase())
 ```
 
-`Option` is `Yieldable`, so `yield* Option.some(1)` works in a gen. It is not an `Effect` subtype, so passing it to a combinator needs `.asEffect()`. See `references/v4-semantics.md`.
+`Option` is not an `Effect` subtype, so `yield* Option.some(1)` does not compile. Convert it with `Effect.fromOption`, which fails with `NoSuchElementError`. See `references/v4-semantics.md`.
 
 ## Effect Atom (Frontend State)
 
@@ -461,7 +469,7 @@ const modalAtomFamily = Atom.family((type: string) =>
 
 ### React Integration
 
-```typescript
+```tsx
 import { useAtomValue, useAtomSet, useAtom, useAtomMount } from "@effect/atom-react"
 
 function Counter() {
@@ -483,7 +491,7 @@ function App() {
 
 Use `AsyncResult` for async atom states. Use `AsyncResult.match` for the three states, or `matchWithError` when you need typed errors separated from defects:
 
-```typescript
+```tsx
 import { AsyncResult } from "effect/unstable/reactivity"
 
 function UserProfile() {
@@ -527,7 +535,7 @@ const isLoading = result.waiting // Updates automatically, no useState/finally n
 
 **Dialog ownership:** Move mutation logic into dialog components. Dialog owns the mutation hook, loading state, and toasts. Parent provides data props and an `onSuccess` callback.
 
-**Cache invalidation:** Use `reactivityKeys` on both mutation and query atoms to auto-invalidate queries after mutations, replacing manual `refresh()` calls.
+**Cache invalidation:** Build an `Atom.runtime(layer)`, declare the mutation with `runtime.fn(fn, { reactivityKeys })` and the query with `runtime.atom(Reactivity.stream(effect, keys))`. Matching keys re-run the query after the mutation, replacing manual `refresh()` calls. `Atom.make` has no `reactivityKeys` option.
 
 See `references/effect-atom-patterns.md` for complete patterns including families, localStorage, mutations, and anti-patterns.
 
@@ -612,19 +620,19 @@ import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from 'effect/u
 const MyApi = HttpApi.make('MyApi').add(
   HttpApiGroup.make('users').add(
     HttpApiEndpoint.get('getUser', '/users/:id', {
-      path: Schema.Struct({ id: UserId }),
+      params: Schema.Struct({ id: UserId }),
       success: User,
-      error: UserNotFoundError, // status comes from HttpApiSchema.status on the error
+      error: UserNotFoundError, // status comes from the error's httpApiStatus annotation
     })
   )
 )
 
 // Implement handlers
 const UsersApiLive = HttpApiBuilder.group(MyApi, 'users', (handlers) =>
-  handlers.handle('getUser', ({ path }) =>
+  handlers.handle('getUser', ({ params }) =>
     Effect.gen(function* () {
       const users = yield* UserService
-      return yield* users.findById(path.id)
+      return yield* users.findById(params.id)
     })
   )
 )
@@ -639,7 +647,7 @@ import { HttpApiClient } from 'effect/unstable/httpapi'
 
 const program = Effect.gen(function* () {
   const client = yield* HttpApiClient.make(MyApi, { baseUrl: 'http://localhost:3000' })
-  const user = yield* client.users.getUser({ path: { id: userId } })
+  const user = yield* client.users.getUser({ params: { id: userId } })
   // ^? typed error union (e.g. UserNotFoundError) on the Effect error channel
 })
 ```
@@ -720,7 +728,7 @@ See `references/observability-patterns.md` for metrics and tracing patterns.
 
 For detailed patterns, consult these reference files in the `references/` directory:
 
-- `v4-semantics.md` - Yieldable, structural equality, fiber keep-alive, unstable-module policy
+- `v4-semantics.md` - what can be yielded, structural equality, fiber keep-alive, unstable-module policy
 - `language-server.md` - Effect Language Service setup, diagnostics, refactors, CLI tools
 - `service-patterns.md` - Context.Service, Effect.fn, services without `make`, Context.Reference
 - `error-patterns.md` - Schema.TaggedError, error remapping, retry patterns, flattened Cause

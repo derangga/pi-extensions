@@ -322,9 +322,9 @@ Each service has a focused responsibility:
 
 ```typescript
 // CORRECT, focused services
-export class UserService extends Context.Service<UserService>()("UserService", { /* user operations */ }) {}
-export class AuthService extends Context.Service<AuthService>()("AuthService", { /* auth operations */ }) {}
-export class NotificationService extends Context.Service<NotificationService>()("NotificationService", { /* notifications */ }) {}
+export class UserService extends Context.Service<UserService>()("UserService", { make: makeUserService }) {}
+export class AuthService extends Context.Service<AuthService>()("AuthService", { make: makeAuthService }) {}
+export class NotificationService extends Context.Service<NotificationService>()("NotificationService", { make: makeNotifications }) {}
 
 // WRONG, god service doing everything
 export class AppService extends Context.Service<AppService>()("AppService", {
@@ -380,7 +380,7 @@ const findById = Effect.fn("UserService.findById")(
 )
 
 const findByIdOption = Effect.fn("UserService.findByIdOption")(
-    function* (id: UserId): Effect.Effect<Option<User>> {
+    function* (id: UserId): Effect.Effect<Option.Option<User>> {
         return yield* repo.findById(id)
     }
 )

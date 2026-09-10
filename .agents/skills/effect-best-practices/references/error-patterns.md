@@ -1,6 +1,6 @@
 # Error Patterns
 
-> **Effect v4.** `Schema.TaggedError` defines serializable errors with `_tag` discrimination. HTTP status is applied with `.pipe(HttpApiSchema.status(n))`. `Effect.catch`, `Effect.catchCause`, and `Effect.catchDefect` handle all errors, causes, and defects. `catchTag` and `catchTags` handle tagged errors. `Cause` holds a flat `reasons` array. These tools are the backbone of this file.
+> **Effect v4.** `Schema.TaggedError` defines serializable errors with `_tag` discrimination. HTTP status is set with the `{ httpApiStatus: n }` annotations argument. `Effect.catch`, `Effect.catchCause`, and `Effect.catchDefect` handle all errors, causes, and defects. `catchTag` and `catchTags` handle tagged errors. `Cause` holds a flat `reasons` array. These tools are the backbone of this file.
 
 ## Why Explicit Error Types?
 
@@ -28,7 +28,8 @@ Generic errors like `BadRequestError` or `NotFoundError` seem convenient but cre
 export class NotFoundError extends Schema.TaggedError<NotFoundError>()(
     "NotFoundError",
     { message: Schema.String },
-).pipe(HttpApiSchema.status(404)) {}
+    { httpApiStatus: 404 },
+) {}
 
 // At API boundaries:
 Effect.catchTags({
@@ -43,17 +44,19 @@ Effect.catchTags({
 // - Debugging is harder (which resource was missing?)
 ```
 
-```typescript
+```tsx
 // ✅ CORRECT - Keep explicit errors all the way to frontend
 export class UserNotFoundError extends Schema.TaggedError<UserNotFoundError>()(
     "UserNotFoundError",
     { userId: UserId, message: Schema.String },
-).pipe(HttpApiSchema.status(404)) {}
+    { httpApiStatus: 404 },
+) {}
 
 export class ChannelNotFoundError extends Schema.TaggedError<ChannelNotFoundError>()(
     "ChannelNotFoundError",
     { channelId: ChannelId, message: Schema.String },
-).pipe(HttpApiSchema.status(404)) {}
+    { httpApiStatus: 404 },
+) {}
 
 // Frontend can handle each case
 AsyncResult.matchWithError(result, {
@@ -96,7 +99,8 @@ export class UserNotFoundError extends Schema.TaggedError<UserNotFoundError>()(
         userId: UserId,         // Which user?
         message: Schema.String,
     },
-).pipe(HttpApiSchema.status(404)) {}
+    { httpApiStatus: 404 },
+) {}
 
 // Action errors → include input that failed
 export class UserCreateError extends Schema.TaggedError<UserCreateError>()(
@@ -106,7 +110,8 @@ export class UserCreateError extends Schema.TaggedError<UserCreateError>()(
         reason: Schema.String,  // Why? "duplicate", "invalid domain"
         message: Schema.String,
     },
-).pipe(HttpApiSchema.status(400)) {}
+    { httpApiStatus: 400 },
+) {}
 
 // Integration errors → include service name and retryable flag
 export class StripePaymentError extends Schema.TaggedError<StripePaymentError>()(
@@ -116,7 +121,8 @@ export class StripePaymentError extends Schema.TaggedError<StripePaymentError>()
         retryable: Schema.Boolean,
         message: Schema.String,
     },
-).pipe(HttpApiSchema.status(402)) {}
+    { httpApiStatus: 402 },
+) {}
 
 // Auth errors → include expiry info
 export class SessionExpiredError extends Schema.TaggedError<SessionExpiredError>()(
@@ -126,7 +132,8 @@ export class SessionExpiredError extends Schema.TaggedError<SessionExpiredError>
         expiredAt: Schema.DateTimeUtcFromString,
         message: Schema.String,
     },
-).pipe(HttpApiSchema.status(401)) {}
+    { httpApiStatus: 401 },
+) {}
 ```
 
 ## Schema.TaggedError for All Errors
@@ -136,7 +143,7 @@ export class SessionExpiredError extends Schema.TaggedError<SessionExpiredError>
 1. **Serialization** - Errors can be sent over RPC/network
 2. **Type safety** - `_tag` discriminator enables `catchTag`
 3. **Consistent structure** - All errors have predictable shape
-4. **HTTP status mapping** - Via `HttpApiSchema.status`
+4. **HTTP status mapping** - Via the `{ httpApiStatus: n }` annotation
 
 ### Basic Error Definition
 
@@ -150,7 +157,8 @@ export class UserNotFoundError extends Schema.TaggedError<UserNotFoundError>()(
         userId: UserId,
         message: Schema.String,
     },
-).pipe(HttpApiSchema.status(404)) {}
+    { httpApiStatus: 404 },
+) {}
 
 export class UserCreateError extends Schema.TaggedError<UserCreateError>()(
     "UserCreateError",
@@ -158,14 +166,16 @@ export class UserCreateError extends Schema.TaggedError<UserCreateError>()(
         message: Schema.String,
         cause: Schema.optional(Schema.String),
     },
-).pipe(HttpApiSchema.status(400)) {}
+    { httpApiStatus: 400 },
+) {}
 
 export class UnauthorizedError extends Schema.TaggedError<UnauthorizedError>()(
     "UnauthorizedError",
     {
         message: Schema.String,
     },
-).pipe(HttpApiSchema.status(401)) {}
+    { httpApiStatus: 401 },
+) {}
 
 export class ForbiddenError extends Schema.TaggedError<ForbiddenError>()(
     "ForbiddenError",
@@ -173,10 +183,14 @@ export class ForbiddenError extends Schema.TaggedError<ForbiddenError>()(
         message: Schema.String,
         requiredPermission: Schema.optional(Schema.String),
     },
-).pipe(HttpApiSchema.status(403)) {}
+    { httpApiStatus: 403 },
+) {}
 ```
 
-Apply HTTP status with `.pipe(HttpApiSchema.status(...))`.
+Apply HTTP status through the third argument, the annotations object: `{ httpApiStatus: 404 }`.
+`HttpApiSchema.status(code)` writes the same annotation, but it returns `S["Rebuild"]`, so piping
+it in a class heritage clause makes the class reference itself and fails to compile. Reach for it
+on plain schema values instead, as in `User.pipe(HttpApiSchema.status(201))`.
 
 ### Required Fields
 
@@ -334,7 +348,8 @@ export class ServiceUnavailableError extends Schema.TaggedError<ServiceUnavailab
         cause: Schema.optional(Schema.String),
         retryable: Schema.Boolean.pipe(Schema.withDecodingDefaultType(Effect.succeed(true))),
     },
-).pipe(HttpApiSchema.status(503)) {}
+    { httpApiStatus: 503 },
+) {}
 
 export class RateLimitError extends Schema.TaggedError<RateLimitError>()(
     "RateLimitError",
@@ -343,7 +358,8 @@ export class RateLimitError extends Schema.TaggedError<RateLimitError>()(
         retryAfter: Schema.optional(Schema.Number),
         retryable: Schema.Boolean.pipe(Schema.withDecodingDefaultType(Effect.succeed(true))),
     },
-).pipe(HttpApiSchema.status(429)) {}
+    { httpApiStatus: 429 },
+) {}
 
 // Non-retryable error
 export class ValidationError extends Schema.TaggedError<ValidationError>()(
@@ -353,7 +369,8 @@ export class ValidationError extends Schema.TaggedError<ValidationError>()(
         field: Schema.String,
         retryable: Schema.Boolean.pipe(Schema.withDecodingDefaultType(Effect.succeed(false))),
     },
-).pipe(HttpApiSchema.status(400)) {}
+    { httpApiStatus: 400 },
+) {}
 ```
 
 ### Retry Based on Error Property
@@ -474,22 +491,26 @@ See `rpc-cluster-patterns.md`. `Activity` lives in `effect/unstable/workflow`.
 export class UserNotFoundError extends Schema.TaggedError<UserNotFoundError>()(
     "UserNotFoundError",
     { userId: UserId, message: Schema.String },
-).pipe(HttpApiSchema.status(404)) {}
+    { httpApiStatus: 404 },
+) {}
 
 export class ChannelNotFoundError extends Schema.TaggedError<ChannelNotFoundError>()(
     "ChannelNotFoundError",
     { channelId: ChannelId, message: Schema.String },
-).pipe(HttpApiSchema.status(404)) {}  // Same status, different error
+    { httpApiStatus: 404 },
+) {}  // Same status, different error
 
 export class SessionExpiredError extends Schema.TaggedError<SessionExpiredError>()(
     "SessionExpiredError",
     { sessionId: SessionId, expiredAt: Schema.DateTimeUtcFromString, message: Schema.String },
-).pipe(HttpApiSchema.status(401)) {}
+    { httpApiStatus: 401 },
+) {}
 
 export class InvalidCredentialsError extends Schema.TaggedError<InvalidCredentialsError>()(
     "InvalidCredentialsError",
     { message: Schema.String },
-).pipe(HttpApiSchema.status(401)) {}  // Same status, different meaning
+    { httpApiStatus: 401 },
+) {}  // Same status, different meaning
 ```
 
 ```typescript
@@ -497,7 +518,8 @@ export class InvalidCredentialsError extends Schema.TaggedError<InvalidCredentia
 export class UnauthorizedError extends Schema.TaggedError<UnauthorizedError>()(
     "UnauthorizedError",
     { message: Schema.String },
-).pipe(HttpApiSchema.status(401)) {}
+    { httpApiStatus: 401 },
+) {}
 
 // Then mapping everything to it - loses critical information!
 Effect.catchTags({
@@ -520,7 +542,8 @@ Generic errors are only acceptable for **truly unrecoverable internal errors** w
 export class InternalServerError extends Schema.TaggedError<InternalServerError>()(
     "InternalServerError",
     { message: Schema.String, requestId: Schema.optional(Schema.String) },
-).pipe(HttpApiSchema.status(500)) {}
+    { httpApiStatus: 500 },
+) {}
 
 // Use sparingly, only for truly unexpected errors. Blanket `Effect.catch` stays forbidden,
 // so map known tags explicitly.

@@ -130,7 +130,7 @@ const modalAtomFamily = Atom.family((type: ModalType) =>
 
 ### Reading Atom Values
 
-```typescript
+```tsx
 import { useAtomValue } from "@effect/atom-react"
 
 function Counter() {
@@ -141,7 +141,7 @@ function Counter() {
 
 ### Updating Atom Values
 
-```typescript
+```tsx
 import { useAtomSet } from "@effect/atom-react"
 
 function IncrementButton() {
@@ -156,7 +156,7 @@ function IncrementButton() {
 
 ### Reading and Writing Together
 
-```typescript
+```tsx
 import { useAtom } from "@effect/atom-react"
 
 function CounterControl() {
@@ -174,7 +174,7 @@ function CounterControl() {
 
 Use `useAtomMount` to activate atoms without reading their value:
 
-```typescript
+```tsx
 import { useAtomMount } from "@effect/atom-react"
 
 function App() {
@@ -193,7 +193,7 @@ function App() {
 
 When using mutation atoms with `mode: "promise"`, derive loading state from `result.waiting` instead of managing separate `useState`:
 
-```typescript
+```tsx
 const [result, mutate] = useAtom(myMutation, { mode: "promise" })
 const isLoading = result.waiting // No useState needed
 
@@ -222,7 +222,7 @@ Move mutation logic INTO dialog components rather than keeping it in page compon
 **Dialog owns:** mutation hook, loading state, toast notifications
 **Parent provides:** data props, `onSuccess` callback
 
-```typescript
+```tsx
 // CORRECT, dialog owns its mutation
 function ArchivePaywallDialog({
     paywall,
@@ -269,21 +269,34 @@ function PaywallPage() {
 
 Mutations can specify `reactivityKeys` to automatically invalidate queries that share the same keys, with no manual `refresh()` calls needed.
 
+`reactivityKeys` lives on `AtomRuntime.fn`, so both atoms hang off a runtime built from the
+layer that provides your services plus `Reactivity.layer`:
+
 ```typescript
-// Mutation atom with reactivityKeys
-const archivePaywallMutation = Atom.make(
-    Effect.fn(function* (payload: { paywallId: string }) {
-        yield* paywallService.archive(payload.paywallId)
-    }),
-    { reactivityKeys: ["paywalls"] }
+import { Effect, Layer } from "effect"
+import { Atom, Reactivity } from "effect/unstable/reactivity"
+
+const runtime = Atom.runtime(Layer.mergeAll(PaywallService.layer, Reactivity.layer))
+
+// Query atom. Reactivity.stream re runs the effect when the keys are invalidated
+const paywallsAtom = runtime.atom(
+    Reactivity.stream(
+        Effect.gen(function* () {
+            const paywalls = yield* PaywallService
+            return yield* paywalls.list()
+        }),
+        ["paywalls"],
+    )
 )
 
-// Query atom with matching reactivityKeys, auto invalidated after mutation
-const paywallsAtom = Atom.make(
-    Effect.fn(function* () {
-        return yield* paywallService.list()
-    }),
-    { reactivityKeys: ["paywalls"] }
+// Mutation atom. reactivityKeys is an option on runtime.fn
+const archivePaywallMutation = runtime.fn(
+    (payload: { paywallId: string }) =>
+        Effect.gen(function* () {
+            const paywalls = yield* PaywallService
+            yield* paywalls.archive(payload.paywallId)
+        }),
+    { reactivityKeys: ["paywalls"] },
 )
 ```
 
@@ -291,6 +304,8 @@ const paywallsAtom = Atom.make(
 - Both the mutation and query must share at least one matching key
 - After the mutation succeeds, all atoms with matching keys re execute
 - This pattern takes the place of manual calls such as `refreshPaywalls()` after mutations
+- `Atom.make` has no `reactivityKeys` option. Its options are `{ initialValue, uninterruptible }`,
+  and it takes an `Effect` or a `Stream`, never a function that returns one
 
 ## Working with Effects and AsyncResult
 
@@ -315,7 +330,7 @@ orthogonal to all three. A `Success` can have `waiting: true` while it refreshes
 
 Use `AsyncResult.match` for the three states:
 
-```typescript
+```tsx
 import { AsyncResult } from "effect/unstable/reactivity"
 import { useAtomValue } from "@effect/atom-react"
 
@@ -337,7 +352,7 @@ Each handler receives the **variant**, not the bare value, so success is `succes
 `matchWithError` splits a failure into a typed error and a defect. Branch on `_tag` inside
 `onError`:
 
-```typescript
+```tsx
 function ResourceEmbed({ url }: { url: string }) {
     const resourceResult = useAtomValue(resourceAtom)
 
@@ -366,7 +381,7 @@ unhandled state is a **compile error**.
 
 Explicit `_tag` checks also work outside match helpers:
 
-```typescript
+```tsx
 function StatusBadge() {
     const result = useAtomValue(resourceAtom)
     if (result._tag === "Initial") return <Skeleton />
@@ -406,7 +421,7 @@ function useRepositories() {
 
 When a component only cares about the success path:
 
-```typescript
+```tsx
 function UserName() {
     const userResult = useAtomValue(userAtom)
 
@@ -441,19 +456,36 @@ The context type is `Atom.AtomContext`.
 
 ## Batching Updates
 
-Use `Atom.batch` for multiple updates:
+`Atom.batch` takes a **synchronous** callback and coalesces the writes made inside it, rebuilding
+stale nodes and notifying listeners once at the end. The writes have to be synchronous, which
+means the registry's own `set` and `update`:
 
 ```typescript
-const openModal = (type: ModalType, metadata?: Record<string, unknown>) => {
-    Atom.batch(() => {
-        Atom.update(modalAtomFamily(type), (state) => ({
-            ...state,
-            isOpen: true,
-            metadata,
-        }))
-    })
+import * as React from "react"
+import { RegistryContext } from "@effect/atom-react"
+import { Atom } from "effect/unstable/reactivity"
+
+const useOpenModal = () => {
+    const registry = React.useContext(RegistryContext)
+
+    return (type: ModalType, metadata?: Record<string, unknown>) => {
+        Atom.batch(() => {
+            registry.update(modalAtomFamily(type), (state) => ({
+                ...state,
+                isOpen: true,
+                metadata,
+            }))
+            registry.set(lastOpenedAtom, type)
+        })
+    }
 }
 ```
+
+`Atom.set` and `Atom.update` are the **Effect returning** variants: they produce
+`Effect<void, never, AtomRegistry>` and do nothing until run. Calling one inside an `Atom.batch`
+callback builds an Effect and throws it away, so the update silently never happens, and
+TypeScript will not flag it. Inside a batch, reach for `registry.set` / `registry.update`, which
+return `void`.
 
 ## localStorage Persistence
 
@@ -480,7 +512,7 @@ const themeAtom = Atom.kvs({
 
 ### FORBIDDEN: Creating Atoms Inside Components
 
-```typescript
+```tsx
 // WRONG, creates new atom on every render
 function Counter() {
     const countAtom = Atom.make(0) // New atom each render!
@@ -499,8 +531,9 @@ function Counter() {
 
 ### FORBIDDEN: Imperative Updates from React Components
 
-```typescript
-// WRONG, does not trigger React re-renders
+```tsx
+// WRONG, twice over: Atom.update returns an unrun Effect, so nothing happens at all,
+// and even a real write here bypasses the hook that would re-render the component
 export const openModal = (type: string) => {
     Atom.batch(() => {
         Atom.update(modalAtomFamily(type), (s) => ({ ...s, isOpen: true }))
@@ -564,7 +597,7 @@ export const modalStateAtom = Atom.make({ isOpen: false }).pipe(Atom.keepAlive)
 
 ### FORBIDDEN: Ignoring AsyncResult States
 
-```typescript
+```tsx
 // WRONG, does not handle loading and error states
 const userResult = useAtomValue(userAtom)
 return <div>Hello, {userResult.name}</div> // Type error!
@@ -580,7 +613,7 @@ return AsyncResult.match(userResult, {
 
 ### FORBIDDEN: Updating State During Render
 
-```typescript
+```tsx
 // WRONG, side effect during render
 function Component() {
     const count = useAtomValue(countAtom)
@@ -636,7 +669,7 @@ function DeleteDialog({ id }: { id: string }) {
 
 ### FORBIDDEN: Mutations in Parent Components
 
-```typescript
+```tsx
 // WRONG, parent manages the mutation
 function PaywallPage() {
     const [result, archivePaywall] = useAtom(archivePaywallMutation, { mode: "promise" })

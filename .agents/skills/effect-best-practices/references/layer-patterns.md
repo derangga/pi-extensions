@@ -419,7 +419,7 @@ different service and the failure shows up as a missing-requirement error somewh
 When a layer's construction depends on an effect:
 
 ```typescript
-import { Config, Effect, Layer } from "effect"
+import { Config, Effect, Layer, Schema } from "effect"
 
 // Layer that depends on config
 const ApiClientLive = Layer.unwrap(
@@ -437,27 +437,29 @@ const ApiClientLive = Layer.unwrap(
     })
 )
 
-// Layer that validates config
+// Layer that validates config. Put the rule on the schema and let
+// Config.schema turn a failed check into a ConfigError for you
+const DbUrl = Config.schema(
+    Schema.String.check(Schema.isStartsWith("postgresql://")),
+    "DATABASE_URL",
+)
+
 const ValidatedConfigLive = Layer.unwrap(
     Effect.gen(function* () {
         const config = yield* Config.all({
-            dbUrl: Config.String("DATABASE_URL"),
+            dbUrl: DbUrl,
             redisUrl: Config.String("REDIS_URL"),
-            port: Config.Int("PORT"),
+            port: Config.Port("PORT"),
         })
-
-        // Validate config
-        if (!config.dbUrl.startsWith("postgresql://")) {
-            return yield* Effect.fail(new Config.ConfigError({ message: "Invalid DATABASE_URL" }))
-        }
 
         return Layer.succeed(AppConfig, config)
     })
 )
 ```
 
-For validation attached to the config itself rather than a wrapper layer, use
-`Config.schema(schema.check(...), path)`, which applies Schema checks.
+Validate through `Config.schema(schema.check(...), path)` rather than hand rolling the failure.
+`ConfigError` is not constructible from a message: its constructor takes a
+`SourceError | Schema.SchemaError`, and `message` is a getter derived from that cause.
 
 ## Scoped Layers
 

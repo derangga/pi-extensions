@@ -41,7 +41,9 @@ export class UserRepo extends Context.Service<UserRepo>()("UserRepo", {
         const findById = Effect.fn("UserRepo.findById")(function* (id: number) {
             // The statement is itself an Effect that resolves to ReadonlyArray of rows
             const rows = yield* sql`SELECT * FROM users WHERE id = ${id}`
-            return rows[0] as UserRow | undefined
+            // Rows come back as `Row`, so a direct `as UserRow` does not overlap.
+            // Decode with SqlSchema instead, shown below, when the shape matters
+            return rows[0] as unknown as UserRow | undefined
         })
 
         // sql("name") is an escaped identifier, not a bound parameter

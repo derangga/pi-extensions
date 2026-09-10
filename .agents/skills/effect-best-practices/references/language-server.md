@@ -4,11 +4,21 @@ The Effect Language Service is a TypeScript language plugin that provides Effect
 
 ## Installation
 
+For Effect v4 the package is **`@effect/tsgo`**, the language service built for TypeScript-Go.
+It is what the Effect repo itself installs and what the v4 docs document.
+
 ```bash
-npm install @effect/language-service --save-dev
+npm install @effect/tsgo --save-dev
 ```
 
-Add to `tsconfig.json`:
+Or let the CLI wire it up:
+
+```bash
+npx @effect/tsgo setup
+```
+
+Add to `tsconfig.json`. Note the plugin **name** is still `@effect/language-service`, even though
+the package you installed is `@effect/tsgo`:
 
 ```json
 {
@@ -17,6 +27,10 @@ Add to `tsconfig.json`:
   }
 }
 ```
+
+The older `@effect/language-service` package is still published for classic `tsc` setups, with an
+`effect-language-service` binary in place of `effect-tsgo`. New v4 projects should install
+`@effect/tsgo`.
 
 ## Editor Setup
 
@@ -39,7 +53,7 @@ require('lspconfig').tsserver.setup({
     plugins = {
       {
         name = "@effect/language-service",
-        location = vim.fn.getcwd() .. "/node_modules/@effect/language-service"
+        location = vim.fn.getcwd() .. "/node_modules/@effect/tsgo"
       }
     }
   }
@@ -51,9 +65,12 @@ require('lspconfig').tsserver.setup({
 ```elisp
 (setq lsp-clients-typescript-plugins
       (vector (list :name "@effect/language-service"
-                    :location (expand-file-name "node_modules/@effect/language-service"
+                    :location (expand-file-name "node_modules/@effect/tsgo"
                                                 (projectile-project-root)))))
 ```
+
+The tables below list the plugin's own option names. They come from the language service, not
+from `effect`, so check the package README for the set shipped with your version.
 
 ## Configuration Options
 
@@ -83,7 +100,6 @@ Configure in `tsconfig.json` under the plugin entry:
 | `addPipeToEffectUse` | ✓ | Add pipe to effectful expression |
 | `arrowToEffectGenFunction` | ✓ | Convert arrow function to Effect.gen |
 | `functionToEffectGenFunction` | ✓ | Convert function to Effect.gen |
-| `removeLayerCompose` | ✓ | Simplify Layer.compose |
 
 ### Diagnostics
 
@@ -110,7 +126,7 @@ Configure in `tsconfig.json` under the plugin entry:
 | Completion | Default | Description |
 |------------|---------|-------------|
 | `self` | ✓ | Auto-complete `Self` type parameter |
-| `durationStrings` | ✓ | Auto-complete Duration.decode strings |
+| `durationStrings` | ✓ | Auto-complete `Duration.Input` strings such as `"5 seconds"` |
 | `brands` | ✓ | Auto-complete Schema brand strings |
 
 ### Key Patterns
@@ -141,7 +157,7 @@ The language service includes CLI commands for CI/CD integration and development
 Verify installation:
 
 ```bash
-npx effect-language-service setup
+npx @effect/tsgo setup
 ```
 
 ### Build-Time Diagnostics
@@ -149,7 +165,7 @@ npx effect-language-service setup
 Patch TypeScript to run language service diagnostics during `tsc`:
 
 ```bash
-npx effect-language-service patch
+npx effect-tsgo patch
 ```
 
 This enables CI enforcement of Effect-specific rules. Errors like floating Effects will now fail the build.
@@ -157,7 +173,7 @@ This enables CI enforcement of Effect-specific rules. Errors like floating Effec
 To unpatch:
 
 ```bash
-npx effect-language-service unpatch
+npx effect-tsgo unpatch
 ```
 
 ### Project-Wide Diagnostics
@@ -165,8 +181,8 @@ npx effect-language-service unpatch
 Run all diagnostics without patching:
 
 ```bash
-npx effect-language-service diagnostics
-npx effect-language-service diagnostics --fix  # Auto-fix where possible
+npx effect-tsgo diagnostics
+npx effect-tsgo diagnostics --fix  # Auto-fix where possible
 ```
 
 ### Quick Fixes
@@ -174,7 +190,7 @@ npx effect-language-service diagnostics --fix  # Auto-fix where possible
 Apply quick fixes interactively:
 
 ```bash
-npx effect-language-service quickfixes
+npx effect-tsgo quickfixes
 ```
 
 ### Code Generation
@@ -182,7 +198,7 @@ npx effect-language-service quickfixes
 Generate boilerplate from Effect patterns:
 
 ```bash
-npx effect-language-service codegen
+npx effect-tsgo codegen
 ```
 
 ### Project Overview
@@ -190,7 +206,7 @@ npx effect-language-service codegen
 Get a summary of Effect usage in your project:
 
 ```bash
-npx effect-language-service overview
+npx effect-tsgo overview
 ```
 
 Shows:
@@ -204,8 +220,8 @@ Shows:
 Analyze Layer dependencies:
 
 ```bash
-npx effect-language-service layerinfo
-npx effect-language-service layerinfo --graph  # Output as graph
+npx effect-tsgo layerinfo
+npx effect-tsgo layerinfo --graph  # Output as graph
 ```
 
 ## Common Diagnostics

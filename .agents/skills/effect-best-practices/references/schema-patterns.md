@@ -104,7 +104,7 @@ export const User = Schema.Struct({
 export type User = Schema.Schema.Type<typeof User>
 
 // Derive encoded type for database and API
-export type UserEncoded = Schema.Schema.Encoded<typeof User>
+export type UserEncoded = Schema.Codec.Encoded<typeof User>
 ```
 
 `Schema.Literals` takes one array argument. `Schema.Literal` takes exactly one value.
@@ -153,8 +153,11 @@ export const CommaSeparatedList = Schema.String.pipe(
     Schema.decodeTo(
         Schema.Array(Schema.String),
         SchemaTransformation.transform({
-            decode: (s) => s.split(",").map((x) => x.trim()).filter(Boolean),
-            encode: (arr) => arr.join(","),
+            // Annotate both sides: Schema.Array decodes to ReadonlyArray, and
+            // the mutable `string[]` that `split` infers is not assignable to it
+            decode: (s: string): ReadonlyArray<string> =>
+                s.split(",").map((x) => x.trim()).filter(Boolean),
+            encode: (arr: ReadonlyArray<string>) => arr.join(","),
         }),
     ),
 )
@@ -181,7 +184,7 @@ import { Effect, Schema, SchemaGetter, SchemaIssue } from "effect"
 
 export const PositiveNumber = Schema.Number.pipe(
     Schema.decodeTo(Schema.Number.pipe(Schema.brand("PositiveNumber")), {
-        decode: SchemaGetter.transformOrFail((n) =>
+        decode: SchemaGetter.transformEffect((n: number) =>
             n > 0
                 ? Effect.succeed(n)
                 : Effect.fail(new SchemaIssue.InvalidValue())
@@ -202,8 +205,8 @@ A simple predicate fits a **check** better than a fallible transform:
 For JSON strings, define:
 
 ```typescript
-// JSON string to Config
-export const ConfigFromJson = Schema.fromJsonString(Config)
+// JSON string to AppSettings, any schema works as the target
+export const AppSettingsFromJson = Schema.fromJsonString(AppSettings)
 
 // Untyped JSON string
 export const AnyJson = Schema.UnknownFromJsonString
@@ -241,7 +244,7 @@ const user = new User({
     email: "alice@example.com",
     name: "Alice",
     role: "member",
-    createdAt: DateTime.now,
+    createdAt: DateTime.nowUnsafe(),
 })
 
 console.log(user.displayName) // "Alice"
@@ -432,6 +435,6 @@ Derive structs with `mapFields`:
 | Pick keys | `schema.mapFields(Struct.pick(["a"]))` |
 | Omit keys | `schema.mapFields(Struct.omit(["a"]))` |
 | All fields optional | `schema.mapFields(Struct.map(Schema.optional))` |
-| All fields required | `schema.mapFields(Struct.map(Schema.requiredKey))` |
+| All fields required | `schema.mapFields(Struct.map(Schema.requiredKey))`, every field must already be `optionalKey` |
 | Add fields | `schema.mapFields(Struct.assign(otherFields))` |
 | Dictionary | `Schema.Record(key, value)` with separate key and value arguments |

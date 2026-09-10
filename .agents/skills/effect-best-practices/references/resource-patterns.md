@@ -303,16 +303,27 @@ from that effect, with scope handling included.
 
 ### Composing Scoped Layers
 
-When merging layers that contain scoped resources, cleanup follows LIFO ordering:
+`Layer.mergeAll` builds its layers **concurrently**, so argument order is not acquisition order
+and you cannot predict the teardown order from it:
 
 ```typescript
 const InfraLive = Layer.mergeAll(
-    DatabasePool.layer,    // Acquired 1st
-    RedisCache.layer,      // Acquired 2nd
-    MessageQueue.layer,    // Acquired 3rd
+    DatabasePool.layer,
+    RedisCache.layer,
+    MessageQueue.layer,   // all three acquire concurrently
 )
+```
 
-// On shutdown: MessageQueue, then RedisCache, then DatabasePool
+When one resource must exist before another is built, express that as a dependency rather than
+as position. `Layer.provide` and `Layer.provideMerge` order the build, and the scope then
+releases in reverse:
+
+```typescript
+// MessageQueue needs a live pool, so provide it
+const InfraLive = MessageQueue.layer.pipe(
+    Layer.provideMerge(DatabasePool.layer),
+)
+// Build: DatabasePool, then MessageQueue. Release: MessageQueue, then DatabasePool
 ```
 
 Layers memoize across `Effect.provide` calls, so a scoped layer used in two places is built
@@ -334,7 +345,7 @@ const managedConnection = Effect.acquireRelease(
     connectToDatabase().pipe(
         Effect.timeoutOrElse({
             duration: Duration.seconds(5),
-            onTimeout: () =>
+            orElse: () =>
                 Effect.fail(new ConnectionTimeoutError({
                     message: "Database connection timed out",
                 })),
@@ -356,7 +367,7 @@ const program = Effect.scoped(
         const result = yield* conn.query(sql).pipe(
             Effect.timeoutOrElse({
                 duration: Duration.seconds(10),
-                onTimeout: () => Effect.fail(new QueryTimeoutError({ message: "Query timed out" })),
+                orElse: () => Effect.fail(new QueryTimeoutError({ message: "Query timed out" })),
             }),
         )
 
@@ -380,7 +391,7 @@ const program = Effect.scoped(
 ).pipe(
     Effect.timeoutOrElse({
         duration: Duration.seconds(30),
-        onTimeout: () =>
+        orElse: () =>
             Effect.fail(new OperationTimeoutError({ message: "Total operation timed out" })),
     }),
 )
@@ -478,6 +489,6 @@ The `Runtime` module contains `Teardown`, `defaultTeardown`, and `makeRunMain`.
 | `runtime.runPromise(effect)` | n/a | Run effect in managed runtime |
 | `runtime.contextEffect` | n/a | Built context as an Effect |
 | `runtime.dispose()` | n/a | Tear down runtime and run finalizers |
-| `Effect.timeoutOrElse({ duration, onTimeout })` | `Effect` | Timeout with a fallback Effect |
+| `Effect.timeoutOrElse({ duration, orElse })` | `Effect` | Timeout with a fallback Effect |
 | `Effect.runForkWith(services)` | `Effect` | Run with a prebuilt `Context` |
 | `NodeRuntime.runMain(effect)` | `@effect/platform-node` | Entry point with SIGINT and SIGTERM handling |

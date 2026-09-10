@@ -112,31 +112,32 @@ export class AuthMiddleware extends RpcMiddleware.Service<
     error: UnauthorizedError,
 }) {}
 
-// Middleware implementation
+// Middleware implementation. The value is a function that wraps the handler effect
 export const AuthMiddlewareLive = Layer.effect(
     AuthMiddleware,
     Effect.gen(function* () {
         const authService = yield* AuthService
 
-        return AuthMiddleware.of({
-            execute: (request) =>
-                Effect.gen(function* () {
-                    const token = request.headers.get("authorization")?.replace("Bearer ", "")
+        return (effect, { headers }) =>
+            Effect.gen(function* () {
+                const token = headers["authorization"]?.replace("Bearer ", "")
 
-                    if (!token) {
-                        return yield* Effect.fail(new UnauthorizedError({ message: "Missing token" }))
-                    }
+                if (!token) {
+                    return yield* Effect.fail(new UnauthorizedError({ message: "Missing token" }))
+                }
 
-                    return yield* authService.validateToken(token).pipe(
-                        Effect.catchTag("TokenExpiredError", () =>
-                            Effect.fail(new UnauthorizedError({ message: "Token expired" }))
-                        ),
-                        Effect.catchTag("TokenInvalidError", () =>
-                            Effect.fail(new UnauthorizedError({ message: "Invalid token" }))
-                        ),
-                    )
-                }),
-        })
+                const user = yield* authService.validateToken(token).pipe(
+                    Effect.catchTag("TokenExpiredError", () =>
+                        Effect.fail(new UnauthorizedError({ message: "Token expired" }))
+                    ),
+                    Effect.catchTag("TokenInvalidError", () =>
+                        Effect.fail(new UnauthorizedError({ message: "Invalid token" }))
+                    ),
+                )
+
+                // Return the wrapped effect with the provided service attached
+                return yield* Effect.provideService(effect, CurrentUser, user)
+            })
     })
 )
 
@@ -144,9 +145,19 @@ export const AuthMiddlewareLive = Layer.effect(
 export const ProtectedUserRpcs = UserRpcs.middleware(AuthMiddleware)
 ```
 
+The implementation is a plain function, not an object with an `execute` method. Its signature is
+`(effect, { client, requestId, rpc, payload, headers }) => Effect`, where `effect` is the wrapped
+handler and `headers` is a `Headers` record read by key (`headers["authorization"]`), not a
+`Headers` object with `.get()`. It must **return** the wrapped effect, which is how
+`Effect.provideService` hands `CurrentUser` down to the handler.
+
 Set `requiredForClient: true` in the options when the client must supply the middleware too.
 The middleware `provides` metadata removes that service from each handler requirements, so
 handlers can yield `CurrentUser` without declaring it.
+
+`HttpApiMiddleware` is a different shape. It is keyed by security scheme name, as in
+`Layer.succeed(Authentication)({ bearer: (effect, { credential }) => ... })`. See
+`http-api-patterns.md`.
 
 ## Workflow Definition
 

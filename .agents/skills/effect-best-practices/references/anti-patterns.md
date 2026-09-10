@@ -294,12 +294,13 @@ yourself. See `service-patterns.md`.
 const value = yield* ref        // Ref is a plain value, use Ref.get
 const result = yield* deferred  // Deferred is a plain value, use Deferred.await
 const output = yield* fiber     // Fiber is a plain value, use Fiber.join
+const n = yield* Option.some(1) // Option is a plain value, use Effect.fromOption
 ```
 
-**Why:** `Ref`, `Deferred`, and `Fiber` are plain values. Yielding them directly is a type error
-that hides intent. The ambiguity between "I have a Ref" and "I have an Effect that reads the
-Ref" causes silent bugs (for example `Effect.all([refA, refB])` reading both when you meant to
-pass the handles).
+**Why:** `Ref`, `Deferred`, `Fiber`, and `Option` are plain values, not `Effect` subtypes.
+Yielding them directly is a type error that hides intent. The ambiguity between "I have a Ref"
+and "I have an Effect that reads the Ref" causes silent bugs (for example
+`Effect.all([refA, refB])` reading both when you meant to pass the handles).
 
 **Correct:**
 
@@ -307,10 +308,11 @@ pass the handles).
 const value = yield* Ref.get(ref)
 const result = yield* Deferred.await(deferred)
 const output = yield* Fiber.join(fiber)
+const n = yield* Effect.fromOption(Option.some(1))
 ```
 
-`Option`, `Config`, and `Context.Service` are yieldable. Passing one to a
-combinator (rather than yielding it) needs an explicit `.asEffect()`.
+`Config` and `Context.Service` keys extend `Effect`, so those yield directly and also pass to
+combinators unchanged.
 
 ## FORBIDDEN: Ignoring Errors with orDie
 
@@ -417,13 +419,18 @@ const timestamp = Date.now()
 **Correct:**
 
 ```typescript
-import { Clock } from "effect"
+import { Clock, DateTime, Effect } from "effect"
 
 const now = yield* Clock.currentTimeMillis
-const date = yield* Clock.currentTimeZone.pipe(
-    Effect.map((tz) => new Date())
-)
+const date = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+
+// Or stay in Effect's own time type, which carries a zone
+const utc = yield* DateTime.now
+const zoned = yield* DateTime.nowInCurrentZone
 ```
+
+`DateTime.nowInCurrentZone` requires `CurrentTimeZone`, a `Context.Reference`, so tests can pin
+the zone with `Effect.provideService`.
 
 ## FORBIDDEN: Deeply Nesting flatMap/andThen Chains
 
@@ -613,7 +620,8 @@ const handleDeleteUser = HttpApiBuilder.endpoint(Api, "users", "deleteUser", ({ 
 class UserNotFoundError extends Schema.TaggedError<UserNotFoundError>()(
     "UserNotFoundError",
     { id: Schema.String, message: Schema.String },
-).pipe(HttpApiSchema.status(404)) {}
+    { httpApiStatus: 404 },
+) {}
 
 // Declare the error on the endpoint, mapping is automatic
 const endpoint = HttpApiEndpoint.get("getUser", "/users/:id", {
