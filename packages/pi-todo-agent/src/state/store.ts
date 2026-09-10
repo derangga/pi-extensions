@@ -9,6 +9,14 @@ import { EMPTY_STATE, type TaskState } from "./state.js";
 const sessions = new Map<string, TaskState>();
 
 /**
+ * Per-session commit queues. Two todo calls can still arrive interleaved (a
+ * host that ignores executionMode, or a future second entry point), so the
+ * seam serializes its own read-modify-write cycles instead of trusting the
+ * caller to.
+ */
+const queues = new Map<string, Promise<unknown>>();
+
+/**
  * Ctx-less render pointer: which slot do the ctx-free readers (the overlay
  * snapshot, the tool's renderCall) render? Set when the first UI session
  * claims the foreground.
@@ -63,9 +71,31 @@ export function commitState(sessionId: string, next: TaskState): void {
   sessions.set(sessionId, next);
 }
 
-/** Drop a session's slot on session_shutdown. No-op if the slot is absent. */
+/** Drop a session's slot on session_shutdown. No-op if the slot is absent.
+ * Also drops the commit queue; any in-flight closure still runs, a later
+ * caller just starts on a fresh chain. */
 export function evictSession(sessionId: string): void {
   sessions.delete(sessionId);
+  queues.delete(sessionId);
+}
+
+/**
+ * Run `fn` exclusively per session: chained after the previous closure for the
+ * same sid, whatever its outcome. Every todo call reads state, mutates, and
+ * commits inside one of these, so a batch of todo calls lands in order even
+ * if the host runs them concurrently.
+ */
+export function runExclusive<T>(sessionId: string, fn: () => T | Promise<T>): Promise<T> {
+  const previous = queues.get(sessionId) ?? Promise.resolve();
+  const next = previous.then(fn, fn);
+  queues.set(
+    sessionId,
+    next.then(
+      () => undefined,
+      () => undefined,
+    ),
+  );
+  return next;
 }
 
 /** Ctx-less render reader: the slot the overlay and renderCall render. */

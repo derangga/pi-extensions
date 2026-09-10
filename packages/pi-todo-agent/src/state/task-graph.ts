@@ -50,6 +50,19 @@ export function detectCycle(
 }
 
 /**
+ * Dependency ids that still resolve: the referenced task exists and is not a
+ * tombstone. Deletion leaves blockedBy entries pointing at tombstones (delete
+ * preserves history by design), so render surfaces drop them rather than
+ * showing a chain link to nothing.
+ */
+export function liveDepIds(tasks: readonly Task[], blockedBy: readonly number[]): number[] {
+  return blockedBy.filter((id) => {
+    const dep = tasks.find((t) => t.id === id);
+    return dep !== undefined && dep.status !== "deleted";
+  });
+}
+
+/**
  * Invert `blockedBy` into `blocks`: for each task `T`, which tasks list `T`
  * as a dependency. Consumed by the `get` action's "blocks:" line and the
  * overlay's id-prefix gating.

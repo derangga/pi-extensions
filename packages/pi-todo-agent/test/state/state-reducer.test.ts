@@ -82,6 +82,15 @@ describe("create", () => {
     const { op } = run(withTasks(tasks), "create", { subject: "new", blockedBy: [2] });
     expect(op).toEqual({ kind: "error", message: "blockedBy: #2 is deleted" });
   });
+
+  it("dedupes blockedBy ids", () => {
+    const state = withTasks([pending(1), pending(2)]);
+    const { state: next } = run(state, "create", {
+      subject: "new",
+      blockedBy: [2, 2, 1, 2],
+    });
+    expect(next.tasks[2]?.blockedBy).toEqual([2, 1]);
+  });
 });
 
 describe("update", () => {

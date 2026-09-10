@@ -113,6 +113,29 @@ describe("formatContent per action", () => {
     expect(envelope.content[0]?.text).toBe("No tasks");
   });
 
+  it("drops tombstoned dep ids from list chain suffixes", () => {
+    // Delete tombstones the task and leaves other tasks' blockedBy pointing
+    // at it; the render surface must not show a chain link to nothing.
+    const state = withTasks([
+      { id: 1, subject: "kept", status: "pending", blockedBy: [2, 3] },
+      { id: 2, subject: "gone", status: "deleted" },
+      pending(3),
+    ]);
+    const { envelope } = execute(state, "list");
+    expect(envelope.content[0]?.text).toBe("[pending] #1 kept ⛓ #3\n[pending] #3 task 3");
+  });
+
+  it("drops tombstoned dep ids from get rows in both directions", () => {
+    const state = withTasks([
+      { id: 1, subject: "target", status: "pending", blockedBy: [2] },
+      { id: 2, subject: "gone", status: "deleted" },
+      { id: 3, subject: "old waiter", status: "deleted", blockedBy: [1] },
+      { id: 4, subject: "waiter", status: "pending", blockedBy: [1] },
+    ]);
+    const { envelope } = execute(state, "get", { id: 1 });
+    expect(envelope.content[0]?.text).toBe("#1 [pending] target\n  blocks: #4");
+  });
+
   it("formats get with detail rows and the reverse blocks line", () => {
     const state = withTasks([
       { id: 1, subject: "blocked one", status: "pending", blockedBy: [2] },

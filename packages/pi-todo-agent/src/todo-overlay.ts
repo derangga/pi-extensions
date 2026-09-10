@@ -12,6 +12,7 @@
 import type { ExtensionUIContext, Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, type TUI } from "@earendil-works/pi-tui";
 import { getRenderState } from "./state/store.js";
+import { liveDepIds } from "./state/task-graph.js";
 import { sanitizeTerminalText } from "./tool/sanitize.js";
 import type { Task, TaskStatus } from "./tool/types.js";
 
@@ -41,8 +42,8 @@ export class TodoOverlay {
   private uiCtx: ExtensionUIContext | undefined;
   private widgetRegistered = false;
   private tui: TUI | undefined;
-  private completedTaskIdsPendingHide = new Set<number>();
-  private hiddenCompletedTaskIds = new Set<number>();
+  /** Completed tasks hidden from the previous turn onward: id → subject at hide time. */
+  private hiddenCompleted = new Map<number, string>();
   private lastNextId: number | undefined;
 
   setUICtx(ctx: ExtensionUIContext): void {
@@ -64,6 +65,7 @@ export class TodoOverlay {
     if (!this.uiCtx) {
       return;
     }
+    this.syncHiddenCompleted();
     if (this.visibleTasks().length === 0) {
       if (this.widgetRegistered) {
         this.uiCtx.setWidget(WIDGET_KEY, undefined);
@@ -93,16 +95,25 @@ export class TodoOverlay {
     }
   }
 
-  /** Called at agent_start: completed rows from previous turns fade out. */
+  /** Called at agent_start: completed rows from previous turns fade out.
+   * Detected from the live state here rather than accumulated during
+   * renders, so the fade happens even when nothing painted between the
+   * completing tool call and this call. */
   hideCompletedTasksFromPreviousTurn(): void {
-    if (this.completedTaskIdsPendingHide.size === 0) {
+    if (!this.uiCtx) {
       return;
     }
-    for (const taskId of this.completedTaskIdsPendingHide) {
-      this.hiddenCompletedTaskIds.add(taskId);
+    this.syncHiddenCompleted();
+    let added = false;
+    for (const task of getRenderState().tasks) {
+      if (task.status === "completed" && !this.hiddenCompleted.has(task.id)) {
+        this.hiddenCompleted.set(task.id, task.subject);
+        added = true;
+      }
     }
-    this.completedTaskIdsPendingHide.clear();
-    this.tui?.requestRender();
+    if (added) {
+      this.tui?.requestRender();
+    }
   }
 
   dispose(): void {
@@ -120,35 +131,38 @@ export class TodoOverlay {
   // -------------------------------------------------------------------------
 
   private resetCompletedDisplayState(): void {
-    this.completedTaskIdsPendingHide.clear();
-    this.hiddenCompletedTaskIds.clear();
+    this.hiddenCompleted.clear();
     this.lastNextId = undefined;
+  }
+
+  /**
+   * Reconcile the hidden-completed map with the live state: drop entries
+   * whose task is gone, no longer completed, or was replaced by a different
+   * task at the same id (a clear-and-rebuild reuses ids; a subject mismatch
+   * and a shrinking nextId counter both catch it). Every state read that
+   * feeds a decision calls this first, so render stays a pure read.
+   */
+  private syncHiddenCompleted(): void {
+    const state = getRenderState();
+    if (this.lastNextId !== undefined && state.nextId < this.lastNextId) {
+      this.hiddenCompleted.clear();
+    }
+    this.lastNextId = state.nextId;
+    const completedSubjects = new Map<number, string>();
+    for (const t of state.tasks) {
+      if (t.status === "completed") {
+        completedSubjects.set(t.id, t.subject);
+      }
+    }
+    for (const [id, subject] of this.hiddenCompleted) {
+      if (completedSubjects.get(id) !== subject) {
+        this.hiddenCompleted.delete(id);
+      }
+    }
   }
 
   private getSnapshot(): Snapshot {
     const state = getRenderState();
-    if (this.lastNextId !== undefined && state.nextId < this.lastNextId) {
-      // The id counter went backwards: the list was cleared and rebuilt,
-      // so hidden ids refer to tasks that no longer exist.
-      this.resetCompletedDisplayState();
-    }
-    this.lastNextId = state.nextId;
-    const completedTaskIds = new Set<number>();
-    for (const t of state.tasks) {
-      if (t.status === "completed") {
-        completedTaskIds.add(t.id);
-      }
-    }
-    for (const taskId of this.completedTaskIdsPendingHide) {
-      if (!completedTaskIds.has(taskId)) {
-        this.completedTaskIdsPendingHide.delete(taskId);
-      }
-    }
-    for (const taskId of this.hiddenCompletedTaskIds) {
-      if (!completedTaskIds.has(taskId)) {
-        this.hiddenCompletedTaskIds.delete(taskId);
-      }
-    }
     return { tasks: [...state.tasks], nextId: state.nextId };
   }
 
@@ -157,7 +171,7 @@ export class TodoOverlay {
   }
 
   private isHiddenCompleted(task: Task): boolean {
-    return task.status === "completed" && this.hiddenCompletedTaskIds.has(task.id);
+    return task.status === "completed" && this.hiddenCompleted.get(task.id) === task.subject;
   }
 
   private renderWidget(theme: Theme, width: number): string[] {
@@ -186,19 +200,6 @@ export class TodoOverlay {
     const layout = layOut(tasks, bodyBudget);
     for (const task of layout.visible) {
       lines.push(truncate(`${theme.fg("dim", "├─")} ${formatTaskLine(task, theme, showIds)}`));
-    }
-
-    const newlyCompleted: number[] = [];
-    for (const t of layout.visible) {
-      if (t.status !== "completed") {
-        continue;
-      }
-      if (!this.completedTaskIdsPendingHide.has(t.id) && !this.hiddenCompletedTaskIds.has(t.id)) {
-        newlyCompleted.push(t.id);
-      }
-    }
-    for (const id of newlyCompleted) {
-      this.completedTaskIdsPendingHide.add(id);
     }
 
     if (layout.hiddenCompleted === 0 && layout.truncatedTail === 0) {
@@ -294,7 +295,11 @@ function toLines(tasks: Task[], keep: (t: Task) => boolean): OverlayTaskLine[] {
       line.activeForm = t.activeForm;
     }
     if (t.blockedBy !== undefined) {
-      line.blockedBy = t.blockedBy;
+      // Tombstoned dep ids are dropped so a chain never points at nothing.
+      const liveDeps = liveDepIds(tasks, t.blockedBy);
+      if (liveDeps.length > 0) {
+        line.blockedBy = liveDeps;
+      }
     }
     lines.push(line);
   }

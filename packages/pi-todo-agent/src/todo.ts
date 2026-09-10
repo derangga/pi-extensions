@@ -1,12 +1,14 @@
 /**
  * todo tool — thin registration shell. The reducer, store, and envelope own
  * the semantics; this file is the package-root surface that binds them to
- * the ExtensionAPI.
+ * the ExtensionAPI. Todo state is a shared per-session cell, so the tool
+ * registers as sequential and every execute closes over the store's
+ * per-session commit queue.
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { applyTaskMutation } from "./state/state-reducer.js";
-import { commitState, getRenderState, getState, sid } from "./state/store.js";
+import { commitState, getRenderState, getState, runExclusive, sid } from "./state/store.js";
 import { buildToolResult } from "./tool/response-envelope.js";
 import { TOOL_LABEL, TOOL_NAME, TodoParamsSchema, type TaskAction } from "./tool/types.js";
 import { sanitizeTerminalText } from "./tool/sanitize.js";
@@ -52,12 +54,19 @@ export function registerTodoTool(pi: ExtensionAPI): void {
     promptSnippet: PROMPT_SNIPPET,
     promptGuidelines: PROMPT_GUIDELINES,
     parameters: TodoParamsSchema,
+    // Todo state is a module-level per-session cell, not per-call local data:
+    // two todo calls in one batch must not read the same snapshot and race
+    // their commits. Sequential execution keeps the batch ordered; the
+    // store's runExclusive queue enforces the same invariant on its own.
+    executionMode: "sequential",
 
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const sessionId = sid(ctx);
-      const result = applyTaskMutation(getState(sessionId), params.action, params);
-      commitState(sessionId, result.state);
-      return buildToolResult(params.action, params, result.state, result.op);
+      return runExclusive(sessionId, () => {
+        const result = applyTaskMutation(getState(sessionId), params.action, params);
+        commitState(sessionId, result.state);
+        return buildToolResult(params.action, params, result.state, result.op);
+      });
     },
 
     // renderCall reflects the FOREGROUND slot: the ctx-less render pointer.

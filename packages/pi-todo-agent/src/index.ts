@@ -93,12 +93,20 @@ export default function (pi: ExtensionAPI): void {
 
   // Compaction and branch edits rebuild state from the persisted snapshot;
   // the slot survives with the same key, so the foreground stays bound.
+  // Refresh the overlay too: the widget renders live state, but nothing
+  // forces a repaint until the next todo call otherwise.
   pi.on("session_compact", (_event, ctx) => {
-    replaySessionSlot(ctx);
+    const id = replaySessionSlot(ctx);
+    if (id !== undefined && id === getActiveRenderSession()) {
+      updateTodoOverlay();
+    }
   });
 
   pi.on("session_tree", (_event, ctx) => {
-    replaySessionSlot(ctx);
+    const id = replaySessionSlot(ctx);
+    if (id !== undefined && id === getActiveRenderSession()) {
+      updateTodoOverlay();
+    }
   });
 
   pi.on("session_shutdown", (_event, ctx) => {

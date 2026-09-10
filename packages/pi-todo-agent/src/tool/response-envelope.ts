@@ -1,3 +1,4 @@
+import { liveDepIds } from "../state/task-graph.js";
 import { deriveBlocks } from "../state/task-graph.js";
 import type { Op } from "../state/state-reducer.js";
 import type { TaskState } from "../state/state.js";
@@ -8,8 +9,9 @@ import type { Task, TaskAction, TaskDetails, TodoParams } from "./types.js";
  * Format a single task as a `[status] #id subject [(activeForm)] [⛓ #dep,…]`
  * line. Used by the `list` content branch; the overlay renders its own rows.
  */
-function formatListLine(t: Task): string {
-  const block = t.blockedBy?.length ? ` ⛓ ${t.blockedBy.map((id) => `#${id}`).join(",")}` : "";
+function formatListLine(t: Task, state: TaskState): string {
+  const liveDeps = t.blockedBy ? liveDepIds(state.tasks, t.blockedBy) : [];
+  const block = liveDeps.length ? ` ⛓ ${liveDeps.map((id) => `#${id}`).join(",")}` : "";
   const form =
     t.status === "in_progress" && t.activeForm ? ` (${sanitizeTerminalText(t.activeForm)})` : "";
   return `[${t.status}] #${t.id} ${sanitizeTerminalText(t.subject)}${form}${block}`;
@@ -20,7 +22,9 @@ function formatListLine(t: Task): string {
  * activeForm, blockedBy, blocks (reverse edges derived from the other tasks).
  */
 function formatGetLines(task: Task, state: TaskState): string {
-  const blocks = deriveBlocks(state.tasks).get(task.id) ?? [];
+  const blocks = (deriveBlocks(state.tasks).get(task.id) ?? []).filter(
+    (id) => state.tasks.find((t) => t.id === id)?.status !== "deleted",
+  );
   const lines = [`#${task.id} [${task.status}] ${sanitizeTerminalText(task.subject)}`];
   if (task.description) {
     lines.push(`  description: ${sanitizeTerminalText(task.description)}`);
@@ -28,8 +32,9 @@ function formatGetLines(task: Task, state: TaskState): string {
   if (task.activeForm) {
     lines.push(`  activeForm: ${sanitizeTerminalText(task.activeForm)}`);
   }
-  if (task.blockedBy?.length) {
-    lines.push(`  blockedBy: ${task.blockedBy.map((id) => `#${id}`).join(", ")}`);
+  const liveDeps = task.blockedBy ? liveDepIds(state.tasks, task.blockedBy) : [];
+  if (liveDeps.length) {
+    lines.push(`  blockedBy: ${liveDeps.map((id) => `#${id}`).join(", ")}`);
   }
   if (blocks.length) {
     lines.push(`  blocks: ${blocks.map((id) => `#${id}`).join(", ")}`);
@@ -93,7 +98,7 @@ export function formatContent(op: Op, state: TaskState): string {
       if (op.statusFilter) {
         view = view.filter((t) => t.status === op.statusFilter);
       }
-      return view.length === 0 ? "No tasks" : view.map(formatListLine).join("\n");
+      return view.length === 0 ? "No tasks" : view.map((t) => formatListLine(t, state)).join("\n");
     }
     case "get":
       return formatGetLines(op.task, state);

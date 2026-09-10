@@ -89,12 +89,13 @@ export function applyTaskMutation(
       if (!params.subject?.trim()) {
         return errorResult(state, "subject required for create");
       }
-      if (params.blockedBy?.length) {
-        for (const dep of params.blockedBy) {
-          const problem = checkDep(state, dep, "blockedBy");
-          if (problem) {
-            return errorResult(state, problem);
-          }
+      // Deduped up front: the update path dedupes additions, and a repeated
+      // id would otherwise persist as `⛓ #2,#2` and render twice.
+      const requestedDeps = [...new Set(params.blockedBy ?? [])];
+      for (const dep of requestedDeps) {
+        const problem = checkDep(state, dep, "blockedBy");
+        if (problem) {
+          return errorResult(state, problem);
         }
       }
       const newTask: Task = {
@@ -108,8 +109,8 @@ export function applyTaskMutation(
       if (params.activeForm !== undefined) {
         newTask.activeForm = params.activeForm;
       }
-      if (params.blockedBy?.length) {
-        newTask.blockedBy = [...params.blockedBy];
+      if (requestedDeps.length) {
+        newTask.blockedBy = requestedDeps;
       }
 
       return {
@@ -140,6 +141,10 @@ export function applyTaskMutation(
         (params.removeBlockedBy !== undefined && params.removeBlockedBy.length > 0);
       if (!hasMutation) {
         return errorResult(state, MUTABLE_FIELDS_MESSAGE);
+      }
+      if (params.subject !== undefined && !params.subject.trim()) {
+        // Same rule create enforces; an empty subject renders as a bare glyph.
+        return errorResult(state, "subject cannot be empty");
       }
 
       let newStatus = current.status;

@@ -193,6 +193,21 @@ describe("rendering", () => {
     expect(text).toContain("⛓ #2");
   });
 
+  it("hides chain links that point at tombstoned tasks", () => {
+    const ui = makeUICtx();
+    const overlay = new TodoOverlay();
+    overlay.setUICtx(ui as never);
+    commitSnapshot([
+      { id: 1, subject: "deploy", status: "pending", blockedBy: [2] },
+      { id: 2, subject: "gone", status: "deleted" },
+    ]);
+    overlay.update();
+    const text = renderWidget(ui).join("\n");
+    expect(text).not.toContain("⛓");
+    // The dangling chain was the only one: ids hide again too.
+    expect(text).not.toContain("#1");
+  });
+
   it("hides ids when no task carries dependencies", () => {
     const ui = makeUICtx();
     const overlay = new TodoOverlay();
@@ -337,19 +352,38 @@ describe("completed fade-out", () => {
     expect(ui.widgets.find((w) => w.key === WIDGET_KEY)?.factory).toBeUndefined();
   });
 
-  it("forgets hidden ids after a clear (nextId reset)", () => {
+  it("forgets hidden ids after a clear (reborn task at a reused id)", () => {
+    const ui = makeUICtx();
+    const overlay = new TodoOverlay();
+    overlay.setUICtx(ui as never);
+    // Turn 1: task 1 completes and fades at the next turn boundary.
+    commitSnapshot([{ id: 1, subject: "done", status: "completed" }]);
+    overlay.update();
+    overlay.hideCompletedTasksFromPreviousTurn();
+    // The list is cleared and rebuilt: id 1 is a different task now at the
+    // same counter position. The stale hidden entry must not suppress it.
+    commitSnapshot([{ id: 1, subject: "reborn", status: "completed" }]);
+    overlay.update();
+    expect(renderWidget(ui).join("\n")).toContain("reborn");
+    // And it fades again at the next turn boundary.
+    overlay.hideCompletedTasksFromPreviousTurn();
+    overlay.update();
+    expect(ui.widgets.find((w) => w.key === WIDGET_KEY)?.factory).toBeUndefined();
+  });
+
+  it("keeps a completed task visible until the next turn even if nothing rendered", () => {
+    // Fade detection reads the live state at agent_start, not the render
+    // history: a completion that never painted still fades exactly once, at
+    // the next turn boundary.
     const ui = makeUICtx();
     const overlay = new TodoOverlay();
     overlay.setUICtx(ui as never);
     commitSnapshot([{ id: 1, subject: "done", status: "completed" }]);
     overlay.update();
+    // No render in between: the old render-time detection missed this case.
+    expect(renderWidget(ui).join("\n")).toContain("done");
     overlay.hideCompletedTasksFromPreviousTurn();
-    // A new list starts over: id 1 is a different task now.
-    commitSnapshot([{ id: 1, subject: "reborn", status: "completed" }]);
     overlay.update();
-    overlay.hideCompletedTasksFromPreviousTurn();
-    commitSnapshot([{ id: 1, subject: "reborn", status: "completed" }]);
-    overlay.update();
-    expect(renderWidget(ui).join("\n")).toContain("reborn");
+    expect(ui.widgets.find((w) => w.key === WIDGET_KEY)?.factory).toBeUndefined();
   });
 });

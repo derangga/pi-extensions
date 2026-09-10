@@ -15,6 +15,7 @@ interface MockPi {
     promptSnippet?: string;
     promptGuidelines?: string[];
     parameters: unknown;
+    executionMode?: string;
     execute: (
       toolCallId: string,
       params: unknown,
@@ -36,6 +37,7 @@ interface MockTheme {
 
 interface MockCtx {
   hasUI: boolean;
+  ui: ReturnType<typeof mockUI>;
   sessionManager: {
     getSessionId(): string;
     getBranch(): object[];
@@ -57,8 +59,44 @@ function mockTheme(): MockTheme {
   };
 }
 
+interface MockWidget {
+  key: string;
+  factory: unknown;
+  options?: { placement?: string } | undefined;
+}
+
+/** Minimal ExtensionUIContext stand-in: captures setWidget calls. */
+function mockUI(): {
+  theme: object;
+  widgets: MockWidget[];
+  setWidget(key: string, content: unknown, options?: { placement?: string }): void;
+} {
+  const ui = {
+    theme: {},
+    widgets: [] as MockWidget[],
+    setWidget(key: string, content: unknown, options?: { placement?: string }) {
+      const existing = ui.widgets.find((w) => w.key === key);
+      if (existing) {
+        existing.factory = content;
+        if (options !== undefined) {
+          existing.options = options;
+        }
+        return;
+      }
+      ui.widgets.push(
+        options === undefined ? { key, factory: content } : { key, factory: content, options },
+      );
+    },
+  };
+  return ui;
+}
+
 function mockCtx(sessionId: string, branch: object[] = [], hasUI = true): MockCtx {
-  return { hasUI, sessionManager: { getSessionId: () => sessionId, getBranch: () => branch } };
+  return {
+    hasUI,
+    ui: mockUI(),
+    sessionManager: { getSessionId: () => sessionId, getBranch: () => branch },
+  };
 }
 
 function makePi(): MockPi {
@@ -93,6 +131,9 @@ describe("registerTodoTool", () => {
     expect(tool.parameters).toBe(TodoParamsSchema);
     expect(tool.promptSnippet?.length ?? 0).toBeGreaterThan(0);
     expect(tool.promptGuidelines?.length ?? 0).toBeGreaterThan(0);
+    // Todo state is a shared per-session cell: the host must not run todo
+    // calls in a batch concurrently.
+    expect(tool.executionMode).toBe("sequential");
     expect(typeof tool.renderCall).toBe("function");
   });
 
@@ -126,6 +167,24 @@ describe("registerTodoTool", () => {
     expect(result.content[0]?.text).toBe("Error: subject required for create");
     expect(result.details.error).toBe("subject required for create");
     expect(getState("s1").tasks).toHaveLength(0);
+  });
+
+  it("serializes two batched todo calls against the same slot", async () => {
+    // Pi runs a batch of tool calls concurrently unless the tool opts out; the
+    // store's runExclusive queue keeps the read-modify-write cycles ordered
+    // even when a host ignores executionMode.
+    const pi = makePi();
+    registerTodoTool(pi as never);
+    const tool = must(pi.tools[0], "tool missing");
+    const ctx = mockCtx("s1");
+    const [first, second] = await Promise.all([
+      tool.execute("c1", { action: "create", subject: "one" }, undefined, undefined, ctx),
+      tool.execute("c2", { action: "create", subject: "two" }, undefined, undefined, ctx),
+    ]);
+    expect(first.content[0]?.text).toBe("Created #1: one (pending)");
+    expect(second.content[0]?.text).toBe("Created #2: two (pending)");
+    expect(getState("s1").tasks.map((t) => t.subject)).toEqual(["one", "two"]);
+    expect(getState("s1").nextId).toBe(3);
   });
 });
 
@@ -214,10 +273,15 @@ describe("extension lifecycle", () => {
     expect(getRenderState().tasks).toEqual([]);
   });
 
-  it("session_compact replays the compacted session's slot", async () => {
+  it("session_compact replays the compacted session's slot and refreshes the foreground overlay", async () => {
     const pi = makePi();
     defaultExtension(pi as never);
+    const start = must(pi.handlers.get("session_start"), "handler missing");
     const compact = must(pi.handlers.get("session_compact"), "handler missing");
+    // The first UI session claims the foreground and binds the overlay to
+    // its own UI context.
+    const startCtx = mockCtx("fg");
+    await start({ type: "session_start" } as never, startCtx as never);
     const branch = [
       detailsEntry({
         action: "update",
@@ -226,8 +290,14 @@ describe("extension lifecycle", () => {
         nextId: 2,
       }),
     ];
-    await compact({ type: "session_compact" } as never, mockCtx("s2", branch) as never);
-    expect(getState("s2").tasks[0]?.status).toBe("completed");
+    const compactCtx = mockCtx("fg", branch);
+    await compact({ type: "session_compact" } as never, compactCtx as never);
+    expect(getState("fg").tasks[0]?.status).toBe("completed");
+    // The replay replaced the foreground slot's content, so the handler must
+    // refresh the overlay; without it the widget shows the old list until
+    // the next todo call happens to repaint. The widget lives in the UI
+    // context the claim captured, not the compact event's one.
+    expect(startCtx.ui.widgets.some((w) => w.key === "pi-todo-agent" && w.factory)).toBe(true);
   });
 
   it("session_tree replays the same way", async () => {
@@ -252,6 +322,7 @@ describe("extension lifecycle", () => {
     const compact = must(pi.handlers.get("session_compact"), "handler missing");
     const staleCtx: MockCtx = {
       hasUI: true,
+      ui: mockUI(),
       sessionManager: {
         getSessionId: () => {
           throw new Error("sessionManager is stale after session replacement");
@@ -268,6 +339,7 @@ describe("extension lifecycle", () => {
     const compact = must(pi.handlers.get("session_compact"), "handler missing");
     const brokenCtx: MockCtx = {
       hasUI: true,
+      ui: mockUI(),
       sessionManager: {
         getSessionId: () => {
           throw new Error("branch iteration failed");
