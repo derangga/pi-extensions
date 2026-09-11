@@ -72,7 +72,7 @@ describe("thinking level", () => {
 
 describe("working directory", () => {
   it("shows the directory name without its path", () => {
-    expect(render("cwd-basename")).toBe("📂 repo");
+    expect(render("cwd-basename")).toBe("📁 repo");
   });
 });
 

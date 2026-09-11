@@ -29,8 +29,18 @@ afterEach(async () => {
 });
 
 describe("presets", () => {
-  it("ships exactly the three layouts", () => {
-    expect(PRESET_VALUES).toEqual(["default", "compact", "git-heavy"]);
+  it("ships exactly the four layouts", () => {
+    expect(PRESET_VALUES).toEqual(["default", "compact", "2-lines", "git-heavy"]);
+  });
+
+  it("gives 2-lines two lines, and every other preset one", () => {
+    // The only multi-line preset. A second line is otherwise something you
+    // reach by hand-editing the config, so this is the one that proves the
+    // renderer draws more than one of them.
+    const lineCounts = Object.fromEntries(
+      PRESET_VALUES.map((preset) => [preset, PRESET_DEFINITIONS[preset].lines.length]),
+    );
+    expect(lineCounts).toEqual({ default: 1, compact: 1, "2-lines": 2, "git-heavy": 1 });
   });
 
   it("names only widget types this build registers", () => {

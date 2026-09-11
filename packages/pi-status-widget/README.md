@@ -1,8 +1,8 @@
 # pi-status-widget
 
-A footer for [pi](https://pi.dev) with three presets, emoji or nerd font icons, twelve color schemes, and a thinking level segment that changes color with the level.
+A footer for [pi](https://pi.dev) with four presets, emoji or nerd font icons, twelve color schemes, and a thinking level segment that changes color with the level.
 
-Derived from [pi-footer](https://github.com/wobondar/pi-footer) by wobondar, MIT licensed. This package keeps 14 widgets, three presets, no config UI, and no runtime dependencies. If you want powerline segments, an in terminal config editor, or 56 widgets, pi-footer is the better fit.
+Derived from [pi-footer](https://github.com/wobondar/pi-footer) by wobondar, MIT licensed. This package keeps 14 widgets, four presets, no config UI, and no runtime dependencies. If you want powerline segments, an in terminal config editor, or 56 widgets, pi-footer is the better fit.
 
 ![Footer with emoji icons, default preset](./preview/statusbar-emoji.webp)
 ![Footer with nerd font icons, default preset](./preview/statusbar-nerd.webp)
@@ -28,18 +28,20 @@ pi -e npm:pi-status-widget
 
 ## What it shows
 
-Three presets, switched with one command. Each preset is one line unless you edit the config file to add more.
+Four presets, switched with one command. Only `2-lines` uses two lines; for any other layout over more than one line, edit the config file.
 
 | Preset | Separator | Widgets |
 | --- | --- | --- |
 | `default` | `dot` | provider and model, thinking level, context length, git branch, git diff compact, session cost, elapsed time |
 | `compact` | `space` | model, thinking level, git branch, context percent, cost |
+| `2-lines` | `dot` | directory name and branch on the first line, then model, thinking level, context percent, cost |
 | `git-heavy` | `dot` | provider and model, directory name, branch, short SHA, working tree counts, diff compact, ahead and behind |
 
 Examples from a real terminal:
 
 - `default`: `anthropic/claude-sonnet-4  high  42k  main (+12,-3)  $0.42  12m`
 - `compact`: `claude-sonnet-4  high  main  25%  $0.42`
+- `2-lines`: `my-app  main` over `claude-sonnet-4  high  25%  $0.42`
 - `git-heavy`: `anthropic/claude-sonnet-4  my-app  main  a1b2c3d  +2 ±1 ?0  (+12,-3)  ↑1 ↓0`
 
 The text above is before icons and colors. With emoji you see `🤖`, `🧠`, `🌿`, and so on. With nerd you see the same spots with Nerd Font glyphs.
@@ -124,7 +126,7 @@ Bare command opens the settings panel or prints state when no UI is present. Eve
 
 ```text
 /statusbar                                    open the settings panel
-/statusbar preset <default|compact|git-heavy> switch layout
+/statusbar preset <default|compact|2-lines|git-heavy>
 /statusbar separator <none|dot|pipe|space|powerline|dash|comma>
 /statusbar icons <emoji|nerd>                 switch icon set
 /statusbar colors <scheme>                    the panel lists every scheme
@@ -147,7 +149,7 @@ Settings panel rows:
 
 | Row | What it changes | Values |
 | --- | --- | --- |
-| Layout preset | Preset plus its separator | `default`, `compact`, `git-heavy` |
+| Layout preset | Preset plus its separator | `default`, `compact`, `2-lines`, `git-heavy` |
 | Separator | Global separator between widgets | `none`, `dot`, `pipe`, `space`, `powerline`, `dash`, `comma` |
 | Color scheme | Footer palette | `default` plus twelve names, each shown in its own colors with a swatch |
 | Icon set | Glyph set | `emoji`, `nerd` |
@@ -188,7 +190,7 @@ If the file is missing you get defaults. If the file is not valid JSON you get d
 | --- | --- | --- | --- |
 | `version` | `1` | `1` | Fixed |
 | `enabled` | boolean | `true` | `false` hides the footer |
-| `preset` | string | `default` | `default`, `compact`, `git-heavy` |
+| `preset` | string | `default` | `default`, `compact`, `2-lines`, `git-heavy` |
 | `separator` | string | per preset | `none`, `dot`, `pipe`, `space`, `powerline`, `dash`, `comma` |
 | `separatorFg` | ColorName | `default` | Named color, see below |
 | `separatorBg` | ColorName | `default` | Named color, see below |
@@ -223,7 +225,7 @@ Decorations like `fg: "cyan"` or `bold: true` sit inside `options` next to the p
 
 ## How it differs from pi-footer
 
-pi-footer is the larger package and the right choice if you want powerline segments, an in terminal config editor, or any of its 56 widgets. This one keeps 14 widgets, three presets, no config UI, and no runtime dependencies. Both read the same pi extension APIs, so footer data like `getGitBranch` comes from the same source.
+pi-footer is the larger package and the right choice if you want powerline segments, an in terminal config editor, or any of its 56 widgets. This one keeps 14 widgets, four presets, no config UI, and no runtime dependencies. Both read the same pi extension APIs, so footer data like `getGitBranch` comes from the same source.
 
 ## Notes on terminals and colors
 

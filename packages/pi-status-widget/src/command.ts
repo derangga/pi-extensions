@@ -21,7 +21,7 @@ import {
   ROW_COLORS,
   stepForKey,
 } from "./panel.js";
-import type { Preset } from "./presets.js";
+import { PRESET_VALUES, type Preset } from "./presets.js";
 import { SchemePicker } from "./scheme-picker.js";
 import { DEFAULT_SCHEME, normalizeColorSchemeName, type ColorSchemeName } from "./schemes.js";
 import { SEPARATOR_VALUES, type SeparatorStyle } from "./separators.js";
@@ -30,7 +30,7 @@ import type { IconMode, StatusbarConfig } from "./types.js";
 export const COMMAND_NAME = "statusbar";
 
 /**
- * The whole config surface for the footer. Three presets is a small enough
+ * The whole config surface for the footer. Four presets is a small enough
  * space that a panel of rows beats a builder, and the file path is on the
  * first line because hand-editing is the way to reach anything this command
  * does not cover.
@@ -38,7 +38,11 @@ export const COMMAND_NAME = "statusbar";
 export const USAGE = [
   "Usage:",
   "  /statusbar                                    open the settings panel",
-  "  /statusbar preset <default|compact|git-heavy> switch layout",
+  // Both value lists are built from the arrays themselves, and both give up the
+  // description column: a fourth preset already pushes this line to 55 columns,
+  // and realigning the block behind it would take the colors line past 80.
+  // The subcommand name carries the meaning either way.
+  `  /statusbar preset <${PRESET_VALUES.join("|")}>`,
   `  /statusbar separator <${SEPARATOR_VALUES.join("|")}>`,
   "  /statusbar icons <emoji|nerd>                 switch icon set",
   // <scheme> rather than the twelve names. The separator line above already

@@ -286,147 +286,339 @@ compact/truecolor/120/max
 compact/truecolor/120/none
   "\u001b[36m🤖 opus\u001b[39m \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10%\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
+2-lines/none/40/off
+  "📁 repo • 🌿 main"
+  "🤖 opus • 🧠 off • 🧩 10% • 💸 $0.0000"
+  "busy"
+2-lines/none/40/minimal
+  "📁 repo • 🌿 main"
+  "🤖 opus • 🧠 minimal • 🧩 10% • 💸 $0.0\u001b[0m…\u001b[0m"
+  "busy"
+2-lines/none/40/low
+  "📁 repo • 🌿 main"
+  "🤖 opus • 🧠 low • 🧩 10% • 💸 $0.0000"
+  "busy"
+2-lines/none/40/medium
+  "📁 repo • 🌿 main"
+  "🤖 opus • 🧠 medium • 🧩 10% • 💸 $0.00\u001b[0m…\u001b[0m"
+  "busy"
+2-lines/none/40/high
+  "📁 repo • 🌿 main"
+  "🤖 opus • 🧠 high • 🧩 10% • 💸 $0.0000"
+  "busy"
+2-lines/none/40/xhigh
+  "📁 repo • 🌿 main"
+  "🤖 opus • 🧠 xhigh • 🧩 10% • 💸 $0.0000"
+  "busy"
+2-lines/none/40/max
+  "📁 repo • 🌿 main"
+  "🤖 opus • 🧠 max • 🧩 10% • 💸 $0.0000"
+  "busy"
+2-lines/none/40/none
+  "📁 repo • 🌿 main"
+  "🤖 opus • 🧩 10% • 💸 $0.0000"
+  "busy"
+2-lines/none/120/off
+  "📁 repo • 🌿 main"
+  "🤖 opus • 🧠 off • 🧩 10% • 💸 $0.0000"
+  "busy"
+2-lines/none/120/minimal
+  "📁 repo • 🌿 main"
+  "🤖 opus • 🧠 minimal • 🧩 10% • 💸 $0.0000"
+  "busy"
+2-lines/none/120/low
+  "📁 repo • 🌿 main"
+  "🤖 opus • 🧠 low • 🧩 10% • 💸 $0.0000"
+  "busy"
+2-lines/none/120/medium
+  "📁 repo • 🌿 main"
+  "🤖 opus • 🧠 medium • 🧩 10% • 💸 $0.0000"
+  "busy"
+2-lines/none/120/high
+  "📁 repo • 🌿 main"
+  "🤖 opus • 🧠 high • 🧩 10% • 💸 $0.0000"
+  "busy"
+2-lines/none/120/xhigh
+  "📁 repo • 🌿 main"
+  "🤖 opus • 🧠 xhigh • 🧩 10% • 💸 $0.0000"
+  "busy"
+2-lines/none/120/max
+  "📁 repo • 🌿 main"
+  "🤖 opus • 🧠 max • 🧩 10% • 💸 $0.0000"
+  "busy"
+2-lines/none/120/none
+  "📁 repo • 🌿 main"
+  "🤖 opus • 🧩 10% • 💸 $0.0000"
+  "busy"
+2-lines/ansi/40/off
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingOff>🧠 off</thinking\u001b[0m…\u001b[0m"
+  "<dim>busy</dim>"
+2-lines/ansi/40/minimal
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingMinimal>🧠 minimal</\u001b[0m…\u001b[0m"
+  "<dim>busy</dim>"
+2-lines/ansi/40/low
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingLow>🧠 low</thinking\u001b[0m…\u001b[0m"
+  "<dim>busy</dim>"
+2-lines/ansi/40/medium
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingMedium>🧠 medium</th\u001b[0m…\u001b[0m"
+  "<dim>busy</dim>"
+2-lines/ansi/40/high
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingHigh>🧠 high</thinki\u001b[0m…\u001b[0m"
+  "<dim>busy</dim>"
+2-lines/ansi/40/xhigh
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingXhigh>🧠 xhigh</thin\u001b[0m…\u001b[0m"
+  "<dim>busy</dim>"
+2-lines/ansi/40/max
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • \u001b[91m🧠 max\u001b[39m • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "<dim>busy</dim>"
+2-lines/ansi/40/none
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "<dim>busy</dim>"
+2-lines/ansi/120/off
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingOff>🧠 off</thinkingOff> • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "<dim>busy</dim>"
+2-lines/ansi/120/minimal
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingMinimal>🧠 minimal</thinkingMinimal> • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "<dim>busy</dim>"
+2-lines/ansi/120/low
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingLow>🧠 low</thinkingLow> • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "<dim>busy</dim>"
+2-lines/ansi/120/medium
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingMedium>🧠 medium</thinkingMedium> • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "<dim>busy</dim>"
+2-lines/ansi/120/high
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingHigh>🧠 high</thinkingHigh> • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "<dim>busy</dim>"
+2-lines/ansi/120/xhigh
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingXhigh>🧠 xhigh</thinkingXhigh> • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "<dim>busy</dim>"
+2-lines/ansi/120/max
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • \u001b[91m🧠 max\u001b[39m • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "<dim>busy</dim>"
+2-lines/ansi/120/none
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "<dim>busy</dim>"
+2-lines/truecolor/40/off
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingOff>🧠 off</thinking\u001b[0m…\u001b[0m"
+  "<dim>busy</dim>"
+2-lines/truecolor/40/minimal
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingMinimal>🧠 minimal</\u001b[0m…\u001b[0m"
+  "<dim>busy</dim>"
+2-lines/truecolor/40/low
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingLow>🧠 low</thinking\u001b[0m…\u001b[0m"
+  "<dim>busy</dim>"
+2-lines/truecolor/40/medium
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingMedium>🧠 medium</th\u001b[0m…\u001b[0m"
+  "<dim>busy</dim>"
+2-lines/truecolor/40/high
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingHigh>🧠 high</thinki\u001b[0m…\u001b[0m"
+  "<dim>busy</dim>"
+2-lines/truecolor/40/xhigh
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingXhigh>🧠 xhigh</thin\u001b[0m…\u001b[0m"
+  "<dim>busy</dim>"
+2-lines/truecolor/40/max
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • \u001b[91m🧠 max\u001b[39m • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "<dim>busy</dim>"
+2-lines/truecolor/40/none
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "<dim>busy</dim>"
+2-lines/truecolor/120/off
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingOff>🧠 off</thinkingOff> • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "<dim>busy</dim>"
+2-lines/truecolor/120/minimal
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingMinimal>🧠 minimal</thinkingMinimal> • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "<dim>busy</dim>"
+2-lines/truecolor/120/low
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingLow>🧠 low</thinkingLow> • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "<dim>busy</dim>"
+2-lines/truecolor/120/medium
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingMedium>🧠 medium</thinkingMedium> • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "<dim>busy</dim>"
+2-lines/truecolor/120/high
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingHigh>🧠 high</thinkingHigh> • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "<dim>busy</dim>"
+2-lines/truecolor/120/xhigh
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingXhigh>🧠 xhigh</thinkingXhigh> • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "<dim>busy</dim>"
+2-lines/truecolor/120/max
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • \u001b[91m🧠 max\u001b[39m • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "<dim>busy</dim>"
+2-lines/truecolor/120/none
+  "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "<dim>busy</dim>"
 git-heavy/none/40/off
-  "🤖 anthropic/opus • 📂 repo • 🌿 main •\u001b[0m…\u001b[0m"
+  "🤖 anthropic/opus • 📁 repo • 🌿 main •\u001b[0m…\u001b[0m"
   "busy"
 git-heavy/none/40/minimal
-  "🤖 anthropic/opus • 📂 repo • 🌿 main •\u001b[0m…\u001b[0m"
+  "🤖 anthropic/opus • 📁 repo • 🌿 main •\u001b[0m…\u001b[0m"
   "busy"
 git-heavy/none/40/low
-  "🤖 anthropic/opus • 📂 repo • 🌿 main •\u001b[0m…\u001b[0m"
+  "🤖 anthropic/opus • 📁 repo • 🌿 main •\u001b[0m…\u001b[0m"
   "busy"
 git-heavy/none/40/medium
-  "🤖 anthropic/opus • 📂 repo • 🌿 main •\u001b[0m…\u001b[0m"
+  "🤖 anthropic/opus • 📁 repo • 🌿 main •\u001b[0m…\u001b[0m"
   "busy"
 git-heavy/none/40/high
-  "🤖 anthropic/opus • 📂 repo • 🌿 main •\u001b[0m…\u001b[0m"
+  "🤖 anthropic/opus • 📁 repo • 🌿 main •\u001b[0m…\u001b[0m"
   "busy"
 git-heavy/none/40/xhigh
-  "🤖 anthropic/opus • 📂 repo • 🌿 main •\u001b[0m…\u001b[0m"
+  "🤖 anthropic/opus • 📁 repo • 🌿 main •\u001b[0m…\u001b[0m"
   "busy"
 git-heavy/none/40/max
-  "🤖 anthropic/opus • 📂 repo • 🌿 main •\u001b[0m…\u001b[0m"
+  "🤖 anthropic/opus • 📁 repo • 🌿 main •\u001b[0m…\u001b[0m"
   "busy"
 git-heavy/none/40/none
-  "🤖 anthropic/opus • 📂 repo • 🌿 main •\u001b[0m…\u001b[0m"
+  "🤖 anthropic/opus • 📁 repo • 🌿 main •\u001b[0m…\u001b[0m"
   "busy"
 git-heavy/none/120/off
-  "🤖 anthropic/opus • 📂 repo • 🌿 main • 🔖 abc1234 • 🔀 +0 ±0 ?0 • 📈 (+0,-0) • ↕️ ↑0 ↓0"
+  "🤖 anthropic/opus • 📁 repo • 🌿 main • 🔖 abc1234 • 🔀 +0 ±0 ?0 • 📈 (+0,-0) • ↕️ ↑0 ↓0"
   "busy"
 git-heavy/none/120/minimal
-  "🤖 anthropic/opus • 📂 repo • 🌿 main • 🔖 abc1234 • 🔀 +0 ±0 ?0 • 📈 (+0,-0) • ↕️ ↑0 ↓0"
+  "🤖 anthropic/opus • 📁 repo • 🌿 main • 🔖 abc1234 • 🔀 +0 ±0 ?0 • 📈 (+0,-0) • ↕️ ↑0 ↓0"
   "busy"
 git-heavy/none/120/low
-  "🤖 anthropic/opus • 📂 repo • 🌿 main • 🔖 abc1234 • 🔀 +0 ±0 ?0 • 📈 (+0,-0) • ↕️ ↑0 ↓0"
+  "🤖 anthropic/opus • 📁 repo • 🌿 main • 🔖 abc1234 • 🔀 +0 ±0 ?0 • 📈 (+0,-0) • ↕️ ↑0 ↓0"
   "busy"
 git-heavy/none/120/medium
-  "🤖 anthropic/opus • 📂 repo • 🌿 main • 🔖 abc1234 • 🔀 +0 ±0 ?0 • 📈 (+0,-0) • ↕️ ↑0 ↓0"
+  "🤖 anthropic/opus • 📁 repo • 🌿 main • 🔖 abc1234 • 🔀 +0 ±0 ?0 • 📈 (+0,-0) • ↕️ ↑0 ↓0"
   "busy"
 git-heavy/none/120/high
-  "🤖 anthropic/opus • 📂 repo • 🌿 main • 🔖 abc1234 • 🔀 +0 ±0 ?0 • 📈 (+0,-0) • ↕️ ↑0 ↓0"
+  "🤖 anthropic/opus • 📁 repo • 🌿 main • 🔖 abc1234 • 🔀 +0 ±0 ?0 • 📈 (+0,-0) • ↕️ ↑0 ↓0"
   "busy"
 git-heavy/none/120/xhigh
-  "🤖 anthropic/opus • 📂 repo • 🌿 main • 🔖 abc1234 • 🔀 +0 ±0 ?0 • 📈 (+0,-0) • ↕️ ↑0 ↓0"
+  "🤖 anthropic/opus • 📁 repo • 🌿 main • 🔖 abc1234 • 🔀 +0 ±0 ?0 • 📈 (+0,-0) • ↕️ ↑0 ↓0"
   "busy"
 git-heavy/none/120/max
-  "🤖 anthropic/opus • 📂 repo • 🌿 main • 🔖 abc1234 • 🔀 +0 ±0 ?0 • 📈 (+0,-0) • ↕️ ↑0 ↓0"
+  "🤖 anthropic/opus • 📁 repo • 🌿 main • 🔖 abc1234 • 🔀 +0 ±0 ?0 • 📈 (+0,-0) • ↕️ ↑0 ↓0"
   "busy"
 git-heavy/none/120/none
-  "🤖 anthropic/opus • 📂 repo • 🌿 main • 🔖 abc1234 • 🔀 +0 ±0 ?0 • 📈 (+0,-0) • ↕️ ↑0 ↓0"
+  "🤖 anthropic/opus • 📁 repo • 🌿 main • 🔖 abc1234 • 🔀 +0 ±0 ?0 • 📈 (+0,-0) • ↕️ ↑0 ↓0"
   "busy"
 git-heavy/ansi/40/off
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
   "<dim>busy</dim>"
 git-heavy/ansi/40/minimal
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
   "<dim>busy</dim>"
 git-heavy/ansi/40/low
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
   "<dim>busy</dim>"
 git-heavy/ansi/40/medium
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
   "<dim>busy</dim>"
 git-heavy/ansi/40/high
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
   "<dim>busy</dim>"
 git-heavy/ansi/40/xhigh
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
   "<dim>busy</dim>"
 git-heavy/ansi/40/max
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
   "<dim>busy</dim>"
 git-heavy/ansi/40/none
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
   "<dim>busy</dim>"
 git-heavy/ansi/120/off
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
   "<dim>busy</dim>"
 git-heavy/ansi/120/minimal
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
   "<dim>busy</dim>"
 git-heavy/ansi/120/low
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
   "<dim>busy</dim>"
 git-heavy/ansi/120/medium
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
   "<dim>busy</dim>"
 git-heavy/ansi/120/high
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
   "<dim>busy</dim>"
 git-heavy/ansi/120/xhigh
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
   "<dim>busy</dim>"
 git-heavy/ansi/120/max
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
   "<dim>busy</dim>"
 git-heavy/ansi/120/none
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
   "<dim>busy</dim>"
 git-heavy/truecolor/40/off
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
   "<dim>busy</dim>"
 git-heavy/truecolor/40/minimal
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
   "<dim>busy</dim>"
 git-heavy/truecolor/40/low
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
   "<dim>busy</dim>"
 git-heavy/truecolor/40/medium
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
   "<dim>busy</dim>"
 git-heavy/truecolor/40/high
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
   "<dim>busy</dim>"
 git-heavy/truecolor/40/xhigh
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
   "<dim>busy</dim>"
 git-heavy/truecolor/40/max
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
   "<dim>busy</dim>"
 git-heavy/truecolor/40/none
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m •\u001b[0m…\u001b[0m"
   "<dim>busy</dim>"
 git-heavy/truecolor/120/off
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
   "<dim>busy</dim>"
 git-heavy/truecolor/120/minimal
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
   "<dim>busy</dim>"
 git-heavy/truecolor/120/low
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
   "<dim>busy</dim>"
 git-heavy/truecolor/120/medium
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
   "<dim>busy</dim>"
 git-heavy/truecolor/120/high
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
   "<dim>busy</dim>"
 git-heavy/truecolor/120/xhigh
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
   "<dim>busy</dim>"
 git-heavy/truecolor/120/max
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
   "<dim>busy</dim>"
 git-heavy/truecolor/120/none
-  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📂 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
+  "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[90m🔖 abc1234\u001b[39m • \u001b[33m🔀 +0 ±0 ?0\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[36m↕️ ↑0 ↓0\u001b[39m"
   "<dim>busy</dim>"

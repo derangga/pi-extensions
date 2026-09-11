@@ -10,7 +10,7 @@ import {
   USAGE,
 } from "../src/command.js";
 import { cloneConfig, DEFAULT_CONFIG, normalizeConfig } from "../src/config.js";
-import { PRESET_DEFINITIONS } from "../src/presets.js";
+import { PRESET_DEFINITIONS, PRESET_VALUES } from "../src/presets.js";
 import { SCHEME_NAMES } from "../src/schemes.js";
 import { SEPARATOR_VALUES } from "../src/separators.js";
 import type { StatusbarConfig } from "../src/types.js";
@@ -32,7 +32,7 @@ describe("parseStatusbarCommand", () => {
   });
 
   it("reads each shipped preset", () => {
-    for (const preset of ["default", "compact", "git-heavy"] as const) {
+    for (const preset of PRESET_VALUES) {
       expect(parseStatusbarCommand(`preset ${preset}`)).toEqual({ kind: "preset", preset });
     }
   });
@@ -230,6 +230,14 @@ describe("registerStatusbarCommand", () => {
   it("names every separator style in the usage, so none is undiscoverable", () => {
     for (const separator of SEPARATOR_VALUES) {
       expect(USAGE).toContain(separator);
+    }
+  });
+
+  it("names every preset in the usage too, for the same reason", () => {
+    // Unlike the twelve schemes, four preset names still fit on one line. A
+    // preset spelled nowhere but the panel is a preset most people never find.
+    for (const preset of PRESET_VALUES) {
+      expect(USAGE).toContain(preset);
     }
   });
 
