@@ -24,6 +24,8 @@ export interface ContextStub {
   panel(): PanelComponent | undefined;
   /** Whether the panel called done(), which is what escape does. */
   closed(): boolean;
+  /** How many times a draw asked for the session branch. Zero is the point. */
+  branchReads(): number;
 }
 
 export interface PanelComponent {
@@ -61,6 +63,7 @@ export function stubContext(options: ContextOptions = {}): ContextStub {
   const notifications: { message: string; type: string | undefined }[] = [];
   let panel: PanelComponent | undefined;
   let closed = false;
+  let branchReads = 0;
   const tui = { requestRender: () => {} };
 
   // SAFETY: safe cast — value is validated at boundary or test fixture with known shape.
@@ -71,7 +74,12 @@ export function stubContext(options: ContextOptions = {}): ContextStub {
     model:
       "model" in options ? options.model : { id: "opus", provider: "anthropic", reasoning: true },
     modelRegistry: { isUsingOAuth: () => options.usingOAuth ?? false },
-    sessionManager: { getBranch: () => [...(options.entries ?? [])] },
+    sessionManager: {
+      getBranch: () => {
+        branchReads += 1;
+        return [...(options.entries ?? [])];
+      },
+    },
     getContextUsage: () =>
       "contextUsage" in options ? options.contextUsage : { tokens: 100, contextWindow: 1000 },
     ui: {
@@ -90,7 +98,15 @@ export function stubContext(options: ContextOptions = {}): ContextStub {
     },
   } as unknown as ExtensionContext;
 
-  return { ctx, footers, statuses, notifications, panel: () => panel, closed: () => closed };
+  return {
+    ctx,
+    footers,
+    statuses,
+    notifications,
+    panel: () => panel,
+    closed: () => closed,
+    branchReads: () => branchReads,
+  };
 }
 
 export interface CommandStub {

@@ -1,5 +1,5 @@
 /**
- * pi-statusbar — a footer with three presets, emoji or nerd icons, and a
+ * pi-statusbar — a footer with four presets, emoji or nerd icons, and a
  * thinking-level segment coloured by the level.
  *
  * Pi resolves this through `pi.extensions` and loads it with jiti, so it ships
@@ -13,6 +13,7 @@ import { registerStatusbarCommand } from "./command.js";
 import { getConfigPath, loadConfig, saveConfig, STATUS_KEY } from "./config.js";
 import { collectStatusbarData } from "./data.js";
 import { gitCommandsFor, type GitCommand } from "./git.js";
+import { needsMetrics } from "./metrics.js";
 import { renderStatusbar } from "./render.js";
 import { activeScheme } from "./schemes.js";
 import type { StatusbarConfig } from "./types.js";
@@ -27,6 +28,7 @@ export default async function statusbarExtension(pi: ExtensionAPI): Promise<void
   let config: StatusbarConfig = loaded.config;
   let store = WidgetStore.fromConfig(config);
   let gitCommands: ReadonlySet<GitCommand> | undefined = gitCommandsFor(config.lines);
+  let metricsWanted = needsMetrics(config.lines);
   /** Reported at the next apply, since a config load has no UI context to speak through. */
   let configError = loaded.error;
   /** Set while a footer is mounted. The thinking-level repaint goes through it. */
@@ -35,7 +37,10 @@ export default async function statusbarExtension(pi: ExtensionAPI): Promise<void
   function replaceConfig(next: StatusbarConfig): void {
     config = next;
     store = WidgetStore.fromConfig(config);
+    // Both collection gates are derived here, from the same lines, so they
+    // cannot end up disagreeing about which widgets the footer is drawing.
     gitCommands = gitCommandsFor(config.lines);
+    metricsWanted = needsMetrics(config.lines);
   }
 
   /**
@@ -99,6 +104,7 @@ export default async function statusbarExtension(pi: ExtensionAPI): Promise<void
             pi,
             branchHint: footerData.getGitBranch(),
             gitCommands,
+            needsMetrics: metricsWanted,
             requestRender: ownRequestRender,
           });
           return renderStatusbar(store, data, width, {
