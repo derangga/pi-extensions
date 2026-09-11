@@ -1,14 +1,25 @@
-import * as fs from "node:fs";
-
-import { initTheme, type ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import {
+  initTheme,
+  type ExtensionCommandContext,
+  type Theme,
+} from "@earendil-works/pi-coding-agent";
 import { KeybindingsManager, setKeybindings, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
 import { beforeAll, describe, expect, it } from "vitest";
 
+/**
+ * Whether Pi's theme files are reachable from here. They ship beside the
+ * installed binary rather than in the package, so a checkout with no Pi
+ * installed cannot build the panel at all and every test below has to skip.
+ *
+ * Asked by calling initTheme and catching, not by probing a path. The previous
+ * version named an absolute /nix/store path for one Pi build; Pi moved the file
+ * out of dist/modes/interactive/ and the probe went on answering "missing",
+ * which skipped all of these silently on the one machine it was written for and
+ * every other machine besides.
+ */
 const themeDistMissing = (() => {
   try {
-    fs.accessSync(
-      "/nix/store/ljz710q1xhy4srivjmd7y6ql7sjg7k49-pi-0.84.4/libexec/pi/dist/modes/interactive/theme/dark.json",
-    );
+    initTheme();
     return false;
   } catch {
     return true;
@@ -29,10 +40,11 @@ import {
   ROW_PRESET,
   ROW_SEPARATOR,
 } from "../src/panel.js";
-import { PRESET_DEFINITIONS } from "../src/presets.js";
+import { PRESET_DEFINITIONS, PRESET_VALUES } from "../src/presets.js";
 import { SEPARATOR_VALUES } from "../src/separators.js";
 import type { StatusbarConfig } from "../src/types.js";
 import { stubApi, stubContext } from "./helpers/pi.js";
+import { partialTheme } from "./helpers/theme.js";
 
 /**
  * Drives the real SettingsList with real keystrokes. The panel keeps its own
@@ -56,22 +68,21 @@ beforeAll(() => {
   if (themeDistMissing) {
     return;
   }
-  // Both of these are process-wide state that only a running TUI installs, and
-  // the panel is only ever built where ctx.hasUI is true. getSettingsListTheme
-  // throws outright without the first.
-  initTheme();
+  // initTheme already ran in the guard above, and it is idempotent. What is
+  // left is process-wide state that only a running TUI installs, and the panel
+  // is only ever built where ctx.hasUI is true.
   // SettingsList reads the process-wide keybindings, which only the running TUI
   // installs. Without this its up and down do nothing and every test below
   // would pass for the wrong reason.
   setKeybindings(new KeybindingsManager(TUI_KEYBINDINGS));
 });
 
-async function openPanel(initial: StatusbarConfig = cloneConfig(DEFAULT_CONFIG)) {
+async function openPanel(initial: StatusbarConfig = cloneConfig(DEFAULT_CONFIG), theme?: Theme) {
   let config = initial;
   const commits: StatusbarConfig[] = [];
   const previews: StatusbarConfig[] = [];
   const api = stubApi();
-  const context = stubContext();
+  const context = stubContext(theme ? { theme } : {});
 
   registerStatusbarCommand(api.pi, {
     current: () => config,
@@ -210,7 +221,8 @@ describe.skipIf(themeDistMissing)("the /statusbar panel", () => {
     await panel.press(RIGHT);
 
     expect(panel.commits).toHaveLength(2);
-    expect(panel.latest().preset).toBe("git-heavy");
+    // Two steps from the first preset, whatever they happen to be named.
+    expect(panel.latest().preset).toBe(PRESET_VALUES[2]);
   });
 
   it("says nothing while the panel is open", async () => {
@@ -319,7 +331,7 @@ describe.skipIf(themeDistMissing)("the /statusbar panel", () => {
     const panel = await openPanel();
     await panel.burst(RIGHT, RIGHT);
 
-    expect(panel.latest().preset).toBe("git-heavy");
+    expect(panel.latest().preset).toBe(PRESET_VALUES[2]);
   });
 
   it("leaves the closing row alone under the arrows", async () => {
@@ -533,5 +545,20 @@ describe.skipIf(themeDistMissing)("the Color scheme picker", () => {
     await panel.press(RIGHT);
 
     expect(panel.latest().preset).toBe("compact");
+  });
+});
+
+describe("the panel on a theme that defines nothing", () => {
+  it.skipIf(themeDistMissing)("opens and draws rather than throwing on the title", async () => {
+    // Theme.fg throws on a color the loaded theme omits, and from Pi 0.84 that
+    // is a real installation rather than a hypothetical one. The title was the
+    // one call in the package still making it unguarded, from inside ui.custom
+    // where the throw takes the whole panel with it.
+    const panel = await openPanel(cloneConfig(DEFAULT_CONFIG), partialTheme([]));
+    const text = panel.lines().join("\n");
+
+    expect(text).toContain("pi-statusbar");
+    expect(text).toContain(PANEL_HINT);
+    expect(text).toContain("Layout preset");
   });
 });
