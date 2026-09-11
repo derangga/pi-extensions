@@ -124,6 +124,8 @@ The slots are the sixteen ANSI names, `black` through `brightWhite`, plus `defau
 
 Bare command opens the settings panel or prints state when no UI is present. Every mutation saves to disk and repaints immediately. A failed write notifies rather than throwing.
 
+Tab completes the subcommands, then that subcommand's values. It is the one place every scheme name is typeable without opening the panel first.
+
 ```text
 /statusbar                                    open the settings panel
 /statusbar preset <default|compact|2-lines|git-heavy>

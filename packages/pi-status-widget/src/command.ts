@@ -1,6 +1,12 @@
 import { getSettingsListTheme } from "@earendil-works/pi-coding-agent";
 import type { ExtensionAPI, ExtensionCommandContext, Theme } from "@earendil-works/pi-coding-agent";
-import { Container, SettingsList, type SettingsListTheme, Text } from "@earendil-works/pi-tui";
+import {
+  Container,
+  SettingsList,
+  Text,
+  type AutocompleteItem,
+  type SettingsListTheme,
+} from "@earendil-works/pi-tui";
 
 import { accentColor, applyColors, resolveColorLevel } from "./colors.js";
 import {
@@ -23,9 +29,14 @@ import {
 } from "./panel.js";
 import { PRESET_VALUES, type Preset } from "./presets.js";
 import { SchemePicker } from "./scheme-picker.js";
-import { DEFAULT_SCHEME, normalizeColorSchemeName, type ColorSchemeName } from "./schemes.js";
+import {
+  DEFAULT_SCHEME,
+  normalizeColorSchemeName,
+  SCHEME_NAMES,
+  type ColorSchemeName,
+} from "./schemes.js";
 import { SEPARATOR_VALUES, type SeparatorStyle } from "./separators.js";
-import type { IconMode, StatusbarConfig } from "./types.js";
+import { ICON_MODE_VALUES, type IconMode, type StatusbarConfig } from "./types.js";
 
 export const COMMAND_NAME = "statusbar";
 
@@ -51,6 +62,70 @@ export const USAGE = [
   "  /statusbar on | off                           show or hide the footer",
   "  /statusbar reset                              restore defaults",
 ].join("\n");
+
+/** The subcommands, with the closed value set each one takes. */
+const VALUES_FOR: Record<string, readonly string[]> = {
+  preset: PRESET_VALUES,
+  separator: SEPARATOR_VALUES,
+  icons: ICON_MODE_VALUES,
+  // default first, the way the picker orders it: the way back out of a scheme
+  // should not be the last thing you scroll to.
+  colors: [DEFAULT_SCHEME, ...SCHEME_NAMES],
+};
+
+const SUBCOMMANDS: readonly { name: string; description: string }[] = [
+  { name: "preset", description: "switch layout" },
+  { name: "separator", description: "text drawn between segments" },
+  { name: "icons", description: "emoji or nerd font glyphs" },
+  { name: "colors", description: "footer palette" },
+  { name: "on", description: "show the footer" },
+  { name: "off", description: "hide the footer" },
+  { name: "reset", description: "restore defaults" },
+];
+
+/**
+ * What Tab offers, in two steps: the subcommands, then the values of whichever
+ * one is already typed. This is where the twelve scheme names become reachable
+ * from the prompt, which the usage deliberately does not spell out.
+ *
+ * Every item's value is the whole argument text rather than the word under the
+ * cursor, because that is what pi-tui replaces: applyCompletion swaps out
+ * everything after `/statusbar `, so offering "default" for a typed
+ * "preset def" would leave `/statusbar default`.
+ *
+ * A subcommand that takes values completes with a trailing space, so a second
+ * Tab lands on the value step rather than on nothing.
+ */
+export function statusbarCompletions(argumentPrefix: string): AutocompleteItem[] | null {
+  const lowered = argumentPrefix.toLowerCase();
+  const typed = /^(\S+)\s+(\S*)$/.exec(lowered);
+
+  if (!typed) {
+    return firstOrNull(
+      SUBCOMMANDS.filter((sub) => sub.name.startsWith(lowered.trim())).map((sub) => ({
+        value: VALUES_FOR[sub.name] ? `${sub.name} ` : sub.name,
+        label: sub.name,
+        description: sub.description,
+      })),
+    );
+  }
+
+  const [, name = "", valuePrefix = ""] = typed;
+  const values = VALUES_FOR[name];
+  if (!values) {
+    return null;
+  }
+  return firstOrNull(
+    values
+      .filter((value) => value.startsWith(valuePrefix))
+      .map((value) => ({ value: `${name} ${value}`, label: value })),
+  );
+}
+
+/** null rather than an empty array: pi-tui reads that as nothing to offer. */
+function firstOrNull(items: AutocompleteItem[]): AutocompleteItem[] | null {
+  return items.length > 0 ? items : null;
+}
 
 export type StatusbarCommand =
   | { kind: "show" }
@@ -381,6 +456,7 @@ async function applyCommand(
 export function registerStatusbarCommand(pi: ExtensionAPI, host: StatusbarCommandHost): void {
   pi.registerCommand(COMMAND_NAME, {
     description: "Show or change the pi-statusbar footer",
+    getArgumentCompletions: statusbarCompletions,
     handler: async (args, ctx) => {
       // The bare command opens the panel, which is what anyone types first.
       // Typed arguments keep working and skip it entirely, and a run with no

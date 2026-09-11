@@ -8,6 +8,7 @@ import {
   describeSettings,
   paintTitle,
   PANEL_TITLE,
+  statusbarCompletions,
   parseStatusbarCommand,
   registerStatusbarCommand,
   USAGE,
@@ -389,6 +390,69 @@ describe("the panel title", () => {
       } else {
         process.env.NO_COLOR = previous;
       }
+    }
+  });
+});
+
+describe("statusbarCompletions", () => {
+  const values = (prefix: string) => (statusbarCompletions(prefix) ?? []).map((item) => item.value);
+  const labels = (prefix: string) => (statusbarCompletions(prefix) ?? []).map((item) => item.label);
+
+  it("offers every subcommand on an empty argument", () => {
+    expect(labels("")).toEqual(["preset", "separator", "icons", "colors", "on", "off", "reset"]);
+  });
+
+  it("narrows the subcommands as they are typed", () => {
+    expect(labels("pre")).toEqual(["preset"]);
+    expect(labels("o")).toEqual(["on", "off"]);
+    expect(statusbarCompletions("zzz")).toBeNull();
+  });
+
+  it("completes a subcommand that takes values with a trailing space", () => {
+    // So a second Tab lands on the value step instead of on nothing. The ones
+    // that take no value complete bare.
+    expect(values("pre")).toEqual(["preset "]);
+    expect(values("reset")).toEqual(["reset"]);
+  });
+
+  it("replaces the whole argument, not the word under the cursor", () => {
+    // pi-tui's applyCompletion swaps out everything after `/statusbar `, so a
+    // bare "default" here would leave the line reading `/statusbar default`.
+    expect(values("preset def")).toEqual(["preset default"]);
+    expect(values("icons ne")).toEqual(["icons nerd"]);
+  });
+
+  it("offers every value of every subcommand that has a closed set", () => {
+    expect(labels("preset ")).toEqual([...PRESET_VALUES]);
+    expect(labels("separator ")).toEqual([...SEPARATOR_VALUES]);
+    expect(labels("icons ")).toEqual(["emoji", "nerd"]);
+  });
+
+  it("reaches all twelve schemes, which the usage deliberately does not name", () => {
+    // The one place a scheme name is typeable without reading the panel first.
+    expect(labels("colors ")).toEqual(["default", ...SCHEME_NAMES]);
+  });
+
+  it("offers nothing for a subcommand that takes no value, or a value that matches none", () => {
+    expect(statusbarCompletions("reset ")).toBeNull();
+    expect(statusbarCompletions("on ")).toBeNull();
+    expect(statusbarCompletions("preset zzz")).toBeNull();
+  });
+
+  it("completes in any case, since the command lowercases what it parses", () => {
+    expect(values("Colors Catppuccin-Mo")).toEqual(["colors catppuccin-mocha"]);
+  });
+
+  it("only ever offers something parseStatusbarCommand accepts", () => {
+    // A completion that inserts text the parser rejects would answer a Tab with
+    // usage. Walked across every subcommand and every value.
+    const offered = (statusbarCompletions("") ?? []).flatMap(
+      (sub) => statusbarCompletions(`${sub.value}`) ?? [sub],
+    );
+
+    expect(offered.length).toBeGreaterThan(20);
+    for (const item of offered) {
+      expect(parseStatusbarCommand(item.value).kind).not.toBe("usage");
     }
   });
 });
