@@ -89,10 +89,10 @@ describe("pi-unslop-rules manifest", () => {
     expect(text).toContain("73f8be4");
   });
 
-  it("is public, MIT, and starts at 0.1.0", () => {
+  it("is public, MIT, and starts at 0.1.1", () => {
     const manifest = readManifest();
     expect(manifest.name).toBe("pi-unslop-rules");
-    expect(manifest.version).toBe("0.1.0");
+    expect(manifest.version).toBe("0.1.1");
     expect(manifest.license).toBe("MIT");
     expect(manifest.publishConfig?.access).toBe("public");
   });
