@@ -21,6 +21,11 @@ const mocha = COLOR_SCHEMES["catppuccin-mocha"];
  * The fixture is bytes, escape sequences and all, not a vitest snapshot: a
  * snapshot regenerates on -u, which is exactly the gesture someone reaches for
  * when this test goes red. This file has to be edited by hand to move.
+ *
+ * Moved once since it was captured, and only where a deliberate change reached
+ * it: the twelve `/none` rows lost the thinking segment, which at a model that
+ * does not reason had been drawing a bare brain glyph and a separator. Every
+ * other row is still the original bytes.
  */
 const FIXTURE = fileURLToPath(new URL("./fixtures/default-scheme-output.txt", import.meta.url));
 

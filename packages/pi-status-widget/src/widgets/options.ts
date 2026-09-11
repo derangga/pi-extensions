@@ -16,6 +16,16 @@ function isNumber(value: unknown): value is number {
 
 const SYSTEM_BASE_OPTION_DEFAULTS = {
   raw: false,
+  /**
+   * Off system-wide. Most widgets always have something to say, and one that
+   * unexpectedly renders nothing is better off showing the "-" placeholder than
+   * vanishing without explanation.
+   *
+   * The widgets that can legitimately render nothing turn it on through
+   * baseOptionDefaults, where they already blank that placeholder: no branch,
+   * no repository, a model that does not reason. Left off, each of those paints
+   * a bare icon with empty text after it, plus a separator on either side.
+   */
   hideWhenEmpty: false,
   hideWhenZero: false,
   text: "-",

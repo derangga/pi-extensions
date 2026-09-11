@@ -7,7 +7,7 @@ export const ThinkingLevelWidget = defineWidget({
   description: "Reasoning level, colored by the level, for models that support one",
   dependencies: ["thinkingLevel"],
   baseOptions: ["raw", "hideWhenEmpty", "icon", "text"],
-  baseOptionDefaults: { text: "" },
+  baseOptionDefaults: { text: "", hideWhenEmpty: true },
   properties: [THINKING_LEVEL_COLORS_PROPERTY],
   // Placeholder glyph. The intended one is a GitHub
   // Copilot nerd glyph; swap the escape below once its codepoint is settled.
