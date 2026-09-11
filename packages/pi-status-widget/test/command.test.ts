@@ -2,9 +2,12 @@ import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { describe, expect, it } from "vitest";
 
+import { applyColors } from "../src/colors.js";
 import {
   COMMAND_NAME,
   describeSettings,
+  paintTitle,
+  PANEL_TITLE,
   parseStatusbarCommand,
   registerStatusbarCommand,
   USAGE,
@@ -15,6 +18,7 @@ import { SCHEME_NAMES } from "../src/schemes.js";
 import { SEPARATOR_VALUES } from "../src/separators.js";
 import type { StatusbarConfig } from "../src/types.js";
 import { stubApi, stubContext } from "./helpers/pi.js";
+import { partialTheme } from "./helpers/theme.js";
 
 describe("parseStatusbarCommand", () => {
   it("shows the current settings when given nothing", () => {
@@ -357,5 +361,34 @@ describe("registerStatusbarCommand", () => {
     await host.run("on");
 
     expect(host.state.commits).toHaveLength(1);
+  });
+});
+
+describe("the panel title", () => {
+  it("uses the theme's accent when the theme defines one", () => {
+    expect(paintTitle(partialTheme(["accent"]))).toBe(`<accent>${PANEL_TITLE}</accent>`);
+  });
+
+  it("degrades to a fixed color rather than throwing on a theme without accent", () => {
+    // Theme.fg throws instead of falling back, and this call sits inside
+    // ui.custom: an exception here closes the panel before it draws a row.
+    expect(paintTitle(partialTheme([]))).toBe(
+      applyColors(PANEL_TITLE, "cyan", undefined, false, "ansi"),
+    );
+  });
+
+  it("paints nothing at all under NO_COLOR", () => {
+    // A raw theme.fg ignores NO_COLOR. The title has no reason to.
+    const previous = process.env.NO_COLOR;
+    process.env.NO_COLOR = "1";
+    try {
+      expect(paintTitle(partialTheme(["accent"]))).toBe(PANEL_TITLE);
+    } finally {
+      if (previous === undefined) {
+        delete process.env.NO_COLOR;
+      } else {
+        process.env.NO_COLOR = previous;
+      }
+    }
   });
 });

@@ -8,7 +8,7 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import { applyColors, hasThemeColor, resolveColorLevel } from "./colors.js";
+import { accentColor, applyColors, resolveColorLevel } from "./colors.js";
 import { registerStatusbarCommand } from "./command.js";
 import { getConfigPath, loadConfig, saveConfig, STATUS_KEY } from "./config.js";
 import { collectStatusbarData } from "./data.js";
@@ -47,18 +47,14 @@ export default async function statusbarExtension(pi: ExtensionAPI): Promise<void
    * The label other extensions see in the status row, painted through the same
    * ladder every widget uses.
    *
-   * Not `theme.fg("accent", …)` directly, which is what upstream does. Theme.fg
-   * throws on a color the loaded theme omits, and this call sits inside the
-   * session_start handler: a throw here rejects the handler and the footer never
-   * mounts at all. Going through applyColors also means the label honours
-   * NO_COLOR, which a raw theme call ignores.
+   * Not `theme.fg("accent", …)` directly, which is what upstream does: see
+   * accentColor for why that throws, and what it costs here in particular.
    */
   function statusLabel(ctx: ExtensionContext): string {
-    const accent = hasThemeColor(ctx.ui.theme, "accent") ? "pi:accent" : "cyan";
     const colorLevel = resolveColorLevel(process.env, ctx.ui.theme);
     return applyColors(
       STATUS_LABEL,
-      accent,
+      accentColor(ctx.ui.theme),
       undefined,
       false,
       colorLevel,

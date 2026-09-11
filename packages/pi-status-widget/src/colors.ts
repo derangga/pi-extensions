@@ -103,6 +103,20 @@ export function hasThemeColor(theme: Theme | undefined, color: ThemeColor): bool
 }
 
 /**
+ * The accent name to paint this package's own chrome with, degraded to a fixed
+ * color when the loaded theme has no accent.
+ *
+ * Asking first is the whole point. Theme.fg throws rather than falling back, so
+ * a raw `theme.fg("accent", …)` takes the caller down with it: from the status
+ * label that means session_start rejects and the footer never mounts, and from
+ * the panel it means /statusbar fails to open. Painting the answer through
+ * applyColors also gets NO_COLOR honoured, which a raw theme call ignores.
+ */
+export function accentColor(theme: Theme | undefined): ColorName {
+  return hasThemeColor(theme, "accent") ? "pi:accent" : "cyan";
+}
+
+/**
  * The scheme rides along as the last argument rather than folded into an object
  * with level and theme. Seven positional parameters is not a shape to be proud
  * of, but every one of the callers and the assertions that pin their output

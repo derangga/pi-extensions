@@ -1,8 +1,8 @@
 import { getSettingsListTheme } from "@earendil-works/pi-coding-agent";
-import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext, Theme } from "@earendil-works/pi-coding-agent";
 import { Container, SettingsList, type SettingsListTheme, Text } from "@earendil-works/pi-tui";
 
-import { resolveColorLevel } from "./colors.js";
+import { accentColor, applyColors, resolveColorLevel } from "./colors.js";
 import {
   cloneConfig,
   configWithPreset,
@@ -149,6 +149,21 @@ export const PANEL_HINT = "/statusbar reset restores defaults";
 export const PANEL_TITLE = "pi-statusbar";
 
 /**
+ * No scheme argument. The panel is chrome rather than footer content, the same
+ * reasoning that keeps the scheme picker's own rows off the configured icon set.
+ */
+export function paintTitle(theme: Theme | undefined): string {
+  return applyColors(
+    PANEL_TITLE,
+    accentColor(theme),
+    undefined,
+    false,
+    resolveColorLevel(process.env, theme),
+    theme,
+  );
+}
+
+/**
  * Matches SettingsList's own hint exactly: its two-space indent, its hint
  * colour, and no padding, so the two lines read as one block rather than as a
  * hint and some other thing below it.
@@ -178,7 +193,10 @@ async function openPanel(
 
   await ctx.ui.custom<undefined>((tui, theme, keybindings, done) => {
     const container = new Container();
-    container.addChild(new Text(theme.fg("accent", PANEL_TITLE), 1, 1));
+    // Through the same ladder the footer uses. theme.fg throws on a color the
+    // loaded theme omits, and from here that failure closes the panel before it
+    // draws; it also ignores NO_COLOR, which the title has no reason to.
+    container.addChild(new Text(paintTitle(theme), 1, 1));
 
     const settingsTheme = getSettingsListTheme();
     const list = new SettingsList(
