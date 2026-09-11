@@ -152,13 +152,18 @@ export default async function statusbarExtension(pi: ExtensionAPI): Promise<void
     apply(ctx);
   });
 
-  pi.on("model_select", (_event, ctx) => {
-    apply(ctx);
+  // Both of these repaint rather than re-apply. ctx.model and getThinkingLevel
+  // are read fresh inside render, so the mounted footer already draws the new
+  // value; apply() would tear the footer down, mount a replacement and
+  // resubscribe to the branch to reach the same pixels.
+  //
+  // Upstream subscribes to neither, so either change reaches the footer only on
+  // the next unrelated redraw. For a segment whose colour is the thinking level,
+  // that reads as the feature being broken.
+  pi.on("model_select", () => {
+    requestRender?.();
   });
 
-  // Upstream never subscribes to this, so a level change reaches the footer only
-  // on the next unrelated redraw. For a segment whose colour is the level, that
-  // reads as the feature being broken.
   pi.on("thinking_level_select", () => {
     requestRender?.();
   });
