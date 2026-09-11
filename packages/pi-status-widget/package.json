@@ -1,6 +1,6 @@
 {
   "name": "pi-status-widget",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Pi extension. A footer/statusline with four presets, emoji or nerd font icons, and a thinking-level segment whose color tracks the level.",
   "type": "module",
   "license": "MIT",
