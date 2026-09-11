@@ -5,7 +5,7 @@ export const GitAheadBehindWidget = defineWidget({
   description: "Commits ahead of and behind the upstream branch",
   dependencies: ["git"],
   baseOptions: ["raw", "hideWhenEmpty", "icon", "text"],
-  baseOptionDefaults: { text: "" },
+  baseOptionDefaults: { text: "", hideWhenEmpty: true },
   properties: [],
   icons: { emoji: "↕️", nerd: "\u{f0dd}" },
   defaultStyle: { fg: "cyan", bg: "default", bold: false },

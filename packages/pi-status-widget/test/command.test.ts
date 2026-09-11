@@ -2,19 +2,24 @@ import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { describe, expect, it } from "vitest";
 
+import { applyColors } from "../src/colors.js";
 import {
   COMMAND_NAME,
   describeSettings,
+  paintTitle,
+  PANEL_TITLE,
+  statusbarCompletions,
   parseStatusbarCommand,
   registerStatusbarCommand,
   USAGE,
 } from "../src/command.js";
 import { cloneConfig, DEFAULT_CONFIG, normalizeConfig } from "../src/config.js";
-import { PRESET_DEFINITIONS } from "../src/presets.js";
+import { PRESET_DEFINITIONS, PRESET_VALUES } from "../src/presets.js";
 import { SCHEME_NAMES } from "../src/schemes.js";
 import { SEPARATOR_VALUES } from "../src/separators.js";
 import type { StatusbarConfig } from "../src/types.js";
 import { stubApi, stubContext } from "./helpers/pi.js";
+import { partialTheme } from "./helpers/theme.js";
 
 describe("parseStatusbarCommand", () => {
   it("shows the current settings when given nothing", () => {
@@ -32,7 +37,7 @@ describe("parseStatusbarCommand", () => {
   });
 
   it("reads each shipped preset", () => {
-    for (const preset of ["default", "compact", "git-heavy"] as const) {
+    for (const preset of PRESET_VALUES) {
       expect(parseStatusbarCommand(`preset ${preset}`)).toEqual({ kind: "preset", preset });
     }
   });
@@ -233,6 +238,14 @@ describe("registerStatusbarCommand", () => {
     }
   });
 
+  it("names every preset in the usage too, for the same reason", () => {
+    // Unlike the twelve schemes, four preset names still fit on one line. A
+    // preset spelled nowhere but the panel is a preset most people never find.
+    for (const preset of PRESET_VALUES) {
+      expect(USAGE).toContain(preset);
+    }
+  });
+
   it("sets every one of the twelve schemes, and default to get back out", async () => {
     // Walked, because a scheme that parses nowhere is a scheme nobody can
     // reach from the prompt, and the panel is the only other way in.
@@ -349,5 +362,97 @@ describe("registerStatusbarCommand", () => {
     await host.run("on");
 
     expect(host.state.commits).toHaveLength(1);
+  });
+});
+
+describe("the panel title", () => {
+  it("uses the theme's accent when the theme defines one", () => {
+    expect(paintTitle(partialTheme(["accent"]))).toBe(`<accent>${PANEL_TITLE}</accent>`);
+  });
+
+  it("degrades to a fixed color rather than throwing on a theme without accent", () => {
+    // Theme.fg throws instead of falling back, and this call sits inside
+    // ui.custom: an exception here closes the panel before it draws a row.
+    expect(paintTitle(partialTheme([]))).toBe(
+      applyColors(PANEL_TITLE, "cyan", undefined, false, "ansi"),
+    );
+  });
+
+  it("paints nothing at all under NO_COLOR", () => {
+    // A raw theme.fg ignores NO_COLOR. The title has no reason to.
+    const previous = process.env.NO_COLOR;
+    process.env.NO_COLOR = "1";
+    try {
+      expect(paintTitle(partialTheme(["accent"]))).toBe(PANEL_TITLE);
+    } finally {
+      if (previous === undefined) {
+        delete process.env.NO_COLOR;
+      } else {
+        process.env.NO_COLOR = previous;
+      }
+    }
+  });
+});
+
+describe("statusbarCompletions", () => {
+  const values = (prefix: string) => (statusbarCompletions(prefix) ?? []).map((item) => item.value);
+  const labels = (prefix: string) => (statusbarCompletions(prefix) ?? []).map((item) => item.label);
+
+  it("offers every subcommand on an empty argument", () => {
+    expect(labels("")).toEqual(["preset", "separator", "icons", "colors", "on", "off", "reset"]);
+  });
+
+  it("narrows the subcommands as they are typed", () => {
+    expect(labels("pre")).toEqual(["preset"]);
+    expect(labels("o")).toEqual(["on", "off"]);
+    expect(statusbarCompletions("zzz")).toBeNull();
+  });
+
+  it("completes a subcommand that takes values with a trailing space", () => {
+    // So a second Tab lands on the value step instead of on nothing. The ones
+    // that take no value complete bare.
+    expect(values("pre")).toEqual(["preset "]);
+    expect(values("reset")).toEqual(["reset"]);
+  });
+
+  it("replaces the whole argument, not the word under the cursor", () => {
+    // pi-tui's applyCompletion swaps out everything after `/statusbar `, so a
+    // bare "default" here would leave the line reading `/statusbar default`.
+    expect(values("preset def")).toEqual(["preset default"]);
+    expect(values("icons ne")).toEqual(["icons nerd"]);
+  });
+
+  it("offers every value of every subcommand that has a closed set", () => {
+    expect(labels("preset ")).toEqual([...PRESET_VALUES]);
+    expect(labels("separator ")).toEqual([...SEPARATOR_VALUES]);
+    expect(labels("icons ")).toEqual(["emoji", "nerd"]);
+  });
+
+  it("reaches all twelve schemes, which the usage deliberately does not name", () => {
+    // The one place a scheme name is typeable without reading the panel first.
+    expect(labels("colors ")).toEqual(["default", ...SCHEME_NAMES]);
+  });
+
+  it("offers nothing for a subcommand that takes no value, or a value that matches none", () => {
+    expect(statusbarCompletions("reset ")).toBeNull();
+    expect(statusbarCompletions("on ")).toBeNull();
+    expect(statusbarCompletions("preset zzz")).toBeNull();
+  });
+
+  it("completes in any case, since the command lowercases what it parses", () => {
+    expect(values("Colors Catppuccin-Mo")).toEqual(["colors catppuccin-mocha"]);
+  });
+
+  it("only ever offers something parseStatusbarCommand accepts", () => {
+    // A completion that inserts text the parser rejects would answer a Tab with
+    // usage. Walked across every subcommand and every value.
+    const offered = (statusbarCompletions("") ?? []).flatMap(
+      (sub) => statusbarCompletions(`${sub.value}`) ?? [sub],
+    );
+
+    expect(offered.length).toBeGreaterThan(20);
+    for (const item of offered) {
+      expect(parseStatusbarCommand(item.value).kind).not.toBe("usage");
+    }
   });
 });

@@ -17,7 +17,7 @@ function widget(type: WidgetType, options: WidgetOptions = {}): PresetWidget {
 }
 
 /**
- * Three plain layouts with the verbosity segment omitted.
+ * Four plain layouts with the verbosity segment omitted.
  *
  * A preset carries a separator and a widget list, and deliberately no icon
  * mode. A font capability belongs to the terminal rather than to a layout, so
@@ -48,6 +48,22 @@ export const PRESET_DEFINITIONS = {
         widget("context"),
         widget("cost"),
       ],
+    ],
+  },
+  /**
+   * The only preset that is two lines. Where it goes matters: everything
+   * changes on the working directory sits above everything that changes on the
+   * model, so neither row reshuffles when the other does.
+   *
+   * Keyed "2-lines" rather than "2 lines" because parseStatusbarCommand splits
+   * its arguments on whitespace. A space would make `/statusbar preset 2 lines`
+   * read the value as "2", fail isPreset, and print usage.
+   */
+  "2-lines": {
+    separator: "dot",
+    lines: [
+      [widget("cwd-basename"), widget("git-branch")],
+      [widget("model"), widget("thinking-level"), widget("context"), widget("cost")],
     ],
   },
   "git-heavy": {

@@ -5,7 +5,7 @@ export const GitBranchWidget = defineWidget({
   description: "Current branch name, optionally surrounded",
   dependencies: ["git"],
   baseOptions: ["raw", "hideWhenEmpty", "icon", "text"],
-  baseOptionDefaults: { text: "" },
+  baseOptionDefaults: { text: "", hideWhenEmpty: true },
   properties: [
     {
       id: "gitBranchDisplayStyle",

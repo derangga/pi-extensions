@@ -1,4 +1,43 @@
 import { isRecord, type SessionMetrics } from "./types.js";
+import { registry } from "./widgets/registry.js";
+import type { WidgetDependency } from "./widgets/types.js";
+
+/** What a draw reads when no enabled widget declares the metrics dependency. */
+export const EMPTY_METRICS: SessionMetrics = { costUsd: 0, firstTimestampMs: undefined };
+
+interface EnabledWidget {
+  readonly type: string;
+  readonly enabled: boolean;
+}
+
+/**
+ * Whether any enabled widget reads the metrics snapshot, answered once per
+ * config change rather than per draw.
+ *
+ * The gate matters because collecting is not cheap: getBranch() walks the
+ * session to the root and allocates the whole branch, and collectSessionMetrics
+ * then walks that. False for git-heavy, which carries neither cost nor
+ * total-time, so those two passes run on every frame for a number nothing draws.
+ *
+ * Read off each spec's declared dependencies rather than a list of widget types
+ * kept here, so a widget that starts reading metrics is covered by declaring it.
+ */
+export function needsMetrics(lines: readonly (readonly EnabledWidget[])[]): boolean {
+  return lines.some((line) => line.some((widget) => widget.enabled && readsMetrics(widget.type)));
+}
+
+function readsMetrics(type: string): boolean {
+  const spec = registry.maybeSpec(type);
+  if (!spec) {
+    return false;
+  }
+  // Widened before the lookup. Each spec declares its own literal tuple, so on
+  // the union of all of them `.includes` accepts only a dependency every widget
+  // shares, which is none of them.
+  const dependencies: readonly WidgetDependency[] = spec.dependencies;
+  return dependencies.includes("metrics");
+}
+
 function isString(value: unknown): value is string {
   return typeof value === "string";
 }

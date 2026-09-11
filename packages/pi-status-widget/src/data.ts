@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { EMPTY_GIT_INFO, getGitInfo, type GitCommand } from "./git.js";
-import { collectSessionMetrics } from "./metrics.js";
+import { collectSessionMetrics, EMPTY_METRICS } from "./metrics.js";
 import type { StatusbarData } from "./types.js";
 
 export interface StatusbarSources {
@@ -11,6 +11,8 @@ export interface StatusbarSources {
   branchHint: string | null;
   /** Undefined when no git widget is enabled, which skips git collection entirely. */
   gitCommands: ReadonlySet<GitCommand> | undefined;
+  /** False when no cost or total-time widget is enabled, which skips the branch walk. */
+  needsMetrics: boolean;
   requestRender: () => void;
 }
 
@@ -24,6 +26,7 @@ export function collectStatusbarData({
   pi,
   branchHint,
   gitCommands,
+  needsMetrics,
   requestRender,
 }: StatusbarSources): StatusbarData {
   const contextUsage = ctx.getContextUsage();
@@ -43,6 +46,9 @@ export function collectStatusbarData({
     // The context widgets treat that as unknown rather than as zero.
     contextTokens: contextUsage?.tokens ?? undefined,
     contextMaxTokens: contextUsage?.contextWindow,
-    metrics: collectSessionMetrics(ctx.sessionManager.getBranch()),
+    // Gated the same way git is. getBranch() walks the session to the root and
+    // allocates the whole branch before collectSessionMetrics walks it again,
+    // and both passes run per draw, including mid-stream.
+    metrics: needsMetrics ? collectSessionMetrics(ctx.sessionManager.getBranch()) : EMPTY_METRICS,
   };
 }

@@ -1,5 +1,5 @@
 /**
- * pi-statusbar — a footer with three presets, emoji or nerd icons, and a
+ * pi-statusbar — a footer with four presets, emoji or nerd icons, and a
  * thinking-level segment coloured by the level.
  *
  * Pi resolves this through `pi.extensions` and loads it with jiti, so it ships
@@ -8,11 +8,12 @@
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import { applyColors, hasThemeColor, resolveColorLevel } from "./colors.js";
+import { accentColor, applyColors, resolveColorLevel } from "./colors.js";
 import { registerStatusbarCommand } from "./command.js";
 import { getConfigPath, loadConfig, saveConfig, STATUS_KEY } from "./config.js";
 import { collectStatusbarData } from "./data.js";
 import { gitCommandsFor, type GitCommand } from "./git.js";
+import { needsMetrics } from "./metrics.js";
 import { renderStatusbar } from "./render.js";
 import { activeScheme } from "./schemes.js";
 import type { StatusbarConfig } from "./types.js";
@@ -27,6 +28,7 @@ export default async function statusbarExtension(pi: ExtensionAPI): Promise<void
   let config: StatusbarConfig = loaded.config;
   let store = WidgetStore.fromConfig(config);
   let gitCommands: ReadonlySet<GitCommand> | undefined = gitCommandsFor(config.lines);
+  let metricsWanted = needsMetrics(config.lines);
   /** Reported at the next apply, since a config load has no UI context to speak through. */
   let configError = loaded.error;
   /** Set while a footer is mounted. The thinking-level repaint goes through it. */
@@ -35,25 +37,24 @@ export default async function statusbarExtension(pi: ExtensionAPI): Promise<void
   function replaceConfig(next: StatusbarConfig): void {
     config = next;
     store = WidgetStore.fromConfig(config);
+    // Both collection gates are derived here, from the same lines, so they
+    // cannot end up disagreeing about which widgets the footer is drawing.
     gitCommands = gitCommandsFor(config.lines);
+    metricsWanted = needsMetrics(config.lines);
   }
 
   /**
    * The label other extensions see in the status row, painted through the same
    * ladder every widget uses.
    *
-   * Not `theme.fg("accent", …)` directly, which is what upstream does. Theme.fg
-   * throws on a color the loaded theme omits, and this call sits inside the
-   * session_start handler: a throw here rejects the handler and the footer never
-   * mounts at all. Going through applyColors also means the label honours
-   * NO_COLOR, which a raw theme call ignores.
+   * Not `theme.fg("accent", …)` directly, which is what upstream does: see
+   * accentColor for why that throws, and what it costs here in particular.
    */
   function statusLabel(ctx: ExtensionContext): string {
-    const accent = hasThemeColor(ctx.ui.theme, "accent") ? "pi:accent" : "cyan";
     const colorLevel = resolveColorLevel(process.env, ctx.ui.theme);
     return applyColors(
       STATUS_LABEL,
-      accent,
+      accentColor(ctx.ui.theme),
       undefined,
       false,
       colorLevel,
@@ -99,6 +100,7 @@ export default async function statusbarExtension(pi: ExtensionAPI): Promise<void
             pi,
             branchHint: footerData.getGitBranch(),
             gitCommands,
+            needsMetrics: metricsWanted,
             requestRender: ownRequestRender,
           });
           return renderStatusbar(store, data, width, {
@@ -146,13 +148,18 @@ export default async function statusbarExtension(pi: ExtensionAPI): Promise<void
     apply(ctx);
   });
 
-  pi.on("model_select", (_event, ctx) => {
-    apply(ctx);
+  // Both of these repaint rather than re-apply. ctx.model and getThinkingLevel
+  // are read fresh inside render, so the mounted footer already draws the new
+  // value; apply() would tear the footer down, mount a replacement and
+  // resubscribe to the branch to reach the same pixels.
+  //
+  // Upstream subscribes to neither, so either change reaches the footer only on
+  // the next unrelated redraw. For a segment whose colour is the thinking level,
+  // that reads as the feature being broken.
+  pi.on("model_select", () => {
+    requestRender?.();
   });
 
-  // Upstream never subscribes to this, so a level change reaches the footer only
-  // on the next unrelated redraw. For a segment whose colour is the level, that
-  // reads as the feature being broken.
   pi.on("thinking_level_select", () => {
     requestRender?.();
   });

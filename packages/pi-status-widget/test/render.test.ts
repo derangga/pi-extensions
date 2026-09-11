@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 
 import { applyColors, stripAnsi } from "../src/colors.js";
-import { STATUS_KEY } from "../src/config.js";
+import { cloneConfig, configWithPreset, DEFAULT_CONFIG, STATUS_KEY } from "../src/config.js";
+import { PRESET_VALUES } from "../src/presets.js";
 import { renderStatusbar, type RenderStatusbarOptions } from "../src/render.js";
 import type { StatusbarSettings, WidgetEntry } from "../src/types.js";
 import { registry, type WidgetType } from "../src/widgets/registry.js";
@@ -226,5 +227,44 @@ describe("extension status row", () => {
   it("falls back to a fixed dim color when the theme does not define one", () => {
     const [, row] = withStatuses([["alpha", "a-status"]], partialTheme([]));
     expect(row).toBe(applyColors("a-status", "brightBlack", undefined, false, "ansi"));
+  });
+});
+
+describe("the shipped presets with nothing to report", () => {
+  /**
+   * The whole footer, at defaults, in the two situations where widgets have no
+   * value to show: a directory that is not a git repository, and a model that
+   * does not reason.
+   *
+   * Asserted on the composed line rather than per widget, because the failure
+   * this pins is only visible there. Every git widget already returned "" in
+   * that case; what reached the terminal was a bare icon and a trailing space,
+   * with a separator on either side, because hideWhenEmpty was off by default.
+   * git-heavy spent five of its seven segments that way.
+   */
+  const barren: DataOverrides = {
+    thinkingLevel: undefined,
+    git: { branch: null, sha: null, isRepo: false },
+  };
+
+  for (const preset of PRESET_VALUES) {
+    it(`leaves no orphan icon on ${preset}`, () => {
+      const store = WidgetStore.fromConfig(configWithPreset(cloneConfig(DEFAULT_CONFIG), preset));
+      const [line = ""] = render(store, 200, barren);
+
+      // An icon with nothing after it: the glyph, then a space, then either the
+      // separator or the end of the line.
+      expect(line).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{E000}-\u{F8FF}]\s*(•|$)/u);
+      expect(line).not.toContain("(+0,-0)");
+    });
+  }
+
+  it("still draws every segment that does have something to say", () => {
+    const store = WidgetStore.fromConfig(cloneConfig(DEFAULT_CONFIG));
+    const [line = ""] = render(store, 200);
+
+    expect(line).toContain("🌿 main");
+    expect(line).toContain("🧠 high");
+    expect(line).toContain("📈 (+0,-0)");
   });
 });

@@ -5,7 +5,7 @@ export const GitStatusWidget = defineWidget({
   description: "Staged, unstaged and untracked file counts",
   dependencies: ["git"],
   baseOptions: ["raw", "hideWhenEmpty", "icon", "text"],
-  baseOptionDefaults: { text: "" },
+  baseOptionDefaults: { text: "", hideWhenEmpty: true },
   properties: [],
   icons: { emoji: "🔀", nerd: "\u{e702}" },
   defaultStyle: { fg: "yellow", bg: "default", bold: false },

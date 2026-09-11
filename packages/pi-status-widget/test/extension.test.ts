@@ -115,11 +115,23 @@ describe("statusbarExtension wiring", () => {
     }
   });
 
-  it("remounts on a model change", async () => {
+  it("repaints on a model change rather than remounting", async () => {
+    // ctx.model is a live getter and every draw reads it, so the mounted footer
+    // already paints the new model. Remounting would dispose the handle, build
+    // a replacement and resubscribe to the branch to reach the same pixels.
     const { api, context } = await start();
+    const { tui } = mount(context.footers[0]);
+
     await api.fire("model_select", context.ctx);
 
-    expect(context.footers).toHaveLength(2);
+    expect(context.footers).toHaveLength(1);
+    expect(tui.renderRequests).toBe(1);
+  });
+
+  it("does nothing on a model change with no footer mounted", async () => {
+    const { api, context } = await start({ hasUI: false });
+
+    await expect(api.fire("model_select", context.ctx)).resolves.toBeUndefined();
   });
 
   it("clears both the footer and the status without a UI", async () => {
@@ -208,7 +220,8 @@ describe("statusbarExtension repaint triggers", () => {
     const { api, context } = await start();
     const first = mount(context.footers[0]);
 
-    await api.fire("model_select", context.ctx);
+    // session_start is the remount: a model change only repaints now.
+    await api.fire("session_start", context.ctx);
     const second = mount(context.footers[1]);
     first.component.dispose?.();
 

@@ -56,22 +56,23 @@ describe("thinking level", () => {
     expect(render("thinking-level")).toBe("🧠 high");
   });
 
-  it("falls back to an empty placeholder rather than a dash", () => {
-    // Every other widget defaults to "-" for an empty value; this one would
-    // rather show nothing than claim a level it does not have.
-    expect(render("thinking-level", {}, { thinkingLevel: undefined })).toBe("🧠 ");
+  it("disappears on a model that does not reason", () => {
+    // Not the "-" placeholder every other widget falls back to, and not a bare
+    // icon either: claiming a level this model will never use is worse than
+    // saying nothing, and a lone brain glyph is worse than both.
+    expect(render("thinking-level", {}, { thinkingLevel: undefined })).toBeUndefined();
   });
 
-  it("disappears entirely when told to hide an empty value", () => {
-    expect(
-      render("thinking-level", { hideWhenEmpty: true }, { thinkingLevel: undefined }),
-    ).toBeUndefined();
+  it("shows the empty placeholder when told not to hide", () => {
+    expect(render("thinking-level", { hideWhenEmpty: false }, { thinkingLevel: undefined })).toBe(
+      "🧠 ",
+    );
   });
 });
 
 describe("working directory", () => {
   it("shows the directory name without its path", () => {
-    expect(render("cwd-basename")).toBe("📂 repo");
+    expect(render("cwd-basename")).toBe("📁 repo");
   });
 });
 
@@ -204,11 +205,9 @@ describe("git widgets", () => {
     ).toBe("🌿 [main]");
   });
 
-  it("renders an empty branch as the empty placeholder", () => {
-    expect(render("git-branch", {}, { git: { branch: null } })).toBe("🌿 ");
-    expect(
-      render("git-branch", { hideWhenEmpty: true }, { git: { branch: null } }),
-    ).toBeUndefined();
+  it("disappears when there is no branch", () => {
+    expect(render("git-branch", {}, { git: { branch: null } })).toBeUndefined();
+    expect(render("git-branch", { hideWhenEmpty: false }, { git: { branch: null } })).toBe("🌿 ");
   });
 
   it("shows the short sha", () => {
@@ -233,10 +232,18 @@ describe("git widgets", () => {
 
   it("goes empty outside a repository, rather than reporting zeros", () => {
     // Zeros would read as a clean repo, which is a different fact from having no
-    // repo at all.
-    const git = { isRepo: false };
-    expect(render("git-status", { hideWhenEmpty: true }, { git })).toBeUndefined();
-    expect(render("git-ahead-behind", { hideWhenEmpty: true }, { git })).toBeUndefined();
+    // repo at all. Every git widget, at its shipped defaults: one of these left
+    // behind is a bare icon in the footer of every non-repo directory.
+    const git = { isRepo: false, branch: null, sha: null };
+    for (const type of [
+      "git-branch",
+      "git-sha",
+      "git-status",
+      "git-diff",
+      "git-ahead-behind",
+    ] as const) {
+      expect(render(type, {}, { git })).toBeUndefined();
+    }
   });
 });
 

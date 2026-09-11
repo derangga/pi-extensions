@@ -206,7 +206,7 @@ describe("buildPanelItems", () => {
     expect(counts(true)).toEqual([0]);
     // The Color scheme row is the other zero: it opens a picker on Enter
     // rather than holding a list the arrows walk.
-    expect(counts(false)).toEqual([3, 7, 0, 2, 2]);
+    expect(counts(false)).toEqual([4, 7, 0, 2, 2]);
   });
 
   it("leaves the closing row's value column empty", () => {

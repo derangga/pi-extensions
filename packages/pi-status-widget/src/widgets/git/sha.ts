@@ -5,7 +5,7 @@ export const GitShaWidget = defineWidget({
   description: "Short commit SHA of HEAD",
   dependencies: ["git"],
   baseOptions: ["raw", "hideWhenEmpty", "icon", "text"],
-  baseOptionDefaults: { text: "" },
+  baseOptionDefaults: { text: "", hideWhenEmpty: true },
   properties: [],
   icons: { emoji: "🔖", nerd: "\u{e729}" },
   defaultStyle: { fg: "brightBlack", bg: "default", bold: false },

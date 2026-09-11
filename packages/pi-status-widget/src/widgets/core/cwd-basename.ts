@@ -7,9 +7,9 @@ export const CwdBasenameWidget = defineWidget({
   description: "Name of the working directory, without its path",
   dependencies: ["cwd"],
   baseOptions: ["raw", "hideWhenEmpty", "icon", "text"],
-  baseOptionDefaults: { text: "" },
+  baseOptionDefaults: { text: "", hideWhenEmpty: true },
   properties: [],
-  icons: { emoji: "📂", nerd: "\u{e5ff}" },
+  icons: { emoji: "📁", nerd: "\u{e5ff}" },
   defaultStyle: { fg: "blue", bg: "default", bold: false },
   render({ ctx, renderWidget }) {
     return renderWidget(basename(ctx.cwd));
