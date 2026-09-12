@@ -12,7 +12,11 @@ import {
   loadQuestionnaireSession,
   registerAskPopupTool,
 } from "../src/ask-user-question.js";
-import { ASK_POPUP_BLOCKED_EVENT, ASK_POPUP_PROMPT_EVENT } from "../src/events.js";
+import {
+  ASK_POPUP_BLOCKED_EVENT,
+  ASK_POPUP_PROMPT_EVENT,
+  HERDR_BLOCKED_EVENT,
+} from "../src/events.js";
 import { ROW_INTENT_META } from "../src/state/row-intent.js";
 import type { QuestionnaireResult, QuestionParams } from "../src/tool/types.js";
 import { type CapturedTool, createMockCtx, createMockPi, type MockCtxOptions } from "./mock-pi.js";
@@ -327,6 +331,13 @@ describe("events", () => {
     const { mock, tool } = register();
     await run(tool, ONE_QUESTION, rpcHost(["1. Redis — shared"]));
     const blocked = mock.events.filter((e) => e.channel === ASK_POPUP_BLOCKED_EVENT);
+    expect(blocked.map((e) => e.payload)).toEqual([{ active: true }, { active: false }]);
+  });
+
+  it("reports the same blocked pair to Herdr", async () => {
+    const { mock, tool } = register();
+    await run(tool, ONE_QUESTION, rpcHost(["1. Redis — shared"]));
+    const blocked = mock.events.filter((e) => e.channel === HERDR_BLOCKED_EVENT);
     expect(blocked.map((e) => e.payload)).toEqual([{ active: true }, { active: false }]);
   });
 

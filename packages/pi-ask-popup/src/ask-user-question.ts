@@ -22,6 +22,7 @@ import {
   ASK_POPUP_BLOCKED_EVENT,
   ASK_POPUP_PROMPT_EVENT,
   buildBlockedPayload,
+  HERDR_BLOCKED_EVENT,
   buildPromptPayload,
 } from "./events.js";
 // Static import: the walker pulls only types, none of the render graph the
@@ -88,7 +89,9 @@ function emitPrompt(pi: ExtensionAPI, params: QuestionParams): void {
 }
 
 function emitBlocked(pi: ExtensionAPI, active: boolean): void {
-  pi.events.emit(ASK_POPUP_BLOCKED_EVENT, buildBlockedPayload(active));
+  const payload = buildBlockedPayload(active);
+  pi.events.emit(ASK_POPUP_BLOCKED_EVENT, payload);
+  pi.events.emit(HERDR_BLOCKED_EVENT, payload);
 }
 
 /** The backstop for a host with no UI at all; the reconciler normally strips the tool first. */

@@ -13,6 +13,7 @@ import { registerAskPopupReconciler } from "./reconcile.js";
 export {
   ASK_POPUP_BLOCKED_EVENT,
   ASK_POPUP_PROMPT_EVENT,
+  HERDR_BLOCKED_EVENT,
   type AskPopupBlockedEventPayload,
   type AskPopupPromptEventPayload,
   type AskPopupPromptOption,

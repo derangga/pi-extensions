@@ -4,11 +4,11 @@
  * This module deliberately imports nothing. A footer, statusline or notifier
  * subscribes to these channels to know what is being asked and whether the
  * agent is waiting on a person; it should not have to load a render graph, or
- * a schema compiler, to read two strings and four interfaces. Adding an import
+ * a schema compiler, to read three strings and four interfaces. Adding an import
  * here defeats the reason the `./events` subpath exists, so there is a test
  * that fails if one appears.
  *
- * Stability rules for both channels:
+ * Stability rules for these channels:
  *
  *   1. Channel names never change once published. Subscribers hardcode them.
  *   2. Payload changes are append-only, and new fields ship optional.
@@ -28,6 +28,12 @@ export const ASK_POPUP_PROMPT_EVENT = "pi-ask-popup:prompt" as const;
 
 /** Fired true before the wait and false when it ends, however it ends. */
 export const ASK_POPUP_BLOCKED_EVENT = "pi-ask-popup:blocked" as const;
+
+/**
+ * Herdr's Pi integration listens on this shared channel for nested UI that
+ * needs a decision. Emitting it is inert when Herdr is not installed.
+ */
+export const HERDR_BLOCKED_EVENT = "herdr:blocked" as const;
 
 export interface AskPopupPromptOption {
   label: string;

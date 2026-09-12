@@ -6,6 +6,7 @@ import {
   ASK_POPUP_BLOCKED_EVENT,
   ASK_POPUP_PROMPT_EVENT,
   buildBlockedPayload,
+  HERDR_BLOCKED_EVENT,
   buildPromptPayload,
   type PromptSource,
 } from "../src/events.js";
@@ -29,11 +30,15 @@ function source(over: Partial<PromptSource> = {}): PromptSource {
 }
 
 describe("the channel names", () => {
-  it("are namespaced to this package", () => {
+  it("keeps the published package channels stable", () => {
     // Subscribers hardcode these. Renaming one is a breaking change that no
     // compiler catches, in either this package or theirs.
     expect(ASK_POPUP_PROMPT_EVENT).toBe("pi-ask-popup:prompt");
     expect(ASK_POPUP_BLOCKED_EVENT).toBe("pi-ask-popup:blocked");
+  });
+
+  it("uses the channel consumed by Herdr's Pi integration", () => {
+    expect(HERDR_BLOCKED_EVENT).toBe("herdr:blocked");
   });
 });
 

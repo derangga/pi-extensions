@@ -106,19 +106,22 @@ When `error` is `timed_out`, the text is `Questionnaire timed out, the user did 
 
 ## Events
 
-The package emits one event on Pi's event bus, after validation passes and before the dialog shows. Import it from the `./events` subpath:
+The package emits lifecycle events on Pi's event bus after validation passes. Import their names and payload types from the `./events` subpath:
 
 ```ts
 import {
   ASK_POPUP_PROMPT_EVENT,
   ASK_POPUP_BLOCKED_EVENT,
+  HERDR_BLOCKED_EVENT,
   type AskPopupPromptEventPayload,
   type AskPopupBlockedEventPayload,
 } from "pi-ask-popup/events";
 ```
 
-`ASK_POPUP_PROMPT_EVENT` channel is `pi-ask-popup:prompt`. Payload is `questions[].{ question, header, multiSelect, options[] }` where each option is `{ label, description, hasPreview }`. Preview content is not shipped, only `hasPreview: boolean`, so listeners that forward the event stay small.
+`ASK_POPUP_PROMPT_EVENT` is `pi-ask-popup:prompt`. It fires once before the dialog shows. Its payload is `questions[].{ question, header, multiSelect, options[] }`, where each option is `{ label, description, hasPreview }`. Preview content is not shipped, only `hasPreview: boolean`, so listeners that forward the event stay small.
 
-`ASK_POPUP_BLOCKED_EVENT` channel is `pi-ask-popup:blocked`. Payload is `{ blocked: boolean }`. It brackets the wait, true when the questionnaire starts and false when it resolves, so status or footer extensions can show that the agent is waiting.
+`ASK_POPUP_BLOCKED_EVENT` is `pi-ask-popup:blocked`. Its payload is `{ active: boolean }`. It brackets the wait with `true` when the questionnaire starts and `false` when it resolves, so status or footer extensions can show that the agent is waiting.
 
-Both payloads are JSON-safe. Channel names are stable. Changes are append-only and optional, and any breaking change ships as a new channel rather than a version field.
+`HERDR_BLOCKED_EVENT` is `herdr:blocked`. It receives the same blocked payload at the same points. Herdr's Pi integration consumes this channel to mark the agent as waiting for input and issue its configured request notification. Nothing happens when Herdr is absent.
+
+The payloads are JSON-safe. Channel names are stable. Changes are append-only and optional, and any breaking change ships as a new channel rather than a version field.
