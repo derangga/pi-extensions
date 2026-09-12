@@ -477,17 +477,18 @@ describe("buildItemsForQuestion", () => {
       throw new Error("fixture");
     }
     const items = buildItemsForQuestion(question);
-    expect(items.map((i) => i.kind)).toEqual(["option", "option", "other"]);
-    expect(items.at(-1)?.label).toBe(ROW_INTENT_META.other.label);
+    expect(items.map((i) => i.kind)).toEqual(["option", "option", "other", "chat"]);
+    expect(items.at(-2)?.label).toBe(ROW_INTENT_META.other.label);
+    expect(items.at(-1)?.label).toBe(ROW_INTENT_META.chat.label);
   });
 
-  it("appends the commit row too when several answers are allowed", () => {
+  it("appends the chat row and the commit row when several answers are allowed", () => {
     const question = ONE_QUESTION.questions[0];
     if (!question) {
       throw new Error("fixture");
     }
     const items = buildItemsForQuestion({ ...question, multiSelect: true });
-    expect(items.map((i) => i.kind)).toEqual(["option", "option", "other", "next"]);
+    expect(items.map((i) => i.kind)).toEqual(["option", "option", "other", "chat", "next"]);
   });
 
   it("carries each option's description onto its row", () => {

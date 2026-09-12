@@ -40,6 +40,7 @@ export type SentinelLabel = (typeof SENTINEL_LABELS)[keyof typeof SENTINEL_LABEL
 export const RESERVED_LABELS = [
   "Other",
   ROW_INTENT_META.other.label,
+  ROW_INTENT_META.chat.label,
   ROW_INTENT_META.next.label,
 ] as const;
 export type ReservedLabel = (typeof RESERVED_LABELS)[number];
@@ -74,7 +75,7 @@ export const QuestionSchema = Type.Object({
     minItems: MIN_OPTIONS,
     maxItems: MAX_OPTIONS,
     description:
-      "The available choices for this question. Must have 2-4 options. Each option should be a distinct, mutually exclusive choice (unless multiSelect is enabled). The 'Type something.' row is appended automatically — do NOT author it.",
+      "The available choices for this question. Must have 2-4 options. Each option should be a distinct, mutually exclusive choice (unless multiSelect is enabled). The 'Type something.' row and the 'Chat About This' row are appended automatically — do NOT author them.",
   }),
   multiSelect: Type.Optional(
     Type.Boolean({
@@ -113,6 +114,10 @@ export type QuestionParams = Static<typeof QuestionParamsSchema>;
  * - `option` — the user picked an authored option. `answer` is its label.
  * - `custom` — the user typed free text in the "Type something." row.
  *   `answer` is the text, or null when they committed nothing.
+ *
+ * A "Chat About This" selection never becomes one of these: it is a decision
+ * to stop and discuss, and it travels on `QuestionnaireResult.chatRequested`
+ * instead of minting a pseudo-answer here.
  * - `multi` — the user committed multi-select choices. `selected` carries the
  *   chosen labels and `answer` is null. Text typed on the "Type something." row
  *   appears in `selected` too, as its own trimmed entry: on a multi-select
@@ -168,9 +173,26 @@ export type QuestionnaireError =
   | "timed_out"
   | "host_error";
 
+export interface ChatRequested {
+  questionIndex: number;
+  question: string;
+}
+
 export interface QuestionnaireResult {
   answers: QuestionAnswer[];
   cancelled: boolean;
+  /**
+   * The user selected the "Chat About This" sentinel, closing the dialog
+   * without answering this question, and wants to discuss it in chat first.
+   * Attached only on a chat-request result — never on a submit, decline or
+   * timeout.
+   *
+   * Same conditional-spread contract as `globalNote`: the key appears only via
+   * conditional spread of a non-empty value, is never assigned `undefined`, and
+   * so a result with no chat request stays byte-identical and
+   * `!("chatRequested" in result)` holds.
+   */
+  chatRequested?: ChatRequested;
   /**
    * A note covering the whole questionnaire rather than one question, authored
    * on the Submit tab. Attached on cancel as well as submit, mirroring

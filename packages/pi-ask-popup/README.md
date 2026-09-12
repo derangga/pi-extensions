@@ -25,7 +25,7 @@ Give the model a task with a real decision in it:
 
 > Add caching to the API client.
 
-Rather than picking for you, the model calls `ask_user_question` and a dialog takes over the bottom of your terminal. Move with `Up` and `Down`, pick with `Enter`, or land on `Type something.` to answer in your own words. While typing, `Shift+Enter` adds a line, `Ctrl+G` opens Pi's external editor, `Ctrl+U` clears the draft, and `Esc` cancels the whole questionnaire. Pressing `n` adds a note to the current question. The questionnaire stays in one place until you submit.
+Rather than picking for you, the model calls `ask_user_question` and a dialog takes over the bottom of your terminal. Move with `Up` and `Down`, pick with `Enter`, or land on `Type something.` to answer in your own words. If the question needs a conversation instead of an answer, `Chat About This` closes the dialog and the two of you talk it out in chat. While typing, `Shift+Enter` adds a line, `Ctrl+G` opens Pi's external editor, `Ctrl+U` clears the draft, and `Esc` cancels the whole questionnaire. Pressing `n` adds a note to the current question. The questionnaire stays in one place until you submit.
 
 When the model asks several things at once, `Tab` moves between questions and a Submit tab reviews everything before it goes back:
 
@@ -39,6 +39,7 @@ A note written on a question you never answer still reaches the model, and a glo
 
 - **Typed options, not a wall of prose.** Each question carries 2 to 4 authored choices, and every choice explains what it means or what it costs you.
 - **You can always answer in your own words.** A `Type something.` row is added to every question and widens to the full pane while you type. On a multi-select question it ticks itself the moment you type into it, and what you wrote is submitted alongside whatever boxes you ticked. Clear the text and the tick goes with it.
+- **Talk instead of guessing.** A `Chat About This` row sits on every question. Pick it when the question itself needs discussing: the dialog closes, your answers so far stay with the model, and it waits for what you type next in chat before answering that question.
 - **Compare artifacts, not labels.** An option can carry a markdown `preview` that renders in a bordered box beside the option list.
 - **One interruption, not five.** Up to four questions arrive in a single tabbed dialog, and a Submit tab names anything still blank before you commit.
 - **Notes on any answer, or on all of them.** `n` opens a note editor on any question tab, and on the Submit tab it writes one note covering everything. A written note stays on its tab, dimmed, and the tab bar marks which tabs carry one. A note on a question you never answer still reaches the model as `unansweredNotes`.

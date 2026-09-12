@@ -34,16 +34,17 @@ function question(over: Partial<QuestionData> = {}): QuestionData {
 }
 
 describe("MultiSelectView.render", () => {
-  it("renders one row per option + a 'Type something.' row + a trailing Next sentinel", () => {
+  it("renders one row per option + 'Type something.' + 'Chat About This' + a trailing Next sentinel", () => {
     const q = question();
     const m = makeView(q, makeProps(q));
     const lines = m.render(80);
-    expect(lines.length).toBe(5); // 3 options + Type something. + Next
+    expect(lines.length).toBe(6); // 3 options + Type something. + Chat About This + Next
     expect(lines[0]).toContain("FE");
     expect(lines[1]).toContain("BE");
     expect(lines[2]).toContain("DB");
     expect(lines[3]).toContain("Type something.");
-    expect(lines[4]).toContain("Next");
+    expect(lines[4]).toContain("Chat About This");
+    expect(lines[5]).toContain("Next");
   });
 
   // Spec: a 1-space gap between the bracketed glyph (`[ ]` / `[✔]`) and the option label
@@ -92,10 +93,11 @@ describe("MultiSelectView.render", () => {
     });
     const m = makeView(q, makeProps(q));
     const lines = m.render(80);
-    expect(lines.length).toBe(5); // FE row + 1 description + BE row + Type something. + Next
+    expect(lines.length).toBe(6); // FE row + 1 desc + BE row + Type something. + Chat + Next
     expect(lines[1]).toContain("front-end");
     expect(lines[3]).toContain("Type something.");
-    expect(lines[4]).toContain("Next");
+    expect(lines[4]).toContain("Chat About This");
+    expect(lines[5]).toContain("Next");
   });
 
   it("active option uses ACTIVE_POINTER and accent styling", () => {
@@ -258,6 +260,7 @@ describe("MultiSelectView.focusedItemRowRange", () => {
         inputBuffer: "",
         inputCursorOffset: undefined,
       },
+      chatActive: false,
       nextActive: false,
       nextLabel: "Next",
     });
@@ -288,6 +291,7 @@ describe("MultiSelectView.focusedItemRowRange", () => {
         inputBuffer: "",
         inputCursorOffset: undefined,
       },
+      chatActive: false,
       nextActive: false,
       nextLabel: "Next",
     });
@@ -312,12 +316,59 @@ describe("MultiSelectView.focusedItemRowRange", () => {
         inputBuffer: "",
         inputCursorOffset: undefined,
       },
+      chatActive: false,
       nextActive: true,
       nextLabel: "Next",
     });
     const [start, end] = view.focusedItemRowRange(80);
+    // option(0) + other(1) + chat(2) → Next is at row 3.
+    expect(start).toBe(3);
+    expect(end).toBe(4);
+  });
+
+  it("returns range for the chat sentinel when chatActive", () => {
+    const q: QuestionData = {
+      question: "pick?",
+      header: "H",
+      options: [{ label: "A", description: "" }],
+      multiSelect: true,
+    };
+    const view = makeView(q, {
+      rows: [{ checked: false, active: false }],
+      other: {
+        active: false,
+        checked: false,
+        inputMode: false,
+        inputBuffer: "",
+        inputCursorOffset: undefined,
+      },
+      chatActive: true,
+      nextActive: false,
+      nextLabel: "Next",
+    });
+    const [start, end] = view.focusedItemRowRange(80);
+    // option(0) + other(1) → chat is at row 2.
     expect(start).toBe(2);
     expect(end).toBe(3);
+  });
+
+  it("renders the chat row bare: no number, no checkbox", () => {
+    const q: QuestionData = {
+      question: "pick?",
+      header: "H",
+      options: [
+        { label: "A", description: "" },
+        { label: "B", description: "" },
+      ],
+      multiSelect: true,
+    };
+    const view = makeView(q, makeProps(q));
+    const lines = view.render(80);
+    const raw = stripAnsi(lineAt(lines, 3));
+    expect(raw).toContain("Chat About This");
+    expect(raw).not.toMatch(/\d\. \[/);
+    expect(raw).not.toContain("[ ]");
+    expect(raw).not.toContain("[\u2714]");
   });
 
   it("returns [0, 0] when no row is active", () => {
@@ -336,6 +387,7 @@ describe("MultiSelectView.focusedItemRowRange", () => {
         inputBuffer: "",
         inputCursorOffset: undefined,
       },
+      chatActive: false,
       nextActive: false,
       nextLabel: "Next",
     });
@@ -366,6 +418,7 @@ describe("MultiSelectView.focusedItemRowRange", () => {
         inputBuffer: "",
         inputCursorOffset: undefined,
       },
+      chatActive: false,
       nextActive: false,
       nextLabel: "Next",
     });
@@ -464,6 +517,7 @@ describe("MultiSelectView — 'Type something.' row", () => {
         inputBuffer: "x",
         inputCursorOffset: undefined,
       },
+      chatActive: false,
       nextActive: false,
       nextLabel: "Next",
     };
@@ -489,13 +543,14 @@ describe("MultiSelectView — 'Type something.' row", () => {
         inputBuffer: "",
         inputCursorOffset: undefined,
       },
+      chatActive: false,
       nextActive: true,
       nextLabel: "Next",
     });
     const [start, end] = view.focusedItemRowRange(80);
-    // option(0) + other(1) → Next is at row 2.
-    expect(start).toBe(2);
-    expect(end).toBe(3);
+    // option(0) + other(1) + chat(2) → Next is at row 3.
+    expect(start).toBe(3);
+    expect(end).toBe(4);
   });
 
   it("number column fits N+1 (the other row's number) without truncation", () => {

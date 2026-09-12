@@ -1,4 +1,5 @@
 import type {
+  ChatRequested,
   QuestionAnswer,
   QuestionData,
   QuestionnaireResult,
@@ -216,7 +217,19 @@ function switchTabResult(
   };
 }
 
-function doneFor(state: QuestionnaireState, ctx: ApplyContext, cancelled: boolean): ApplyResult {
+/**
+ * Lift the dialog's state into its terminal `QuestionnaireResult`.
+ *
+ * `chatRequested` rides only on a chat-request close, which is why it is a
+ * parameter and not a state read: nothing else that lands here — submit,
+ * cancel, confirm's final tab, timeout — carries one.
+ */
+function doneFor(
+  state: QuestionnaireState,
+  ctx: ApplyContext,
+  cancelled: boolean,
+  chatRequested?: ChatRequested,
+): ApplyResult {
   // Global note lift: the Submit-tab note lives at the `questions.length` pseudo-index
   // in `notesByTab` — question tabs only occupy 0..questions.length-1, so this can never
   // cross-contaminate a per-question note. Attached regardless of `cancelled` (the
@@ -231,6 +244,12 @@ function doneFor(state: QuestionnaireState, ctx: ApplyContext, cancelled: boolea
     answers: orderedAnswers(state, ctx.questions),
     cancelled,
   };
+  if (chatRequested) {
+    // SAFETY: conditional spread by assignment — chatRequested is present only when the
+    // caller passed one, keeping note-free results byte-identical like globalNote.
+    (result as QuestionnaireResult & { chatRequested: ChatRequested }).chatRequested =
+      chatRequested;
+  }
   if (globalNote && globalNote.length > 0) {
     // SAFETY: globalNote is optional per QuestionnaireResult; present only when non-empty.
     (result as QuestionnaireResult & { globalNote: string }).globalNote = globalNote;
@@ -407,6 +426,28 @@ const notesExitHandler: Handler<"notes_exit"> = (state, _action, _ctx) => {
 };
 
 const cancelHandler: Handler<"cancel"> = (s, _a, c) => doneFor(s, c, true);
+/**
+ * Enter on the "Chat About This" row.
+ *
+ * The current tab's multi-select state is persisted first, so the ticked boxes
+ * (and any text typed on the "Type something." row) stay the question's answer
+ * — picking the row means "discuss before I answer this one", not "forget what
+ * I ticked". On a single-select tab there is nothing in flight to persist, and
+ * the call is a no-op by construction. The marker names the tab the row was
+ * picked on; tabs after it stay unanswered.
+ */
+const chatRequestHandler: Handler<"chat_request"> = (state, _action, ctx) => {
+  const q = ctx.questions[state.currentTab];
+  if (!q) {
+    return { state, effects: [] };
+  }
+  const answers = persistMultiSelectAnswer(state, ctx);
+  const next: QuestionnaireState = { ...state, answers };
+  return doneFor(next, ctx, true, {
+    questionIndex: state.currentTab,
+    question: q.question,
+  });
+};
 const submitHandler: Handler<"submit"> = (s, _a, c) => doneFor(s, c, false);
 const submitNavHandler: Handler<"submit_nav"> = (s, a, _c) => ({
   state: { ...s, submitChoiceIndex: a.nextIndex },
@@ -458,6 +499,7 @@ const HANDLERS = {
   toggle: toggleHandler,
   multi_confirm: multiConfirmHandler,
   cancel: cancelHandler,
+  chat_request: chatRequestHandler,
   notes_enter: notesEnterHandler,
   notes_exit: notesExitHandler,
   notes_forward: notesForwardHandler,

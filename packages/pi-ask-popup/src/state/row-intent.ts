@@ -11,15 +11,19 @@ import type { QuestionData } from "../tool/types.js";
  * `Record<RowKind, ...>`) AND every exhaustive switch in the renderer, so a new
  * row cannot ship half-wired.
  */
-export type RowKind = "option" | "other" | "next";
+export type RowKind = "option" | "other" | "chat" | "next";
 
 /**
  * Sentinel kinds: the protocol-driven rows, as opposed to author-defined
  * `option` rows. The auto-append walker, the reserved-label derivation and
  * `LABELS_BY_KIND` all iterate this list.
+ *
+ * Order is the append order on every question: options, the free-text row, the
+ * chat row, the commit row. The chat row sits before "Next" because it reads
+ * as another way out, not as the primary action.
  */
 export type SentinelKind = Exclude<RowKind, "option">;
-export const SENTINEL_KINDS: readonly SentinelKind[] = ["other", "next"];
+export const SENTINEL_KINDS: readonly SentinelKind[] = ["other", "chat", "next"];
 
 /**
  * One renderable row. Lives here rather than in the view because it is the
@@ -56,7 +60,8 @@ export interface WrappingSelectItem {
  *   validation time. `RESERVED_LABEL_SET` derives from this flag.
  * - `livesInMainList` — the row appears in the tab's item array.
  * - `numbered` — the row contributes to main-list numbering. The multi-select
- *   `Next` row is the only listed row that does not.
+ *   `Next` and `chat` rows are drawn bare by `MultiSelectView`, which does its
+ *   own numbering and gives neither a number there.
  * - `activatesInputMode` — focusing the row flips `state.inputMode`, turning it
  *   into an inline editor. Read by the reducer's `nav` case.
  * - `blocksMultiToggle` — in multi-select, Space and Enter-as-toggle are
@@ -101,6 +106,30 @@ export const ROW_INTENT_META: Record<RowKind, RowIntentMeta> = {
     autoAppendOnSingleSelect: true,
     autoAppendOnMultiSelect: true,
   },
+  /**
+   * The "Chat About This" row. Selecting it abandons the questionnaire: the
+   * dialog closes and the tool result carries a `chatRequested` marker for the
+   * question it was picked on, so the model stops and treats the user's next
+   * chat message as a clarification of that question. It is a decision, not an
+   * answer — no `QuestionAnswer` is minted for it.
+   *
+   * In multi-select it behaves like the commit row: Enter closes the dialog
+   * with the ticked options kept as the current question's answer, plus the
+   * chat marker. Which is why it shares `autoSubmitsInMulti` and
+   * `blocksMultiToggle` with `next`, even though the commit it performs ends
+   * the questionnaire rather than advancing a tab.
+   */
+  chat: {
+    label: "Chat About This",
+    reserved: true,
+    livesInMainList: true,
+    numbered: true,
+    activatesInputMode: false,
+    blocksMultiToggle: true,
+    autoSubmitsInMulti: true,
+    autoAppendOnSingleSelect: true,
+    autoAppendOnMultiSelect: true,
+  },
   next: {
     label: "Next",
     reserved: true,
@@ -120,6 +149,7 @@ export const ROW_INTENT_META: Record<RowKind, RowIntentMeta> = {
  */
 export const LABELS_BY_KIND: { readonly [K in SentinelKind]: string } = {
   other: ROW_INTENT_META.other.label,
+  chat: ROW_INTENT_META.chat.label,
   next: ROW_INTENT_META.next.label,
 };
 

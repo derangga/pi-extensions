@@ -145,8 +145,8 @@ export interface MultiSelectPropsOverrides {
 
 /**
  * Build MultiSelectView props the way the real projection does: rows carry
- * `checked` and `active`, and the two sentinel rows sit at
- * `options.length` and `options.length + 1`.
+ * `checked` and `active`, and the three sentinel rows sit at `options.length`,
+ * `options.length + 1` and `options.length + 2`.
  */
 export function makeMultiSelectViewProps(
   question: QuestionData,
@@ -170,7 +170,8 @@ export function makeMultiSelectViewProps(
       inputBuffer: over.inputBuffer ?? "",
       inputCursorOffset: over.inputCursorOffset,
     },
-    nextActive: focused && optionIndex === question.options.length + 1,
+    chatActive: focused && optionIndex === question.options.length + 1,
+    nextActive: focused && optionIndex === question.options.length + 2,
     nextLabel: over.nextLabel ?? ROW_INTENT_META.next.label,
   };
 }

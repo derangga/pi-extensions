@@ -1,5 +1,6 @@
 import { formatAnswerScalar } from "./format-answer.js";
 import type {
+  ChatRequested,
   QuestionAnswer,
   QuestionnaireResult,
   QuestionParams,
@@ -7,6 +8,8 @@ import type {
 } from "./types.js";
 
 export const DECLINE_MESSAGE = "User declined to answer questions";
+export const CHAT_REQUEST_INSTRUCTION =
+  "This is NOT a decline. End your turn now without asking a new question — the user's next message is their clarification of that question. Respond to it, then re-ask only the questions that remain unanswered.";
 export const TIMED_OUT_MESSAGE =
   "Questionnaire timed out — the user did not respond within the configured timeout. The user never saw a decline; do NOT treat this as a rejection. Ask the questions as plain chat text instead or retry.";
 export const HOST_ERROR_MESSAGE =
@@ -70,6 +73,27 @@ export function buildQuestionnaireResponse(
     }
     return buildToolResult(HOST_ERROR_MESSAGE, details);
   }
+  if (result?.chatRequested) {
+    // A chat request is a decision, so it must not reach the decline collapse
+    // below: the model would read "User declined to answer questions" for a
+    // user who asked to talk. Segments are built for the answered questions
+    // even though the marker alone already makes the result non-empty — a
+    // chat close with nothing answered is still a chat close.
+    const cr = result.chatRequested;
+    const details: QuestionnaireResult = {
+      answers: result.answers,
+      cancelled: true,
+      chatRequested: cr,
+    };
+    if (result.globalNote && result.globalNote.length > 0) {
+      (details as { globalNote: string }).globalNote = result.globalNote;
+    }
+    if (result.unansweredNotes && result.unansweredNotes.length > 0) {
+      (details as { unansweredNotes: typeof result.unansweredNotes }).unansweredNotes =
+        result.unansweredNotes;
+    }
+    return buildToolResult(buildChatRequestMessage(cr, collectSegments(result, params)), details);
+  }
   if (!result || result.cancelled) {
     // The decline text stays canonical even when a global note rides a
     // cancelled result. The note survives in `details`, like partial answers.
@@ -90,36 +114,9 @@ export function buildQuestionnaireResponse(
     return buildToolResult(DECLINE_MESSAGE, details);
   }
 
-  // Indexed once rather than scanned per question. Both sides are keyed by
-  // `questionIndex`, which is what the loop below asks for, and it is the same
-  // shape `orderedAnswers` uses in the reducer. A first entry wins, so a
-  // duplicated index reads as the earlier `find` did.
-  const answerByIndex = byQuestionIndex(result.answers);
-  const noteByIndex = byQuestionIndex(result.unansweredNotes ?? []);
-
-  const segments: string[] = [];
-  // Iterate the questions rather than the answers so segments always follow the
-  // order the model asked in, whatever order the user filled tabs.
-  for (let i = 0; i < params.questions.length; i++) {
-    const a = answerByIndex.get(i);
-    if (a) {
-      segments.push(buildAnswerSegment(a));
-      continue;
-    }
-    // A note with no answer behind it still belongs in ask order, so it is
-    // emitted here rather than grouped at the end. Because this loop runs
-    // before the "nothing to report" check below, a questionnaire submitted
-    // with nothing but such a note counts as answered rather than declined.
-    const n = noteByIndex.get(i);
-    if (n) {
-      segments.push(buildUnansweredNoteSegment(n));
-    }
-  }
-  if (result.globalNote && result.globalNote.length > 0) {
-    // Raw multiline echo, no reformatting, trailing period matching the shape
-    // of an answer segment.
-    segments.push(`global note: ${result.globalNote}.`);
-  }
+  // Indexed once per segment walk inside `collectSegments`; nothing here needs
+  // the maps directly.
+  const segments = collectSegments(result, params);
   if (segments.length === 0) {
     return buildToolResult(DECLINE_MESSAGE, { answers: result.answers, cancelled: true });
   }
@@ -135,6 +132,61 @@ function byQuestionIndex<T extends { questionIndex: number }>(items: readonly T[
     }
   }
   return out;
+}
+
+/**
+ * The envelope segments for one result, in ask order.
+ *
+ * Iterates the questions rather than the answers so segments always follow the
+ * order the model asked in, whatever order the user filled tabs. A note with no
+ * answer behind it still belongs in ask order, so it is emitted inline rather
+ * than grouped at the end — which is also why a questionnaire submitted with
+ * nothing but such a note counts as answered rather than declined. The global
+ * note rides last, echoed raw with a trailing period matching an answer
+ * segment's shape.
+ */
+function collectSegments(result: QuestionnaireResult, params: QuestionParams): string[] {
+  const answerByIndex = byQuestionIndex(result.answers);
+  const noteByIndex = byQuestionIndex(result.unansweredNotes ?? []);
+  const segments: string[] = [];
+  for (let i = 0; i < params.questions.length; i++) {
+    const a = answerByIndex.get(i);
+    if (a) {
+      segments.push(buildAnswerSegment(a));
+      continue;
+    }
+    const n = noteByIndex.get(i);
+    if (n) {
+      segments.push(buildUnansweredNoteSegment(n));
+    }
+  }
+  if (result.globalNote && result.globalNote.length > 0) {
+    segments.push(`global note: ${result.globalNote}.`);
+  }
+  return segments;
+}
+
+/**
+ * The envelope for a "Chat About This" close.
+ *
+ * Answers already given ride in ask order as usual, then the marker's own
+ * segment tells the model what the selection means and what to do next: stop,
+ * read the user's next message as the clarification, and re-ask only what is
+ * still missing afterwards. Partial answers are stated explicitly so the model
+ * does not re-ask what it already has.
+ */
+function buildChatRequestMessage(
+  chatRequested: ChatRequested,
+  segments: readonly string[],
+): string {
+  const parts: string[] = [
+    `User selected "Chat About This" on question ${chatRequested.questionIndex + 1} ("${chatRequested.question}") — they want to clarify something before answering it.`,
+  ];
+  if (segments.length > 0) {
+    parts.push(`Their answers to the earlier questions: ${segments.join(" ")}`);
+  }
+  parts.push(CHAT_REQUEST_INSTRUCTION);
+  return parts.join(" ");
 }
 
 /**

@@ -37,6 +37,7 @@ export interface MultiSelectOtherRowProps {
 export interface MultiSelectViewProps {
   rows: ReadonlyArray<{ checked: boolean; active: boolean }>;
   other: MultiSelectOtherRowProps;
+  chatActive: boolean;
   nextActive: boolean;
   nextLabel: string;
 }
@@ -80,6 +81,7 @@ export class MultiSelectView implements StatefulView<MultiSelectViewProps> {
         inputBuffer: "",
         inputCursorOffset: undefined,
       },
+      chatActive: false,
       nextActive: false,
       nextLabel: ROW_INTENT_META.next.label,
     };
@@ -125,6 +127,8 @@ export class MultiSelectView implements StatefulView<MultiSelectViewProps> {
       build.focusedRange = [otherStart, build.lines.length];
     }
 
+    this.appendChatRow(build, width);
+
     this.appendNextRow(build, width);
 
     const value = { lines: build.lines, focusedRange: build.focusedRange };
@@ -168,6 +172,26 @@ export class MultiSelectView implements StatefulView<MultiSelectViewProps> {
       if (row.active) {
         build.focusedRange = [start, build.lines.length];
       }
+    }
+  }
+
+  /**
+   * The "Chat About This" row, drawn bare like the commit row: no number, no
+   * checkbox. It closes the dialog rather than toggling anything, so painting
+   * it as a box would promise a behavior it does not have. Sits between the
+   * free-text row and the commit row, matching `SENTINEL_KINDS` order.
+   */
+  private appendChatRow(build: MultiSelectBuild, width: number): void {
+    const chatStart = build.lines.length;
+    const chatPointer = this.props.chatActive
+      ? this.theme.fg("accent", ACTIVE_POINTER)
+      : INACTIVE_POINTER;
+    const chatLabel = this.props.chatActive
+      ? this.theme.fg("accent", this.theme.bold(ROW_INTENT_META.chat.label))
+      : ROW_INTENT_META.chat.label;
+    build.lines.push(truncateToWidth(`${chatPointer}${chatLabel}`, width, ""));
+    if (this.props.chatActive) {
+      build.focusedRange = [chatStart, build.lines.length];
     }
   }
 

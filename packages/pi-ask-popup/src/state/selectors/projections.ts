@@ -27,6 +27,7 @@ function emptyMultiSelectProps(ctx: PerTabBindingContext): MultiSelectViewProps 
       inputBuffer: ctx.inputBuffer,
       inputCursorOffset: ctx.inputCursorOffset,
     },
+    chatActive: false,
     nextActive: false,
     nextLabel: LABELS_BY_KIND.next,
   };
@@ -66,7 +67,10 @@ export const selectMultiSelectProps: PerTabSelector<MultiSelectViewProps> = (sta
       inputBuffer: ctx.inputBuffer,
       inputCursorOffset: ctx.inputCursorOffset,
     },
-    nextActive: focused && state.optionIndex === question.options.length + 1,
+    // Row order below the options is the free-text row, then the chat row,
+    // then the commit row — `SENTINEL_KINDS` order.
+    chatActive: focused && state.optionIndex === question.options.length + 1,
+    nextActive: focused && state.optionIndex === question.options.length + 2,
     nextLabel: nextLabelFor(ctx),
   };
 };

@@ -243,12 +243,12 @@ describe("answering one question", () => {
 
 describe("choosing several", () => {
   /**
-   * Rows are Frontend, Backend, DevOps, the typed row, then the commit row --
-   * so the commit row is index 4, and `from` is wherever the script left the
-   * highlight.
+   * Rows are Frontend, Backend, DevOps, the typed row, the chat row, then the
+   * commit row — so the commit row is index 5, and `from` is wherever the
+   * script left the highlight.
    */
   const toCommitRow = (c: Driven, from: number) => {
-    for (let i = from; i < 4; i++) {
+    for (let i = from; i < 5; i++) {
       c.handleInput(KEY.DOWN);
     }
   };
@@ -498,5 +498,79 @@ describe("hiding, on a host with no way to reopen", () => {
       { onTerminalInput: () => () => {} },
     );
     expect(handles[0]?.setHidden).toHaveBeenCalledWith(true);
+  });
+});
+
+describe("the Chat About This row", () => {
+  // Rows per question: the authored options, then the typed row, the chat row,
+  // and (multi-select only) the commit row.
+  it("single-select: Enter on the chat row closes with the marker and no answer", async () => {
+    const { details } = await ask(THREE_OPTIONS, (c) => {
+      // 3 options + typed row → the chat row is index 4.
+      for (let i = 0; i < 4; i++) {
+        c.handleInput(KEY.DOWN);
+      }
+      c.handleInput(KEY.ENTER);
+    });
+    expect(details.cancelled).toBe(true);
+    expect(details.chatRequested).toEqual({
+      questionIndex: 0,
+      question: "Pick one",
+    });
+    expect(details.answers).toEqual([]);
+  });
+
+  it("multi-question: earlier answers survive and the marker names the picked tab", async () => {
+    const { details } = await ask(TWO_QUESTIONS, (c) => {
+      // Q1: Enter on option A confirms and auto-advances.
+      c.handleInput(KEY.ENTER);
+      // Q2: 2 options + typed row → the chat row is index 3.
+      for (let i = 0; i < 3; i++) {
+        c.handleInput(KEY.DOWN);
+      }
+      c.handleInput(KEY.ENTER);
+    });
+    expect(details.cancelled).toBe(true);
+    expect(details.chatRequested).toEqual({
+      questionIndex: 1,
+      question: "Q2?",
+    });
+    expect(details.answers.map((a) => a.questionIndex)).toEqual([0]);
+    expect(details.answers[0]?.answer).toBe("A");
+  });
+
+  it("multi-select: ticked boxes stay the tab's answer alongside the marker", async () => {
+    const { details } = await ask(MULTI, (c) => {
+      c.handleInput(KEY.SPACE); // Frontend, focus 0
+      c.handleInput(KEY.DOWN); // focus 1
+      c.handleInput(KEY.SPACE); // Backend
+      // From index 1 to the chat row (index 4, after the typed row).
+      for (let i = 0; i < 3; i++) {
+        c.handleInput(KEY.DOWN);
+      }
+      c.handleInput(KEY.ENTER);
+    });
+    expect(details.cancelled).toBe(true);
+    expect(details.chatRequested).toEqual({
+      questionIndex: 0,
+      question: "Pick areas",
+    });
+    expect(details.answers).toHaveLength(1);
+    expect(details.answers[0]?.selected).toEqual(["Frontend", "Backend"]);
+  });
+
+  it("multi-select: Space on the chat row does not toggle it", async () => {
+    const { details } = await ask(MULTI, (c) => {
+      for (let i = 0; i < 4; i++) {
+        c.handleInput(KEY.DOWN);
+      }
+      c.handleInput(KEY.SPACE);
+      c.handleInput(KEY.ENTER);
+    });
+    expect(details.chatRequested).toEqual({
+      questionIndex: 0,
+      question: "Pick areas",
+    });
+    expect(details.answers).toEqual([]);
   });
 });

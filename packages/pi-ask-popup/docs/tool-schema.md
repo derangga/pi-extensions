@@ -45,7 +45,7 @@ The two `maxLength` limits are checked by the param schema before `execute` runs
 
 ### Reserved option labels
 
-Using any of `"Other"`, `"Type something."`, or `"Next"` as an option label is rejected with `reserved_label`. The last two are the rows the dialog adds itself. `"Other"` is reserved because models are often primed to reach for it. Reservation is unconditional. A single-select question rejects `"Next"` even though that row is never added there.
+Using any of `"Other"`, `"Type something."`, `"Chat About This"`, or `"Next"` as an option label is rejected with `reserved_label`. The last three are the rows the dialog adds itself. `"Other"` is reserved because models are often primed to reach for it. Reservation is unconditional. A single-select question rejects `"Next"` even though that row is never added there.
 
 ## Validation errors
 
@@ -89,18 +89,24 @@ Every rejection returns `cancelled: true`, an empty `answers` array, and an `err
       question: string,
       note: string,
     }>,
+    chatRequested?: {              // set when the user picked "Chat About This"
+      questionIndex: number,       // the question they want to discuss first
+      question: string,
+    },
     error?: QuestionnaireError,    // one of the codes above
   }
 }
 ```
 
-`globalNote` and `unansweredNotes` use a conditional spread. The key only appears when the value is non-empty. A result with no notes has no such key at all, so `!("globalNote" in result)` holds.
+`globalNote`, `unansweredNotes` and `chatRequested` use a conditional spread. The key only appears when the value is non-empty. A result with no notes has no such key at all, so `!("globalNote" in result)` holds.
 
 ### Envelope text
 
 On success the text reads `User has answered your questions: "<question>"="<answer>". … You can now continue with the user's answers in mind.` A chosen option's `preview` is added as `selected preview: <markdown>`, a per-question note as `user notes: <text>`, a note on an unanswered question as `note on "<question>": <text>.`, and the Submit tab's global note as a trailing `global note: <text>.` segment. A global note alone, or a single `unansweredNotes` entry alone, still yields the answered envelope. It counts as an answer even when every question is blank.
 
 Cancelling, and any result with no answer segments, no unanswered note segments, and no global note, both collapse to the single string `User declined to answer questions` so the model sees one clear signal. Partial submission is allowed: unanswered questions simply add no segment. A cancelled result always reads as the decline in text. Its notes, if any, survive only in `details.globalNote` and `details.unansweredNotes`.
+
+A chat request never reads as the decline. When the user picks the `Chat About This` row, the dialog closes at once and the text reads `User selected "Chat About This" on question N ("<question>") — they want to clarify something before answering it.` followed by the answers already given (if any) and the instruction to end the turn and treat the user's next message as that question's clarification. The details carry `cancelled: true` and `chatRequested`; the picked question itself gains no answer.
 
 When `error` is `timed_out`, the text is `Questionnaire timed out, the user did not respond within the configured timeout. The user never saw a decline; do NOT treat this as a rejection. Ask the questions as plain chat text instead or retry.` The details keep `cancelled: true` and `error: "timed_out"` alongside any notes or answers the user left.
 

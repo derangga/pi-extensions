@@ -105,12 +105,14 @@ describe("single-select", () => {
     ]);
   });
 
-  it("appends the custom-answer row from the same metadata the overlay uses", async () => {
-    // Not a literal: the overlay row and this one have to say the same thing,
+  it("appends the custom-answer row and the chat row from the same metadata the overlay uses", async () => {
+    // Not literals: the overlay rows and these have to say the same thing,
     // and there is exactly one place that decides what that is.
-    const ui = makeUI(["1. Redis — shared"]);
+    const ui = makeUI([`3. ${ROW_INTENT_META.other.label}`]);
     await runRpcQuestionnaire(ui, params(PICK_ONE));
-    expect(ui.selectCalls[0]?.options.at(-1)).toBe(`3. ${ROW_INTENT_META.other.label}`);
+    const options = ui.selectCalls[0]?.options ?? [];
+    expect(options.at(-2)).toBe(`3. ${ROW_INTENT_META.other.label}`);
+    expect(options.at(-1)).toBe(`4. ${ROW_INTENT_META.chat.label}`);
   });
 
   it("follows the custom-answer row with a free-text prompt", async () => {
