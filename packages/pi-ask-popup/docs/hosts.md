@@ -31,7 +31,7 @@ The walk asks one question per dialog and returns the same result shape the TUI 
 - No side by side preview pane. Previews are folded into the dialog title instead, truncated at 600 characters each.
 - No tab bar and no Submit review tab. One dialog per question, in order.
 - No notes. Both note types, per-question `n` on a question tab and global `n` on the Submit tab, are terminal-only. The host's native `select` and `input` have no note field.
-- Multi-select is a free-text input: type the option numbers, comma separated (`1,3`). Any token that is not a valid option index is treated as a typed custom answer, which is how the `Type something.` escape survives. An empty input commits an empty selection, matching `Next` with nothing checked.
+- Multi-select is a free-text input: type the option numbers, comma separated (`1,3`). Any token that is not a valid option index is treated as a typed custom answer, which is how the `Type something.` escape survives. An empty input commits an empty selection, matching `Next` with nothing checked. The exact word `chat` (any capitalisation) is the `Chat about this` escape: it closes the walk with a `chatRequested` marker for that question, like the row does in the TUI.
 - Closing any dialog cancels the whole questionnaire, the same as `Esc` in the TUI.
 
 If the host can render neither custom UI nor dialogs, the call returns `error: "no_custom_ui"` with text telling the model the user never saw the questions and to ask them as plain chat text instead. This is not a decline.
@@ -49,6 +49,7 @@ Some parts of the dialog only appear when the conditions are right:
 | Tab bar and Submit tab | The call carries more than one question |
 | `Next` row | The question is multi-select |
 | `Type something.` row | Always |
+| `Chat about this` row | Always; on the RPC multi-select path, the word `chat` in the input |
 | Side by side preview | An option carries a `preview`, and terminal and pane are both at least 100 columns |
 | Preview pane at all | Single-select questions only |
 | Collapse shortcut | `collapseKey` is not `"off"` |

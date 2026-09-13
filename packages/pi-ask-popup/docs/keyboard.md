@@ -21,7 +21,7 @@ The table names the default keys. The dialog follows your Pi keybindings. Confir
 
 In a multi-select question, `Enter` on a regular row toggles its checkbox just like `Space`. It does not submit. Committing the question means focusing the `Next` row and pressing `Enter`. That is intentional: it makes `Enter` a cheap way to flip boxes without leaving the home row.
 
-`Space` is blocked on two rows: `Next` is a command, not a choice, and `Type something.` is a text input where the space character belongs to your answer.
+`Space` is blocked on three rows: `Next` and `Chat about this` are commands, not choices, and `Type something.` is a text input where the space character belongs to your answer.
 
 Timeout: if the call included a `timeout`, a live countdown shows in the footer and in the collapsed hint row, like `12s left`. The first keystroke you make cancels the timer. It does not reset, it stops.
 
@@ -30,11 +30,14 @@ Timeout: if the call included a `timeout`, a live countdown shows in the footer 
 | Row | Label | Added to |
 | --- | --- | --- |
 | Custom answer | `Type something.` | Every question, single-select and multi-select, with or without previews |
+| Chat escape | `Chat about this` | Every question, single-select and multi-select |
 | Commit | `Next` | Multi-select questions only |
 
 Focusing `Type something.` turns the row into an inline multiline editor. In preview mode it expands to the full pane width while you type, so a long custom answer is not squeezed into the narrow options column. `Shift+Enter` inserts a line break. Vertical arrows move between lines and return to row navigation at the top and bottom of the draft. The draft replaces the static row label while you browse other options and is kept per question. `Ctrl+G` sends it through Pi's configured external editor and brings the result back. `Ctrl+U` clears it. `Esc` is the way to cancel the questionnaire. Confirming the row produces an answer of `kind: "custom"`.
 
-Both labels are reserved. The model cannot use them as option labels. The check always compares against the English strings.
+Confirming `Chat about this` produces no answer at all: the dialog closes and the result carries a `chatRequested` marker for that question instead. The row is numbered like the rows above it but drawn under a full-width rule, because it ends the questionnaire rather than answering it. See [Tool schema](./tool-schema.md).
+
+All three labels are reserved. The model cannot use them as option labels. The check always compares against the English strings.
 
 ## Notes
 

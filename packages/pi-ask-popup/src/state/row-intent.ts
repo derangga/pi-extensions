@@ -11,15 +11,19 @@ import type { QuestionData } from "../tool/types.js";
  * `Record<RowKind, ...>`) AND every exhaustive switch in the renderer, so a new
  * row cannot ship half-wired.
  */
-export type RowKind = "option" | "other" | "next";
+export type RowKind = "option" | "other" | "chat" | "next";
 
 /**
  * Sentinel kinds: the protocol-driven rows, as opposed to author-defined
  * `option` rows. The auto-append walker, the reserved-label derivation and
  * `LABELS_BY_KIND` all iterate this list.
+ *
+ * Order is the append order on every question: options, the free-text row, the
+ * chat row, the commit row. The chat row sits before "Next" because it reads
+ * as another way out, not as the primary action.
  */
 export type SentinelKind = Exclude<RowKind, "option">;
-export const SENTINEL_KINDS: readonly SentinelKind[] = ["other", "next"];
+export const SENTINEL_KINDS: readonly SentinelKind[] = ["other", "chat", "next"];
 
 /**
  * One renderable row. Lives here rather than in the view because it is the
@@ -56,13 +60,16 @@ export interface WrappingSelectItem {
  *   validation time. `RESERVED_LABEL_SET` derives from this flag.
  * - `livesInMainList` — the row appears in the tab's item array.
  * - `numbered` — the row contributes to main-list numbering. The multi-select
- *   `Next` row is the only listed row that does not.
+ *   `Next` row is drawn bare by `MultiSelectView`, which does its own
+ *   numbering; the `chat` row keeps its number there too.
  * - `activatesInputMode` — focusing the row flips `state.inputMode`, turning it
  *   into an inline editor. Read by the reducer's `nav` case.
  * - `blocksMultiToggle` — in multi-select, Space and Enter-as-toggle are
- *   suppressed on this row. `Next` only.
+ *   suppressed on this row. `Next` and `chat` only.
  * - `autoSubmitsInMulti` — in multi-select, Enter on this row commits the
- *   question. `Next` only.
+ *   question. `Next` and `chat` only.
+ * - `separatorAbove` — the renderer draws a full-width rule above the row,
+ *   setting it off from the answer list. `chat` only.
  * - `autoAppendOnSingleSelect` / `autoAppendOnMultiSelect` — whether the item
  *   builder appends this row in that mode.
  */
@@ -76,6 +83,7 @@ export interface RowIntentMeta {
   autoSubmitsInMulti: boolean;
   autoAppendOnSingleSelect: boolean;
   autoAppendOnMultiSelect: boolean;
+  separatorAbove: boolean;
 }
 
 export const ROW_INTENT_META: Record<RowKind, RowIntentMeta> = {
@@ -89,6 +97,7 @@ export const ROW_INTENT_META: Record<RowKind, RowIntentMeta> = {
     autoSubmitsInMulti: false,
     autoAppendOnSingleSelect: false,
     autoAppendOnMultiSelect: false,
+    separatorAbove: false,
   },
   other: {
     label: "Type something.",
@@ -100,6 +109,32 @@ export const ROW_INTENT_META: Record<RowKind, RowIntentMeta> = {
     autoSubmitsInMulti: false,
     autoAppendOnSingleSelect: true,
     autoAppendOnMultiSelect: true,
+    separatorAbove: false,
+  },
+  /**
+   * The "Chat about this" row. Selecting it abandons the questionnaire: the
+   * dialog closes and the tool result carries a `chatRequested` marker for the
+   * question it was picked on, so the model stops and treats the user's next
+   * chat message as a clarification of that question. It is a decision, not an
+   * answer — no `QuestionAnswer` is minted for it.
+   *
+   * It is numbered like the rows above it but sits under a full-width rule,
+   * because it is not one of the answers: it ends the questionnaire. In
+   * multi-select it shares `autoSubmitsInMulti` and `blocksMultiToggle` with
+   * `next`, even though the commit it performs closes the dialog rather than
+   * advancing a tab.
+   */
+  chat: {
+    label: "Chat about this",
+    reserved: true,
+    livesInMainList: true,
+    numbered: true,
+    activatesInputMode: false,
+    blocksMultiToggle: true,
+    autoSubmitsInMulti: true,
+    autoAppendOnSingleSelect: true,
+    autoAppendOnMultiSelect: true,
+    separatorAbove: true,
   },
   next: {
     label: "Next",
@@ -111,6 +146,7 @@ export const ROW_INTENT_META: Record<RowKind, RowIntentMeta> = {
     autoSubmitsInMulti: true,
     autoAppendOnSingleSelect: false,
     autoAppendOnMultiSelect: true,
+    separatorAbove: false,
   },
 };
 
@@ -120,6 +156,7 @@ export const ROW_INTENT_META: Record<RowKind, RowIntentMeta> = {
  */
 export const LABELS_BY_KIND: { readonly [K in SentinelKind]: string } = {
   other: ROW_INTENT_META.other.label,
+  chat: ROW_INTENT_META.chat.label,
   next: ROW_INTENT_META.next.label,
 };
 
@@ -131,7 +168,9 @@ export const LABELS_BY_KIND: { readonly [K in SentinelKind]: string } = {
  */
 export const RESERVED_LABEL_SET: ReadonlySet<string> = new Set<string>([
   "Other",
-  ...SENTINEL_KINDS.filter((k) => ROW_INTENT_META[k].reserved).map((k) => ROW_INTENT_META[k].label),
+  // A flatMap because the filter and the projection read the same meta entry;
+  // two passes would walk SENTINEL_KINDS twice for one set.
+  ...SENTINEL_KINDS.flatMap((k) => (ROW_INTENT_META[k].reserved ? [ROW_INTENT_META[k].label] : [])),
 ]);
 
 /**

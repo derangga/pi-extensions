@@ -18,7 +18,9 @@
  * for them, and inventing a second dialog to collect one would double the
  * number of prompts for something most answers never use.
  *
- * The "Type something." escape does survive, on both variants.
+ * The "Type something." escape and the "Chat about this" escape both survive,
+ * on both variants: the select lists carry both rows, and the multi-select
+ * input accepts the word `chat` as the row's counterpart.
  */
 
 import { ROW_INTENT_META } from "./state/row-intent.js";
@@ -30,9 +32,11 @@ import type {
 } from "./tool/types.js";
 
 const MULTI_SELECT_INSTRUCTIONS =
-  'Enter the numbers of all that apply, comma-separated (e.g. "1,3"), or type a custom answer as plain text.';
+  'Enter the numbers of all that apply, comma-separated (e.g. "1,3"), or type a custom answer as plain text. Reply "chat" to set this question aside and discuss it in chat instead.';
 const CUSTOM_ANSWER_TITLE = "Type your answer:";
 const MULTI_SELECT_PLACEHOLDER = "1,3";
+/** The word a multi-select input reply must equal to trigger the chat escape. */
+const CHAT_KEYWORD = "chat";
 
 /** How much of an option's preview is folded into a select title before truncation. */
 const MAX_PREVIEW_CHARS = 600;
@@ -80,6 +84,7 @@ export function hasDialogUI(ui: unknown): ui is DialogUI {
  */
 type AskOutcome =
   | { kind: "answer"; answer: QuestionAnswer }
+  | { kind: "chat"; question: string }
   | { kind: "dismissed" }
   | { kind: "host_error"; detail: string };
 
@@ -138,6 +143,16 @@ export async function runRpcQuestionnaire(
     if (outcome.kind === "dismissed") {
       return { answers, cancelled: true };
     }
+    if (outcome.kind === "chat") {
+      // Same shape the overlay's chat row produces: everything answered before
+      // this question rides along, the marker names this one, and the rest of
+      // the walk is abandoned.
+      return {
+        answers,
+        cancelled: true,
+        chatRequested: { questionIndex: qi, question: outcome.question },
+      };
+    }
     if (outcome.kind === "host_error") {
       return { answers, cancelled: true, error: "host_error", hostErrorDetail: outcome.detail };
     }
@@ -156,6 +171,7 @@ async function askSingleSelect(
 ): Promise<AskOutcome> {
   const options = q.options.map(formatOptionLine);
   options.push(`${q.options.length + 1}. ${ROW_INTENT_META.other.label}`);
+  options.push(`${q.options.length + 2}. ${ROW_INTENT_META.chat.label}`);
   const chosen = await ui.select(`${header}${q.question}${buildPreviewBlock(q)}`, options, opts);
   if (chosen === undefined || chosen === null) {
     return DISMISSED;
@@ -181,6 +197,11 @@ async function askSingleSelect(
       (answer as QuestionAnswer & { preview: string }).preview = option.preview;
     }
     return { kind: "answer", answer };
+  }
+  // The "Chat about this" row, one index past the authored options plus the
+  // free-text row.
+  if (idx === q.options.length + 1) {
+    return { kind: "chat", question: q.question };
   }
   // The "Type something." row, which is the one index past the authored options.
   const typed = await ui.input(`${header}${q.question}\n\n${CUSTOM_ANSWER_TITLE}`, "", opts);
@@ -226,6 +247,15 @@ async function askMultiSelect(
       kind: "answer",
       answer: { questionIndex, question: q.question, kind: "multi", answer: null, selected: [] },
     };
+  }
+  // The chat escape. There is no row to focus in an input dialog, so the word
+  // itself is the affordance, and it is matched exactly rather than split into
+  // tokens: a reply of "1, chat, 3" is a custom answer naming the word, not a
+  // mixed selection, and pretending otherwise would answer a question the user
+  // asked to set aside. Case-insensitive because the instructions show it
+  // lowercase and no dialog here punishes capitalisation anywhere else.
+  if (trimmed.toLowerCase() === CHAT_KEYWORD) {
+    return { kind: "chat", question: q.question };
   }
   const tokens = trimmed.split(/[,\s]+/).filter((tok) => tok.length > 0);
   const indices = tokens.map((tok) =>

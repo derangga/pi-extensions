@@ -1,4 +1,5 @@
 import type { WrappingSelectItem } from "../../state/row-intent.js";
+import { ROW_INTENT_META } from "../../state/row-intent.js";
 import type { Component } from "@earendil-works/pi-tui";
 import { visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { renderInlineInputRow } from "./inline-input.js";
@@ -286,14 +287,27 @@ export class WrappingSelect implements Component {
       width - visibleWidth(rowPrefix),
     );
 
+    // A row that ends the questionnaire rather than answering it is drawn
+    // under a full-width rule, so it reads as outside the answer list. The
+    // rule is part of the item's own render, which keeps the visible-window
+    // arithmetic honest: the rule scrolls with the row and the focused range
+    // covers both.
+    const separator = ROW_INTENT_META[item.kind].separatorAbove
+      ? [this.theme.scrollInfo("\u2500".repeat(Math.max(0, width)))]
+      : [];
+
     if (this.shouldRenderAsInlineInput(item, isActive)) {
-      return this.renderInlineInputRow(rowPrefix, continuationPrefix, contentWidth);
+      return [
+        ...separator,
+        ...this.renderInlineInputRow(rowPrefix, continuationPrefix, contentWidth),
+      ];
     }
 
     const { label, isConfirmed } = this.deriveConfirmedState(item, index);
     const applySelectedStyle = isActive || isConfirmed;
 
     return [
+      ...separator,
       ...this.renderLabelBlock(
         label,
         rowPrefix,

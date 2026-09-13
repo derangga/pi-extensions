@@ -26,17 +26,17 @@ function question(multiSelect: boolean): QuestionData {
 }
 
 describe("sentinelsToAppend", () => {
-  it("appends only the free-text row to a single-select question", () => {
-    expect(sentinelsToAppend(question(false))).toEqual(["other"]);
+  it("appends the free-text and chat rows to a single-select question", () => {
+    expect(sentinelsToAppend(question(false))).toEqual(["other", "chat"]);
   });
 
-  it("appends the free-text row and the commit row to a multi-select question", () => {
-    expect(sentinelsToAppend(question(true))).toEqual(["other", "next"]);
+  it("appends the free-text, chat and commit rows to a multi-select question", () => {
+    expect(sentinelsToAppend(question(true))).toEqual(["other", "chat", "next"]);
   });
 
   it("treats an absent multiSelect as single-select", () => {
     const q: QuestionData = { question: "Q?", header: "H", options: question(false).options };
-    expect(sentinelsToAppend(q)).toEqual(["other"]);
+    expect(sentinelsToAppend(q)).toEqual(["other", "chat"]);
   });
 
   it("returns kinds in SENTINEL_KINDS order", () => {
@@ -75,9 +75,12 @@ describe("row intent metadata", () => {
     expect(activating).toEqual(["other"]);
   });
 
-  it("lets exactly one row commit a multi-select question", () => {
+  it("lets exactly the commit and chat rows commit a multi-select question", () => {
+    // Both rows end the dialog on Enter: Next advances or submits, chat closes
+    // with the chat marker. A third committing row would have to justify its
+    // own semantics before joining them.
     const submitting = SENTINEL_KINDS.filter((k) => ROW_INTENT_META[k].autoSubmitsInMulti);
-    expect(submitting).toEqual(["next"]);
+    expect(submitting).toEqual(["chat", "next"]);
   });
 
   it("never makes a row both toggleable and a commit command", () => {

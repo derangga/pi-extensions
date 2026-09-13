@@ -40,6 +40,13 @@ export type QuestionnaireAction =
   | { kind: "confirm"; answer: QuestionAnswer; autoAdvanceTab?: number | undefined }
   | { kind: "toggle"; index: number }
   | { kind: "multi_confirm"; selected: string[]; autoAdvanceTab?: number | undefined }
+  /**
+   * The user picked the "Chat about this" row on the current tab: close the
+   * dialog, keep the answers already given, and mark this question as the one
+   * they want to discuss before answering. Ends the questionnaire like
+   * `cancel`, but with the marker attached.
+   */
+  | { kind: "chat_request" }
   | { kind: "cancel" }
   | { kind: "notes_enter" }
   | { kind: "notes_exit" }
@@ -125,6 +132,12 @@ function buildSingleSelectAnswer(
     return null;
   }
   if (item.kind === "other") {
+    return null;
+  }
+  if (item.kind === "chat") {
+    // Not an answer. Enter on this row is intercepted in routeSingleSelectTab
+    // before it gets here; this branch is the defensive backstop that keeps a
+    // chat row from ever minting an answer.
     return null;
   }
   if (item.kind === "next") {
@@ -363,6 +376,14 @@ function routeMultiSelectTab(
     if (!focusedMeta?.autoSubmitsInMulti) {
       return { kind: "toggle", index: state.optionIndex };
     }
+    // Enter on the chat row ends the questionnaire with the current tab marked
+    // for discussion, keeping whatever boxes are ticked as its answer. It
+    // shares `autoSubmitsInMulti` with Next but performs a different commit,
+    // so it is dispatched by kind rather than falling through to
+    // `multi_confirm`, which would advance instead of closing.
+    if (focusedKind === "chat") {
+      return { kind: "chat_request" };
+    }
     // Enter on Next: carry autoAdvanceTab so the host can advance to the next tab in
     // multi-question mode, OR submit the dialog in single-question mode
     // (autoAdvanceTab === undefined when !isMulti). Without this, a single multi-select
@@ -386,6 +407,10 @@ function routeSingleSelectTab(
   runtime: QuestionnaireRuntime,
 ): QuestionnaireAction {
   if (isConfirm(kb, data)) {
+    // Enter on the chat row abandons the questionnaire instead of answering.
+    if (runtime.currentItem?.kind === "chat") {
+      return { kind: "chat_request" };
+    }
     const answer = buildSingleSelectAnswer(state, runtime);
     if (!answer) {
       return { kind: "ignore" };
