@@ -9,8 +9,6 @@ import type {
 } from "./types.js";
 
 export const DECLINE_MESSAGE = "User declined to answer questions";
-export const CHAT_REQUEST_INSTRUCTION =
-  "This is NOT a decline. End your turn now without asking a new question — the user's next message is their clarification of that question. Respond to it, then re-ask only the questions that remain unanswered.";
 export const TIMED_OUT_MESSAGE =
   "Questionnaire timed out — the user did not respond within the configured timeout. The user never saw a decline; do NOT treat this as a rejection. Ask the questions as plain chat text instead or retry.";
 export const HOST_ERROR_MESSAGE =
@@ -170,23 +168,23 @@ function collectSegments(result: QuestionnaireResult, params: QuestionParams): s
 /**
  * The envelope for a "Chat about this" close.
  *
- * Answers already given ride in ask order as usual, then the marker's own
- * segment tells the model what the selection means and what to do next: stop,
- * read the user's next message as the clarification, and re-ask only what is
- * still missing afterwards. Partial answers are stated explicitly so the model
- * does not re-ask what it already has.
+ * States facts only — which question, and the answers already given in ask
+ * order — with no instruction to act on them. What the model does next (ask
+ * the user what they want to clarify, then wait) lives in the tool description
+ * and prompt guidelines, the standing-instruction channels, not here. An
+ * imperative placed in this text got echoed verbatim as the model's reply, so
+ * this string carries none.
  */
 function buildChatRequestMessage(
   chatRequested: ChatRequested,
   segments: readonly string[],
 ): string {
   const parts: string[] = [
-    `User selected "${ROW_INTENT_META.chat.label}" on question ${chatRequested.questionIndex + 1} ("${chatRequested.question}") — they want to clarify something before answering it.`,
+    `User picked "${ROW_INTENT_META.chat.label}" on question ${chatRequested.questionIndex + 1}: "${chatRequested.question}"`,
   ];
   if (segments.length > 0) {
-    parts.push(`Their answers to the earlier questions: ${segments.join(" ")}`);
+    parts.push(segments.join(" "));
   }
-  parts.push(CHAT_REQUEST_INSTRUCTION);
   return parts.join(" ");
 }
 

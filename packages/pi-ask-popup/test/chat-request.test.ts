@@ -2,10 +2,7 @@ import { describe, expect, it } from "vitest";
 import { routeKey } from "../src/state/key-router.js";
 import { ROW_INTENT_META, type WrappingSelectItem } from "../src/state/row-intent.js";
 import { type Effect, reduce } from "../src/state/state-reducer.js";
-import {
-  buildQuestionnaireResponse,
-  CHAT_REQUEST_INSTRUCTION,
-} from "../src/tool/response-envelope.js";
+import { buildQuestionnaireResponse } from "../src/tool/response-envelope.js";
 import type { QuestionData, QuestionParams, QuestionnaireResult } from "../src/tool/types.js";
 import { runRpcQuestionnaire, type DialogUI } from "../src/rpc-fallback.js";
 import type { QuestionnaireRuntime } from "../src/state/state.js";
@@ -210,7 +207,7 @@ describe("buildQuestionnaireResponse — chat request", () => {
     ],
   };
 
-  it("names the question, keeps the answered segments, and instructs the model to wait", () => {
+  it("names the question and keeps the answered segments, with no instruction to the model", () => {
     const prior = answer(0, "Which cache?", "Redis");
     const result: QuestionnaireResult = {
       answers: [prior],
@@ -220,9 +217,13 @@ describe("buildQuestionnaireResponse — chat request", () => {
     const out = buildQuestionnaireResponse(result, params);
     expect(out.details.cancelled).toBe(true);
     expect(out.details.chatRequested).toEqual({ questionIndex: 1, question: "Which runtime?" });
-    expect(out.content[0]?.text).toContain('question 2 ("Which runtime?")');
+    expect(out.content[0]?.text).toContain('User picked "Chat about this" on question 2');
+    expect(out.content[0]?.text).toContain('"Which runtime?"');
     expect(out.content[0]?.text).toContain('"Which cache?"="Redis"');
-    expect(out.content[0]?.text).toContain(CHAT_REQUEST_INSTRUCTION);
+    // Nothing here tells the model what to do next — that lives in the tool
+    // description, the channel that does not get echoed.
+    expect(out.content[0]?.text).not.toMatch(/end your turn/i);
+    expect(out.content[0]?.text).not.toMatch(/NOT a decline/i);
   });
 
   it("still produces the chat message when nothing was answered before the pick", () => {
@@ -232,8 +233,9 @@ describe("buildQuestionnaireResponse — chat request", () => {
       chatRequested: { questionIndex: 0, question: "Which cache?" },
     };
     const out = buildQuestionnaireResponse(result, params);
-    expect(out.content[0]?.text).toContain(CHAT_REQUEST_INSTRUCTION);
+    expect(out.content[0]?.text).toContain('User picked "Chat about this" on question 1');
     expect(out.content[0]?.text).not.toContain("User declined");
+    expect(out.content[0]?.text).not.toMatch(/end your turn/i);
   });
 
   it("never attaches the marker to an ordinary result", () => {
