@@ -9,14 +9,17 @@ import {
 import type { QuestionData, QuestionParams, QuestionnaireResult } from "../src/tool/types.js";
 import { runRpcQuestionnaire, type DialogUI } from "../src/rpc-fallback.js";
 import type { QuestionnaireRuntime } from "../src/state/state.js";
+import { WrappingSelect } from "../src/view/components/wrapping-select.js";
 import {
+  lineAt,
   makeApplyContext as makeCtx,
   makeQuestion,
   makeQuestionnaireState as makeState,
+  stripAnsi,
 } from "./fixtures.js";
 
 /**
- * The "Chat About This" sentinel, end to end through its layers: the router
+ * The "Chat about this" sentinel, end to end through its layers: the router
  * that turns Enter into the request, the reducer that closes the dialog with
  * the marker attached, the envelope that tells the model what happened, and
  * the RPC walker that mirrors the row for hosts without the overlay.
@@ -298,5 +301,59 @@ describe("rpc fallback — the chat escape", () => {
     expect(result.cancelled).toBe(false);
     expect("chatRequested" in result).toBe(false);
     expect(result.answers[0]?.kind).toBe("custom");
+  });
+});
+
+describe("rendering — the separator and the number", () => {
+  const wrappingTheme = {
+    selectedText: (t: string) => t,
+    description: (t: string) => t,
+    scrollInfo: (t: string) => t,
+  };
+
+  function itemsWithChat(options: number): WrappingSelectItem[] {
+    return [
+      ...Array.from({ length: options }, (_v, i) => ({
+        kind: "option" as const,
+        label: `opt${i + 1}`,
+      })),
+      { kind: "other", label: ROW_INTENT_META.other.label },
+      { kind: "chat", label: ROW_INTENT_META.chat.label },
+    ];
+  }
+
+  it("WrappingSelect draws a full-width rule above the numbered chat row", () => {
+    const items = itemsWithChat(2);
+    const s = new WrappingSelect(items, items.length, wrappingTheme);
+    const lines = s.render(60);
+    // 2 option rows + the free-text row, each one line, then the chat item's
+    // rule and label.
+    const rule = stripAnsi(lineAt(lines, 3));
+    const row = stripAnsi(lineAt(lines, 4));
+    expect(rule).toMatch(/^\u2500+$/);
+    expect(rule).toHaveLength(60);
+    expect(row).toContain("4. Chat about this");
+  });
+
+  it("the rule is part of the chat item's focused range", () => {
+    const items = itemsWithChat(2);
+    const s = new WrappingSelect(items, items.length, wrappingTheme);
+    s.setSelectedIndex(items.length - 1);
+    const [start, end] = s.focusedItemRowRange(60);
+    // Rule at line 3, label at line 4.
+    expect(start).toBe(3);
+    expect(end).toBe(5);
+  });
+
+  it("option rows carry no rule", () => {
+    const items = itemsWithChat(2);
+    const s = new WrappingSelect(items, items.length, wrappingTheme);
+    const lines = s.render(60).map((l) => stripAnsi(l));
+    // The only full-width rule in the list is the one above the chat row; an
+    // option row must never open with one.
+    const ruled = lines.filter((l) => /^\u2500+$/.test(l));
+    expect(ruled).toHaveLength(1);
+    const chatIndex = lines.findIndex((l) => l.includes("Chat about this"));
+    expect(ruled[0]).toBe(lines[chatIndex - 1]);
   });
 });

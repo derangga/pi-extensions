@@ -325,6 +325,6 @@ describe("schema constants and reserved labels", () => {
   });
 
   it("reserves the two runtime sentinels plus Claude Code's 'Other'", () => {
-    expect(RESERVED_LABELS).toEqual(["Other", "Type something.", "Chat About This", "Next"]);
+    expect(RESERVED_LABELS).toEqual(["Other", "Type something.", "Chat about this", "Next"]);
   });
 });

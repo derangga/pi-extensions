@@ -1,4 +1,5 @@
 import { formatAnswerScalar } from "./format-answer.js";
+import { ROW_INTENT_META } from "../state/row-intent.js";
 import type {
   ChatRequested,
   QuestionAnswer,
@@ -167,7 +168,7 @@ function collectSegments(result: QuestionnaireResult, params: QuestionParams): s
 }
 
 /**
- * The envelope for a "Chat About This" close.
+ * The envelope for a "Chat about this" close.
  *
  * Answers already given ride in ask order as usual, then the marker's own
  * segment tells the model what the selection means and what to do next: stop,
@@ -180,7 +181,7 @@ function buildChatRequestMessage(
   segments: readonly string[],
 ): string {
   const parts: string[] = [
-    `User selected "Chat About This" on question ${chatRequested.questionIndex + 1} ("${chatRequested.question}") — they want to clarify something before answering it.`,
+    `User selected "${ROW_INTENT_META.chat.label}" on question ${chatRequested.questionIndex + 1} ("${chatRequested.question}") — they want to clarify something before answering it.`,
   ];
   if (segments.length > 0) {
     parts.push(`Their answers to the earlier questions: ${segments.join(" ")}`);

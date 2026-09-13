@@ -75,7 +75,7 @@ export const QuestionSchema = Type.Object({
     minItems: MIN_OPTIONS,
     maxItems: MAX_OPTIONS,
     description:
-      "The available choices for this question. Must have 2-4 options. Each option should be a distinct, mutually exclusive choice (unless multiSelect is enabled). The 'Type something.' row and the 'Chat About This' row are appended automatically — do NOT author them.",
+      "The available choices for this question. Must have 2-4 options. Each option should be a distinct, mutually exclusive choice (unless multiSelect is enabled). The 'Type something.' row and the 'Chat about this' row are appended automatically — do NOT author them.",
   }),
   multiSelect: Type.Optional(
     Type.Boolean({
@@ -115,7 +115,7 @@ export type QuestionParams = Static<typeof QuestionParamsSchema>;
  * - `custom` — the user typed free text in the "Type something." row.
  *   `answer` is the text, or null when they committed nothing.
  *
- * A "Chat About This" selection never becomes one of these: it is a decision
+ * A "Chat about this" selection never becomes one of these: it is a decision
  * to stop and discuss, and it travels on `QuestionnaireResult.chatRequested`
  * instead of minting a pseudo-answer here.
  * - `multi` — the user committed multi-select choices. `selected` carries the
@@ -182,7 +182,7 @@ export interface QuestionnaireResult {
   answers: QuestionAnswer[];
   cancelled: boolean;
   /**
-   * The user selected the "Chat About This" sentinel, closing the dialog
+   * The user selected the "Chat about this" sentinel, closing the dialog
    * without answering this question, and wants to discuss it in chat first.
    * Attached only on a chat-request result — never on a submit, decline or
    * timeout.

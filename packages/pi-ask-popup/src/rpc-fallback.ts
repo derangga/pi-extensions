@@ -18,7 +18,7 @@
  * for them, and inventing a second dialog to collect one would double the
  * number of prompts for something most answers never use.
  *
- * The "Type something." escape and the "Chat About This" escape both survive,
+ * The "Type something." escape and the "Chat about this" escape both survive,
  * on both variants: the select lists carry both rows, and the multi-select
  * input accepts the word `chat` as the row's counterpart.
  */
@@ -198,7 +198,7 @@ async function askSingleSelect(
     }
     return { kind: "answer", answer };
   }
-  // The "Chat About This" row, one index past the authored options plus the
+  // The "Chat about this" row, one index past the authored options plus the
   // free-text row.
   if (idx === q.options.length + 1) {
     return { kind: "chat", question: q.question };

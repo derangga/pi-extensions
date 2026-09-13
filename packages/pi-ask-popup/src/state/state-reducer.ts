@@ -427,7 +427,7 @@ const notesExitHandler: Handler<"notes_exit"> = (state, _action, _ctx) => {
 
 const cancelHandler: Handler<"cancel"> = (s, _a, c) => doneFor(s, c, true);
 /**
- * Enter on the "Chat About This" row.
+ * Enter on the "Chat about this" row.
  *
  * The current tab's multi-select state is persisted first, so the ticked boxes
  * (and any text typed on the "Type something." row) stay the question's answer

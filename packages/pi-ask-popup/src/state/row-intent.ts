@@ -60,14 +60,16 @@ export interface WrappingSelectItem {
  *   validation time. `RESERVED_LABEL_SET` derives from this flag.
  * - `livesInMainList` — the row appears in the tab's item array.
  * - `numbered` — the row contributes to main-list numbering. The multi-select
- *   `Next` and `chat` rows are drawn bare by `MultiSelectView`, which does its
- *   own numbering and gives neither a number there.
+ *   `Next` row is drawn bare by `MultiSelectView`, which does its own
+ *   numbering; the `chat` row keeps its number there too.
  * - `activatesInputMode` — focusing the row flips `state.inputMode`, turning it
  *   into an inline editor. Read by the reducer's `nav` case.
  * - `blocksMultiToggle` — in multi-select, Space and Enter-as-toggle are
- *   suppressed on this row. `Next` only.
+ *   suppressed on this row. `Next` and `chat` only.
  * - `autoSubmitsInMulti` — in multi-select, Enter on this row commits the
- *   question. `Next` only.
+ *   question. `Next` and `chat` only.
+ * - `separatorAbove` — the renderer draws a full-width rule above the row,
+ *   setting it off from the answer list. `chat` only.
  * - `autoAppendOnSingleSelect` / `autoAppendOnMultiSelect` — whether the item
  *   builder appends this row in that mode.
  */
@@ -81,6 +83,7 @@ export interface RowIntentMeta {
   autoSubmitsInMulti: boolean;
   autoAppendOnSingleSelect: boolean;
   autoAppendOnMultiSelect: boolean;
+  separatorAbove: boolean;
 }
 
 export const ROW_INTENT_META: Record<RowKind, RowIntentMeta> = {
@@ -94,6 +97,7 @@ export const ROW_INTENT_META: Record<RowKind, RowIntentMeta> = {
     autoSubmitsInMulti: false,
     autoAppendOnSingleSelect: false,
     autoAppendOnMultiSelect: false,
+    separatorAbove: false,
   },
   other: {
     label: "Type something.",
@@ -105,22 +109,23 @@ export const ROW_INTENT_META: Record<RowKind, RowIntentMeta> = {
     autoSubmitsInMulti: false,
     autoAppendOnSingleSelect: true,
     autoAppendOnMultiSelect: true,
+    separatorAbove: false,
   },
   /**
-   * The "Chat About This" row. Selecting it abandons the questionnaire: the
+   * The "Chat about this" row. Selecting it abandons the questionnaire: the
    * dialog closes and the tool result carries a `chatRequested` marker for the
    * question it was picked on, so the model stops and treats the user's next
    * chat message as a clarification of that question. It is a decision, not an
    * answer — no `QuestionAnswer` is minted for it.
    *
-   * In multi-select it behaves like the commit row: Enter closes the dialog
-   * with the ticked options kept as the current question's answer, plus the
-   * chat marker. Which is why it shares `autoSubmitsInMulti` and
-   * `blocksMultiToggle` with `next`, even though the commit it performs ends
-   * the questionnaire rather than advancing a tab.
+   * It is numbered like the rows above it but sits under a full-width rule,
+   * because it is not one of the answers: it ends the questionnaire. In
+   * multi-select it shares `autoSubmitsInMulti` and `blocksMultiToggle` with
+   * `next`, even though the commit it performs closes the dialog rather than
+   * advancing a tab.
    */
   chat: {
-    label: "Chat About This",
+    label: "Chat about this",
     reserved: true,
     livesInMainList: true,
     numbered: true,
@@ -129,6 +134,7 @@ export const ROW_INTENT_META: Record<RowKind, RowIntentMeta> = {
     autoSubmitsInMulti: true,
     autoAppendOnSingleSelect: true,
     autoAppendOnMultiSelect: true,
+    separatorAbove: true,
   },
   next: {
     label: "Next",
@@ -140,6 +146,7 @@ export const ROW_INTENT_META: Record<RowKind, RowIntentMeta> = {
     autoSubmitsInMulti: true,
     autoAppendOnSingleSelect: false,
     autoAppendOnMultiSelect: true,
+    separatorAbove: false,
   },
 };
 
@@ -161,7 +168,9 @@ export const LABELS_BY_KIND: { readonly [K in SentinelKind]: string } = {
  */
 export const RESERVED_LABEL_SET: ReadonlySet<string> = new Set<string>([
   "Other",
-  ...SENTINEL_KINDS.filter((k) => ROW_INTENT_META[k].reserved).map((k) => ROW_INTENT_META[k].label),
+  // A flatMap because the filter and the projection read the same meta entry;
+  // two passes would walk SENTINEL_KINDS twice for one set.
+  ...SENTINEL_KINDS.flatMap((k) => (ROW_INTENT_META[k].reserved ? [ROW_INTENT_META[k].label] : [])),
 ]);
 
 /**

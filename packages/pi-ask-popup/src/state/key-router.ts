@@ -41,7 +41,7 @@ export type QuestionnaireAction =
   | { kind: "toggle"; index: number }
   | { kind: "multi_confirm"; selected: string[]; autoAdvanceTab?: number | undefined }
   /**
-   * The user picked the "Chat About This" row on the current tab: close the
+   * The user picked the "Chat about this" row on the current tab: close the
    * dialog, keep the answers already given, and mark this question as the one
    * they want to discuss before answering. Ends the questionnaire like
    * `cancel`, but with the marker attached.

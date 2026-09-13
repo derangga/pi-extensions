@@ -501,7 +501,7 @@ describe("hiding, on a host with no way to reopen", () => {
   });
 });
 
-describe("the Chat About This row", () => {
+describe("the Chat about this row", () => {
   // Rows per question: the authored options, then the typed row, the chat row,
   // and (multi-select only) the commit row.
   it("single-select: Enter on the chat row closes with the marker and no answer", async () => {

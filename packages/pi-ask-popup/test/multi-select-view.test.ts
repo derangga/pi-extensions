@@ -34,17 +34,18 @@ function question(over: Partial<QuestionData> = {}): QuestionData {
 }
 
 describe("MultiSelectView.render", () => {
-  it("renders one row per option + 'Type something.' + 'Chat About This' + a trailing Next sentinel", () => {
+  it("renders one row per option + 'Type something.' + 'Chat about this' + a trailing Next sentinel", () => {
     const q = question();
     const m = makeView(q, makeProps(q));
     const lines = m.render(80);
-    expect(lines.length).toBe(6); // 3 options + Type something. + Chat About This + Next
+    expect(lines.length).toBe(7); // 3 options + Type something. + rule + Chat about this + Next
     expect(lines[0]).toContain("FE");
     expect(lines[1]).toContain("BE");
     expect(lines[2]).toContain("DB");
     expect(lines[3]).toContain("Type something.");
-    expect(lines[4]).toContain("Chat About This");
-    expect(lines[5]).toContain("Next");
+    expect(stripAnsi(lineAt(lines, 4))).toMatch(/^\u2500+$/); // full-width rule
+    expect(stripAnsi(lineAt(lines, 5))).toContain("Chat about this");
+    expect(lines[6]).toContain("Next");
   });
 
   // Spec: a 1-space gap between the bracketed glyph (`[ ]` / `[✔]`) and the option label
@@ -93,11 +94,11 @@ describe("MultiSelectView.render", () => {
     });
     const m = makeView(q, makeProps(q));
     const lines = m.render(80);
-    expect(lines.length).toBe(6); // FE row + 1 desc + BE row + Type something. + Chat + Next
+    expect(lines.length).toBe(7); // FE + desc + BE + Type something. + rule + Chat + Next
     expect(lines[1]).toContain("front-end");
     expect(lines[3]).toContain("Type something.");
-    expect(lines[4]).toContain("Chat About This");
-    expect(lines[5]).toContain("Next");
+    expect(lines[5]).toContain("Chat about this");
+    expect(lines[6]).toContain("Next");
   });
 
   it("active option uses ACTIVE_POINTER and accent styling", () => {
@@ -145,9 +146,14 @@ describe("MultiSelectView.render", () => {
     });
     const m = makeView(q, makeProps(q));
     const lines = m.render(40);
-    // Line 0 = row, lines 1..N = wrapped description segments. Each continuation must start
-    // with EXACTLY 2 spaces (col 2 = past pointer slot), not 9 (full prefix column).
-    for (let i = 1; i < lines.length - 1; i++) {
+    // Line 0 = FE row, lines 1..N = wrapped description segments. Each continuation
+    // must start with EXACTLY 2 spaces (col 2 = past pointer slot), not 9 (full
+    // prefix column). Scoped to the segments between the FE row and the BE row:
+    // the trailing sentinel rows and the chat rule are layout chrome, not
+    // continuation lines, and the rule starts with "─" by design.
+    const beRow = lines.findIndex((l) => stripAnsi(l).includes("BE"));
+    expect(beRow).toBeGreaterThan(1);
+    for (let i = 1; i < beRow; i++) {
       const raw = stripAnsi(lineAt(lines, i));
       expect(raw.startsWith("  ")).toBe(true);
       expect(raw.startsWith("   ")).toBe(false);
@@ -321,9 +327,9 @@ describe("MultiSelectView.focusedItemRowRange", () => {
       nextLabel: "Next",
     });
     const [start, end] = view.focusedItemRowRange(80);
-    // option(0) + other(1) + chat(2) → Next is at row 3.
-    expect(start).toBe(3);
-    expect(end).toBe(4);
+    // option(0) + other(1) + rule(2) + chat(3) → Next is at row 4.
+    expect(start).toBe(4);
+    expect(end).toBe(5);
   });
 
   it("returns range for the chat sentinel when chatActive", () => {
@@ -347,12 +353,12 @@ describe("MultiSelectView.focusedItemRowRange", () => {
       nextLabel: "Next",
     });
     const [start, end] = view.focusedItemRowRange(80);
-    // option(0) + other(1) → chat is at row 2.
+    // option(0) + other(1) → the rule is row 2, the chat label row 3.
     expect(start).toBe(2);
-    expect(end).toBe(3);
+    expect(end).toBe(4);
   });
 
-  it("renders the chat row bare: no number, no checkbox", () => {
+  it("renders the chat row numbered under the rule, without a checkbox", () => {
     const q: QuestionData = {
       question: "pick?",
       header: "H",
@@ -364,9 +370,11 @@ describe("MultiSelectView.focusedItemRowRange", () => {
     };
     const view = makeView(q, makeProps(q));
     const lines = view.render(80);
-    const raw = stripAnsi(lineAt(lines, 3));
-    expect(raw).toContain("Chat About This");
-    expect(raw).not.toMatch(/\d\. \[/);
+    expect(stripAnsi(lineAt(lines, 3))).toMatch(/^\u2500+$/); // rule above
+    const raw = stripAnsi(lineAt(lines, 4));
+    expect(raw).toContain("Chat about this");
+    // Numbered like the rows above (N+2 = 4), but never checkable.
+    expect(raw).toContain("4. ");
     expect(raw).not.toContain("[ ]");
     expect(raw).not.toContain("[\u2714]");
   });
@@ -548,9 +556,9 @@ describe("MultiSelectView — 'Type something.' row", () => {
       nextLabel: "Next",
     });
     const [start, end] = view.focusedItemRowRange(80);
-    // option(0) + other(1) + chat(2) → Next is at row 3.
-    expect(start).toBe(3);
-    expect(end).toBe(4);
+    // option(0) + other(1) + rule(2) + chat(3) → Next is at row 4.
+    expect(start).toBe(4);
+    expect(end).toBe(5);
   });
 
   it("number column fits N+1 (the other row's number) without truncation", () => {

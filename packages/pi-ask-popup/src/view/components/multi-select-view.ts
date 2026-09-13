@@ -117,7 +117,8 @@ export class MultiSelectView implements StatefulView<MultiSelectViewProps> {
 
     const build: MultiSelectBuild = { lines: [], focusedRange: [0, 0] };
     const contentWidth = Math.max(1, width - this.prefixVisibleWidth());
-    const numberWidth = String(Math.max(1, this.question.options.length + 1)).length;
+    // Fits the chat row's N+2, the highest number the list can draw.
+    const numberWidth = String(Math.max(1, this.question.options.length + 2)).length;
 
     this.appendOptionRows(build, width, contentWidth, numberWidth);
 
@@ -127,7 +128,7 @@ export class MultiSelectView implements StatefulView<MultiSelectViewProps> {
       build.focusedRange = [otherStart, build.lines.length];
     }
 
-    this.appendChatRow(build, width);
+    this.appendChatRow(build, width, numberWidth);
 
     this.appendNextRow(build, width);
 
@@ -176,20 +177,26 @@ export class MultiSelectView implements StatefulView<MultiSelectViewProps> {
   }
 
   /**
-   * The "Chat About This" row, drawn bare like the commit row: no number, no
+   * The "Chat about this" row, drawn bare like the commit row: no number, no
    * checkbox. It closes the dialog rather than toggling anything, so painting
-   * it as a box would promise a behavior it does not have. Sits between the
-   * free-text row and the commit row, matching `SENTINEL_KINDS` order.
+   * it as a box would promise a behavior it does not have. It keeps its place
+   * in the numbering (N+2, after the free-text row's N+1) but sits under a
+   * full-width rule, matching the single-select list's separator. Sits between
+   * the free-text row and the commit row, matching `SENTINEL_KINDS` order.
    */
-  private appendChatRow(build: MultiSelectBuild, width: number): void {
+  private appendChatRow(build: MultiSelectBuild, width: number, numberWidth: number): void {
     const chatStart = build.lines.length;
+    build.lines.push("\u2500".repeat(Math.max(0, width)));
     const chatPointer = this.props.chatActive
       ? this.theme.fg("accent", ACTIVE_POINTER)
       : INACTIVE_POINTER;
+    const number = String(this.question.options.length + 2).padStart(numberWidth, " ");
     const chatLabel = this.props.chatActive
       ? this.theme.fg("accent", this.theme.bold(ROW_INTENT_META.chat.label))
       : ROW_INTENT_META.chat.label;
-    build.lines.push(truncateToWidth(`${chatPointer}${chatLabel}`, width, ""));
+    build.lines.push(
+      truncateToWidth(`${chatPointer}${number}${NUMBER_SEPARATOR}${chatLabel}`, width, ""),
+    );
     if (this.props.chatActive) {
       build.focusedRange = [chatStart, build.lines.length];
     }
@@ -243,11 +250,11 @@ export class MultiSelectView implements StatefulView<MultiSelectViewProps> {
     // Canonical prefix for OPTION rows: INACTIVE_POINTER + numberWidth digits + NUMBER_SEPARATOR
     // + UNCHECKED + BOX_LABEL_GAP. State-independent because ACTIVE/INACTIVE pointer share
     // visibleWidth, CHECKED/UNCHECKED share visibleWidth, and numberWidth is constant per question.
-    // The number column fits `options.length + 1` so the "Type something." row's N+1 number
+    // The number column fits `options.length + 2` so the "Chat about this" row's N+2 number
     // is never clipped. The Next sentinel uses a bare `pointer + "Next"` shape — its width
     // never exceeds this prefix at any reasonable terminal width, so it's safe to leave it
     // out of the canonical computation.
-    const numberWidth = String(Math.max(1, this.question.options.length + 1)).length;
+    const numberWidth = String(Math.max(1, this.question.options.length + 2)).length;
     return (
       visibleWidth(INACTIVE_POINTER) +
       numberWidth +

@@ -45,7 +45,7 @@ The two `maxLength` limits are checked by the param schema before `execute` runs
 
 ### Reserved option labels
 
-Using any of `"Other"`, `"Type something."`, `"Chat About This"`, or `"Next"` as an option label is rejected with `reserved_label`. The last three are the rows the dialog adds itself. `"Other"` is reserved because models are often primed to reach for it. Reservation is unconditional. A single-select question rejects `"Next"` even though that row is never added there.
+Using any of `"Other"`, `"Type something."`, `"Chat about this"`, or `"Next"` as an option label is rejected with `reserved_label`. The last three are the rows the dialog adds itself. `"Other"` is reserved because models are often primed to reach for it. Reservation is unconditional. A single-select question rejects `"Next"` even though that row is never added there.
 
 ## Validation errors
 
@@ -89,7 +89,7 @@ Every rejection returns `cancelled: true`, an empty `answers` array, and an `err
       question: string,
       note: string,
     }>,
-    chatRequested?: {              // set when the user picked "Chat About This"
+    chatRequested?: {              // set when the user picked "Chat about this"
       questionIndex: number,       // the question they want to discuss first
       question: string,
     },
@@ -106,7 +106,7 @@ On success the text reads `User has answered your questions: "<question>"="<answ
 
 Cancelling, and any result with no answer segments, no unanswered note segments, and no global note, both collapse to the single string `User declined to answer questions` so the model sees one clear signal. Partial submission is allowed: unanswered questions simply add no segment. A cancelled result always reads as the decline in text. Its notes, if any, survive only in `details.globalNote` and `details.unansweredNotes`.
 
-A chat request never reads as the decline. When the user picks the `Chat About This` row, the dialog closes at once and the text reads `User selected "Chat About This" on question N ("<question>") — they want to clarify something before answering it.` followed by the answers already given (if any) and the instruction to end the turn and treat the user's next message as that question's clarification. The details carry `cancelled: true` and `chatRequested`; the picked question itself gains no answer.
+A chat request never reads as the decline. When the user picks the `Chat about this` row, the dialog closes at once and the text reads `User selected "Chat about this" on question N ("<question>") — they want to clarify something before answering it.` followed by the answers already given (if any) and the instruction to end the turn and treat the user's next message as that question's clarification. The details carry `cancelled: true` and `chatRequested`; the picked question itself gains no answer.
 
 When `error` is `timed_out`, the text is `Questionnaire timed out, the user did not respond within the configured timeout. The user never saw a decline; do NOT treat this as a rejection. Ask the questions as plain chat text instead or retry.` The details keep `cancelled: true` and `error: "timed_out"` alongside any notes or answers the user left.
 
