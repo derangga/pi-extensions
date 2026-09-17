@@ -1,7 +1,7 @@
 import { liveDepIds } from "../state/task-graph.js";
 import { deriveBlocks } from "../state/task-graph.js";
 import type { Op } from "../state/state-reducer.js";
-import type { TaskState } from "../state/state.js";
+import { isAllComplete, visibleTasks, type TaskState } from "../state/state.js";
 import { sanitizeTerminalText } from "./sanitize.js";
 import type { Task, TaskAction, TaskDetails, TodoParams } from "./types.js";
 
@@ -42,26 +42,18 @@ function formatGetLines(task: Task, state: TaskState): string {
   return lines.join("\n");
 }
 
-/** Tasks excluding tombstones — the canonical "what's visible". */
-function visibleTasks(state: TaskState): Task[] {
-  return state.tasks.filter((t) => t.status !== "deleted");
-}
-
 /**
- * When a mutation leaves every visible task completed, the result carries
- * the full final list. Without it, the list would exist only in the overlay
- * (which fades completed rows) and nowhere in the chat transcript.
+ * When a mutation leaves every visible task completed, the result carries a
+ * one-line signal so the model knows the list closed. The full struck-through
+ * list is the extension's job now: index.ts appends it as a display-only
+ * transcript entry (see todo-entry.ts), so it no longer needs to ride along
+ * in tool-result text the model also reads.
  */
 function allDoneSummary(state: TaskState): string | undefined {
-  const visible = visibleTasks(state);
-  if (visible.length === 0 || visible.some((t) => t.status !== "completed")) {
+  if (!isAllComplete(state)) {
     return undefined;
   }
-  const lines = [`All ${visible.length} tasks done:`];
-  for (const t of visible) {
-    lines.push(`  ✓ #${t.id} ${sanitizeTerminalText(t.subject)}`);
-  }
-  return lines.join("\n");
+  return `All ${visibleTasks(state).length} tasks done.`;
 }
 
 /**

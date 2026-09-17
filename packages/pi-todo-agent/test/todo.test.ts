@@ -26,7 +26,11 @@ interface MockPi {
     renderCall?: (args: unknown, theme: MockTheme, context: unknown) => Text;
   }>;
   handlers: Map<string, Handler>;
+  entryRenderers: Map<string, Handler>;
+  appendedEntries: Array<{ customType: string; data: unknown }>;
   registerTool(tool: MockPi["tools"][number]): void;
+  registerEntryRenderer(customType: string, renderer: Handler): void;
+  appendEntry(customType: string, data: unknown): void;
   on(event: string, handler: Handler): void;
 }
 
@@ -103,8 +107,16 @@ function makePi(): MockPi {
   const pi: MockPi = {
     tools: [],
     handlers: new Map(),
+    entryRenderers: new Map(),
+    appendedEntries: [],
     registerTool(tool) {
       pi.tools.push(tool);
+    },
+    registerEntryRenderer(customType, renderer) {
+      pi.entryRenderers.set(customType, renderer);
+    },
+    appendEntry(customType, data) {
+      pi.appendedEntries.push({ customType, data });
     },
     on(event, handler) {
       pi.handlers.set(event, handler);
@@ -286,8 +298,13 @@ describe("extension lifecycle", () => {
       detailsEntry({
         action: "update",
         params: { action: "update", id: 1, status: "completed" },
-        tasks: [{ id: 1, subject: "one", status: "completed" }],
-        nextId: 2,
+        // A still-pending task 2 keeps the list from being all-complete, so
+        // the refresh this test checks for isn't masked by the flush gate.
+        tasks: [
+          { id: 1, subject: "one", status: "completed" },
+          { id: 2, subject: "two", status: "pending" },
+        ],
+        nextId: 3,
       }),
     ];
     const compactCtx = mockCtx("fg", branch);
@@ -381,6 +398,130 @@ describe("extension lifecycle", () => {
   });
 });
 
+describe("tool_execution_end flush handoff", () => {
+  function todoResult(tasks: TaskDetails["tasks"], nextId = tasks.length + 1) {
+    return {
+      content: [{ type: "text" as const, text: "" }],
+      details: { action: "update" as const, params: { action: "update" as const }, tasks, nextId },
+    };
+  }
+
+  it("appends the completed list exactly once when the last task completes", async () => {
+    const pi = makePi();
+    defaultExtension(pi as never);
+    const start = must(pi.handlers.get("session_start"), "handler missing");
+    const toolEnd = must(pi.handlers.get("tool_execution_end"), "handler missing");
+    const ctx = mockCtx("fg");
+    await start({ type: "session_start" } as never, ctx as never);
+
+    await toolEnd(
+      {
+        type: "tool_execution_end",
+        toolCallId: "c1",
+        toolName: TOOL_NAME,
+        isError: false,
+        result: todoResult([{ id: 1, subject: "one", status: "completed" }]),
+      } as never,
+      ctx as never,
+    );
+
+    expect(pi.appendedEntries).toHaveLength(1);
+    const data = pi.appendedEntries[0]?.data as { tasks: TaskDetails["tasks"] };
+    expect(data.tasks).toEqual([{ id: 1, subject: "one", status: "completed" }]);
+
+    // A follow-up call on the same, still-finished list must not re-append.
+    await toolEnd(
+      {
+        type: "tool_execution_end",
+        toolCallId: "c2",
+        toolName: TOOL_NAME,
+        isError: false,
+        result: todoResult([{ id: 1, subject: "one", status: "completed" }]),
+      } as never,
+      ctx as never,
+    );
+    expect(pi.appendedEntries).toHaveLength(1);
+  });
+
+  it("does not append while any task is still pending", async () => {
+    const pi = makePi();
+    defaultExtension(pi as never);
+    const start = must(pi.handlers.get("session_start"), "handler missing");
+    const toolEnd = must(pi.handlers.get("tool_execution_end"), "handler missing");
+    const ctx = mockCtx("fg");
+    await start({ type: "session_start" } as never, ctx as never);
+
+    await toolEnd(
+      {
+        type: "tool_execution_end",
+        toolCallId: "c1",
+        toolName: TOOL_NAME,
+        isError: false,
+        result: todoResult([
+          { id: 1, subject: "one", status: "completed" },
+          { id: 2, subject: "two", status: "pending" },
+        ]),
+      } as never,
+      ctx as never,
+    );
+    expect(pi.appendedEntries).toHaveLength(0);
+  });
+
+  it("does not append after replay seeds an already-complete list", async () => {
+    const pi = makePi();
+    defaultExtension(pi as never);
+    const start = must(pi.handlers.get("session_start"), "handler missing");
+    const toolEnd = must(pi.handlers.get("tool_execution_end"), "handler missing");
+    const branch = [
+      detailsEntry({
+        action: "update",
+        params: { action: "update", id: 1, status: "completed" },
+        tasks: [{ id: 1, subject: "one", status: "completed" }],
+        nextId: 2,
+      }),
+    ];
+    const ctx = mockCtx("fg", branch);
+    // /reload: session_start replays an already-finished list. The latch
+    // seeds as flushed, so a later tool_execution_end reporting the same
+    // all-complete state must not re-append.
+    await start({ type: "session_start" } as never, ctx as never);
+
+    await toolEnd(
+      {
+        type: "tool_execution_end",
+        toolCallId: "c1",
+        toolName: TOOL_NAME,
+        isError: false,
+        result: todoResult([{ id: 1, subject: "one", status: "completed" }]),
+      } as never,
+      ctx as never,
+    );
+    expect(pi.appendedEntries).toHaveLength(0);
+  });
+
+  it("does not append for a non-foreground (child) session", async () => {
+    const pi = makePi();
+    defaultExtension(pi as never);
+    const start = must(pi.handlers.get("session_start"), "handler missing");
+    const toolEnd = must(pi.handlers.get("tool_execution_end"), "handler missing");
+    await start({ type: "session_start" } as never, mockCtx("fg") as never);
+    const child = mockCtx("child");
+    await start({ type: "session_start" } as never, child as never);
+
+    await toolEnd(
+      {
+        type: "tool_execution_end",
+        toolCallId: "c1",
+        toolName: TOOL_NAME,
+        isError: false,
+        result: todoResult([{ id: 1, subject: "one", status: "completed" }]),
+      } as never,
+      child as never,
+    );
+    expect(pi.appendedEntries).toHaveLength(0);
+  });
+});
+
 describe("end-to-end tool flow", () => {
   it("create -> complete produces the all-done summary through the registered tool", async () => {
     const pi = makePi();
@@ -405,13 +546,7 @@ describe("end-to-end tool flow", () => {
       ctx,
     );
     expect(last.content[0]?.text).toBe(
-      [
-        "Updated #2 (pending → completed)",
-        "",
-        "All 2 tasks done:",
-        "  ✓ #1 one",
-        "  ✓ #2 two",
-      ].join("\n"),
+      ["Updated #2 (pending → completed)", "", "All 2 tasks done."].join("\n"),
     );
   });
 });

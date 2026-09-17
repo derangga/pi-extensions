@@ -1,6 +1,7 @@
 /**
- * pi-todo-agent — Pi extension. Registers the `todo` tool and the persistent
- * todo overlay above the editor.
+ * pi-todo-agent — Pi extension. Registers the `todo` tool, the persistent
+ * todo overlay above the editor, and the completed-list transcript entry the
+ * overlay hands off to once every visible task is done.
  *
  * Zero runtime dependencies: everything the host already provides
  * (@earendil-works/pi-coding-agent, @earendil-works/pi-tui, typebox) rides in
@@ -10,22 +11,32 @@
  * slot (per-session isolation), the first UI session claims the foreground
  * render pointer, and shutdown evicts. Todo state survives compaction and
  * reload because the last tool result snapshot is replayed from the branch.
+ *
+ * All-complete handoff: the overlay never renders an all-complete list (see
+ * todo-overlay.ts); the moment a mutating call leaves the foreground
+ * session's list all-complete, this file appends it to the transcript as a
+ * display-only entry (todo-entry.ts) and never repeats the append for the
+ * same list (the flush latch in state/store.ts).
  */
 import type {
   ExtensionAPI,
   ExtensionContext,
   ExtensionUIContext,
 } from "@earendil-works/pi-coding-agent";
-import { replayFromBranch } from "./state/replay.js";
+import { isTaskDetails, replayFromBranch } from "./state/replay.js";
+import { isAllComplete, type TaskState } from "./state/state.js";
 import {
   clearActiveRenderSession,
   evictSession,
   getActiveRenderSession,
   replaceState,
+  seedFlushState,
   setActiveRenderSession,
   sid,
+  takeFlushEdge,
 } from "./state/store.js";
 import { TOOL_NAME } from "./tool/types.js";
+import { appendCompletedTodos, registerTodoEntryRenderer } from "./todo-entry.js";
 import { TodoOverlay } from "./todo-overlay.js";
 import { registerTodoTool } from "./todo.js";
 
@@ -47,7 +58,12 @@ function isStaleCtxMessage(message: string): boolean {
 function replaySessionSlot(ctx: ExtensionContext): string | undefined {
   try {
     const id = sid(ctx);
-    replaceState(id, replayFromBranch(ctx));
+    const next = replayFromBranch(ctx);
+    replaceState(id, next);
+    // Seed the flush latch from the replayed snapshot without reporting an
+    // edge: a session restored already-complete (reload, compaction) must
+    // never re-append the entry a prior tool_execution_end already wrote.
+    seedFlushState(id, isAllComplete(next));
     return id;
   } catch (e) {
     if (!isStaleCtxMessage(String(e))) {
@@ -59,6 +75,7 @@ function replaySessionSlot(ctx: ExtensionContext): string | undefined {
 
 export default function (pi: ExtensionAPI): void {
   registerTodoTool(pi);
+  registerTodoEntryRenderer(pi);
 
   let todoOverlay: TodoOverlay | undefined;
   let uiCtx: ExtensionUIContext | undefined;
@@ -137,7 +154,7 @@ export default function (pi: ExtensionAPI): void {
 
   // The overlay re-renders after every successful todo call. Reads happen at
   // render time from the foreground slot; the branch is stale by now.
-  pi.on("tool_execution_end", (event) => {
+  pi.on("tool_execution_end", (event, ctx) => {
     if (event.toolName !== TOOL_NAME || event.isError) {
       return;
     }
@@ -147,6 +164,32 @@ export default function (pi: ExtensionAPI): void {
       // The tool itself succeeded and there is no user-facing log channel in
       // this package; a transient refresh failure costs this one update and
       // the next todo call retries.
+    }
+
+    // Flush the finished list into the transcript. Gated to the foreground
+    // session, mirroring the overlay: it is the only session this package
+    // renders anything for today.
+    let id: string | undefined;
+    try {
+      id = sid(ctx);
+    } catch (e) {
+      if (!isStaleCtxMessage(String(e))) {
+        throw e;
+      }
+      return;
+    }
+    if (id !== getActiveRenderSession()) {
+      return;
+    }
+    // event.result is `any` on the SDK's ToolExecutionEndEvent; isTaskDetails
+    // is the shape guard, same one replay.ts uses for the same envelope.
+    const details: unknown = event.result?.details;
+    if (!isTaskDetails(details)) {
+      return;
+    }
+    const state: TaskState = { tasks: details.tasks, nextId: details.nextId };
+    if (takeFlushEdge(id, isAllComplete(state))) {
+      appendCompletedTodos(pi, state.tasks);
     }
   });
 

@@ -11,27 +11,22 @@
  */
 import type { ExtensionUIContext, Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, type TUI } from "@earendil-works/pi-tui";
+import { isAllComplete } from "./state/state.js";
 import { getRenderState } from "./state/store.js";
-import { liveDepIds } from "./state/task-graph.js";
-import { sanitizeTerminalText } from "./tool/sanitize.js";
-import type { Task, TaskStatus } from "./tool/types.js";
+import {
+  countByStatus,
+  formatTaskLine,
+  HEADING_TEXT,
+  toLines,
+  type TaskLine,
+} from "./task-lines.js";
+import type { Task } from "./tool/types.js";
 
 /** Widget registry key. Ours, not inherited from any upstream package. */
 export const WIDGET_KEY = "pi-todo-agent";
 
 /** Content-row budget: heading + task rows + optional summary. */
 const MAX_WIDGET_LINES = 12;
-
-const HEADING_TEXT = "Todos";
-
-interface OverlayTaskLine {
-  glyph: string;
-  id: number;
-  subject: string;
-  activeForm?: string | undefined;
-  blockedBy?: number[] | undefined;
-  status: TaskStatus;
-}
 
 interface Snapshot {
   tasks: Task[];
@@ -66,7 +61,10 @@ export class TodoOverlay {
       return;
     }
     this.syncHiddenCompleted();
-    if (this.visibleTasks().length === 0) {
+    // An all-complete list is a closed list: it flushes to the transcript
+    // entry (see index.ts) and the widget must never show it again, whether
+    // that's this render, a later refresh, or a replay after /reload.
+    if (this.visibleTasks().length === 0 || isAllComplete(this.getSnapshot())) {
       if (this.widgetRegistered) {
         this.uiCtx.setWidget(WIDGET_KEY, undefined);
         this.widgetRegistered = false;
@@ -166,7 +164,7 @@ export class TodoOverlay {
     return { tasks: [...state.tasks], nextId: state.nextId };
   }
 
-  private visibleTasks(): OverlayTaskLine[] {
+  private visibleTasks(): TaskLine[] {
     return toLines(this.getSnapshot().tasks, (t) => !this.isHiddenCompleted(t));
   }
 
@@ -176,6 +174,9 @@ export class TodoOverlay {
 
   private renderWidget(theme: Theme, width: number): string[] {
     const snapshot = this.getSnapshot();
+    if (isAllComplete(snapshot)) {
+      return [];
+    }
     const tasks = toLines(snapshot.tasks, (t) => !this.isHiddenCompleted(t));
     if (tasks.length === 0) {
       return [];
@@ -235,109 +236,8 @@ function withTrailingSpacer(lines: string[]): string[] {
   return lines;
 }
 
-function statusGlyph(status: TaskStatus): string {
-  switch (status) {
-    case "pending":
-      return "○";
-    case "in_progress":
-      return "◎";
-    case "completed":
-      return "✓";
-    case "deleted":
-      return "✗";
-    default: {
-      // TaskStatus is a closed union; this keeps the switch total.
-      return "?";
-    }
-  }
-}
-
-interface Counts {
-  total: number;
-  pending: number;
-  in_progress: number;
-  completed: number;
-}
-
-function countByStatus(tasks: OverlayTaskLine[]): Counts {
-  const counts: Counts = {
-    total: tasks.length,
-    pending: 0,
-    in_progress: 0,
-    completed: 0,
-  };
-  for (const t of tasks) {
-    if (t.status === "pending") {
-      counts.pending += 1;
-    } else if (t.status === "in_progress") {
-      counts.in_progress += 1;
-    } else if (t.status === "completed") {
-      counts.completed += 1;
-    }
-  }
-  return counts;
-}
-
-/** Project tasks into overlay row models, dropping tombstones and hidden rows. */
-function toLines(tasks: Task[], keep: (t: Task) => boolean): OverlayTaskLine[] {
-  const lines: OverlayTaskLine[] = [];
-  for (const t of tasks) {
-    if (t.status === "deleted" || !keep(t)) {
-      continue;
-    }
-    const line: OverlayTaskLine = {
-      glyph: statusGlyph(t.status),
-      id: t.id,
-      subject: t.subject,
-      status: t.status,
-    };
-    if (t.status === "in_progress" && t.activeForm !== undefined) {
-      line.activeForm = t.activeForm;
-    }
-    if (t.blockedBy !== undefined) {
-      // Tombstoned dep ids are dropped so a chain never points at nothing.
-      const liveDeps = liveDepIds(tasks, t.blockedBy);
-      if (liveDeps.length > 0) {
-        line.blockedBy = liveDeps;
-      }
-    }
-    lines.push(line);
-  }
-  return lines;
-}
-
-function formatTaskLine(t: OverlayTaskLine, theme: Theme, showId: boolean): string {
-  let subjectColor: "accent" | "muted" | "text" = "text";
-  if (t.status === "in_progress") {
-    subjectColor = "accent";
-  } else if (t.status === "completed") {
-    subjectColor = "muted";
-  }
-  let subject = theme.fg(subjectColor, sanitizeTerminalText(t.subject));
-  if (t.status === "completed") {
-    subject = theme.strikethrough(subject);
-  }
-  if (t.status === "in_progress") {
-    // A weight difference, like the strike on completed, reads even where
-    // accent colors are muted or color-blind palettes collapse them.
-    subject = theme.bold(subject);
-  }
-  let line = t.glyph;
-  if (showId) {
-    line += ` ${theme.fg("dim", `#${t.id}`)}`;
-  }
-  line += ` ${subject}`;
-  if (t.activeForm) {
-    line += ` ${theme.fg("muted", `(${sanitizeTerminalText(t.activeForm)})`)}`;
-  }
-  if (t.blockedBy && t.blockedBy.length > 0) {
-    line += ` ${theme.fg("muted", `⛓ ${t.blockedBy.map((id) => `#${id}`).join(",")}`)}`;
-  }
-  return line;
-}
-
 interface Layout {
-  visible: OverlayTaskLine[];
+  visible: TaskLine[];
   hiddenCompleted: number;
   truncatedTail: number;
 }
@@ -347,7 +247,7 @@ interface Layout {
  * `budget` is the body-slot count (heading excluded). On overflow the
  * layout reserves one slot internally for the summary row.
  */
-function layOut(tasks: OverlayTaskLine[], budget: number): Layout {
+function layOut(tasks: TaskLine[], budget: number): Layout {
   const nonCompleted = tasks.filter((t) => t.status !== "completed");
   const totalCompleted = tasks.length - nonCompleted.length;
   if (tasks.length <= budget) {

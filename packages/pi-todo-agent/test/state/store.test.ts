@@ -7,8 +7,10 @@ import {
   getRenderState,
   getState,
   replaceState,
+  seedFlushState,
   setActiveRenderSession,
   sid,
+  takeFlushEdge,
 } from "../../src/state/store.js";
 import type { Task } from "../../src/tool/types.js";
 
@@ -76,6 +78,46 @@ describe("lifecycle seams", () => {
 
   it("evictSession is a no-op for an absent slot", () => {
     expect(() => evictSession("missing")).not.toThrow();
+  });
+});
+
+describe("flush latch", () => {
+  it("fires only on the not-all-complete to all-complete transition", () => {
+    expect(takeFlushEdge("s1", false)).toBe(false);
+    expect(takeFlushEdge("s1", true)).toBe(true);
+    // Already latched: another mutating call on the finished list doesn't
+    // re-fire.
+    expect(takeFlushEdge("s1", true)).toBe(false);
+  });
+
+  it("re-arms after dropping back to not-all-complete", () => {
+    expect(takeFlushEdge("s1", true)).toBe(true);
+    expect(takeFlushEdge("s1", false)).toBe(false);
+    expect(takeFlushEdge("s1", true)).toBe(true);
+  });
+
+  it("tracks sessions independently", () => {
+    expect(takeFlushEdge("a", true)).toBe(true);
+    expect(takeFlushEdge("b", true)).toBe(true);
+  });
+
+  it("seedFlushState records the latch without ever reporting an edge", () => {
+    seedFlushState("s1", true);
+    // Replay seeded true → true is not a transition, so the next real call
+    // with true must not re-fire either.
+    expect(takeFlushEdge("s1", true)).toBe(false);
+  });
+
+  it("evictSession clears the latch", () => {
+    takeFlushEdge("s1", true);
+    evictSession("s1");
+    expect(takeFlushEdge("s1", true)).toBe(true);
+  });
+
+  it("__resetState clears the latch", () => {
+    takeFlushEdge("s1", true);
+    __resetState();
+    expect(takeFlushEdge("s1", true)).toBe(true);
   });
 });
 

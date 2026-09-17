@@ -1,6 +1,6 @@
 # pi-todo-agent
 
-Pi extension. A todo list the model manages through a `todo` tool, rendered as a live overlay above the editor. Zero runtime dependencies.
+Pi extension. A todo list the model manages through a `todo` tool, rendered as a live overlay above the editor until it's done, then handed off to the chat as a struck-through record. Zero runtime dependencies.
 
 The model plans multi-step work as tasks, marks each one in progress and completed as it works, and you watch the list update in real time. State survives compaction and reloads, and every session gets its own list.
 
@@ -38,11 +38,17 @@ Dependencies: `blockedBy` holds ids a task waits on. Rejected calls leave the li
 
 Invalid transitions are rejected with the list unchanged, and an `update` that changes nothing reports "No change" so the model does not re-issue it in a loop.
 
-When a mutation completes the last visible task, the tool result prints the full final list ("All N tasks done"), so a record survives in the transcript after the overlay fades.
+When a mutation completes the last visible task, the tool result reports a one-line signal ("All N tasks done.") — the full list is no longer repeated here; see the transcript entry below.
 
 ## The overlay
 
 A `Todos (2/5)` widget renders above the editor while any task is visible. It caps at 12 content rows, dropping completed rows first and summarizing the rest as `+N more`. When Pi's tool output is expanded, every row shows. Completed rows fade out when the next turn starts, and the widget hides itself entirely when the list is empty. Expanding the list again is as simple as creating another task.
+
+The instant every visible task is completed, the overlay stops rendering the list altogether — it hands off to the transcript entry below rather than sitting above the editor with nothing left to track.
+
+## The completed-list entry
+
+Once the last visible task completes, the full list is appended to the chat as a plain scrollback block, completed subjects struck through, right under the `todo` call that finished it. It's display-only: a custom session entry, not a message, so it never enters the model's context and never costs a token on later turns. It survives `/reload` and compaction like the rest of the conversation. Starting a new list (adding another task) mounts a fresh overlay and, on its own completion, appends its own block below — each finished list gets one entry, once.
 
 ## Sessions
 

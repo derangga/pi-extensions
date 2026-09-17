@@ -24,6 +24,15 @@ const queues = new Map<string, Promise<unknown>>();
 let activeRenderSession = "";
 
 /**
+ * Per-session flush latch: whether the session's last-known state was
+ * all-complete. Backs takeFlushEdge's edge trigger — index.ts must append the
+ * completed-list entry exactly once per list, on the not-all-complete →
+ * all-complete transition, not on every mutating call while the list stays
+ * done.
+ */
+const flushed = new Map<string, boolean>();
+
+/**
  * Session-id extractor. Structural ctx type — no Pi-runtime import, so the
  * state layer stays host-free. An unknown/empty session resolves to "" and
  * keeps the key a plain string.
@@ -77,6 +86,7 @@ export function commitState(sessionId: string, next: TaskState): void {
 export function evictSession(sessionId: string): void {
   sessions.delete(sessionId);
   queues.delete(sessionId);
+  flushed.delete(sessionId);
 }
 
 /**
@@ -118,8 +128,29 @@ export function clearActiveRenderSession(): void {
   activeRenderSession = "";
 }
 
+/**
+ * Edge-triggered flush check: true only on the transition from not-all-complete
+ * to all-complete. Records `allComplete` as the session's new latch value
+ * regardless of the result, so the next call sees this one as the baseline —
+ * a second call with `allComplete: true` in a row returns false, and a call
+ * that drops back to `false` (a new task added to a finished list) re-arms it.
+ */
+export function takeFlushEdge(sessionId: string, allComplete: boolean): boolean {
+  const was = flushed.get(sessionId) ?? false;
+  flushed.set(sessionId, allComplete);
+  return allComplete && !was;
+}
+
+/** Replay seam: record the latch without ever reporting an edge. Called
+ * after replaceState so a session restored into an already-complete state
+ * (reload, compaction) never re-appends the entry replay already covers. */
+export function seedFlushState(sessionId: string, allComplete: boolean): void {
+  flushed.set(sessionId, allComplete);
+}
+
 /** Test-setup reset: clears the session Map and the render pointer. */
 export function __resetState(): void {
   sessions.clear();
+  flushed.clear();
   activeRenderSession = "";
 }

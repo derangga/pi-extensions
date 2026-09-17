@@ -304,30 +304,39 @@ describe("rendering", () => {
   });
 });
 
+// Every scenario here keeps an "anchor" task pending throughout, so the list
+// is never all-complete and the fade path is exercised independently of the
+// all-complete flush gate covered in the next describe block.
 describe("completed fade-out", () => {
   it("hides completed tasks from previous turns at agent_start", () => {
     const ui = makeUICtx();
     const overlay = new TodoOverlay();
     overlay.setUICtx(ui as never);
-    commitSnapshot([{ id: 1, subject: "done", status: "completed" }]);
+    commitSnapshot([
+      { id: 1, subject: "done", status: "completed" },
+      { id: 2, subject: "anchor", status: "pending" },
+    ]);
     overlay.update();
     expect(renderWidget(ui).join("\n")).toContain("done");
 
     overlay.hideCompletedTasksFromPreviousTurn();
-    expect(renderWidget(ui).join("\n")).not.toContain("done");
-    // Everything hidden means the widget unregisters.
+    const text = renderWidget(ui).join("\n");
+    expect(text).not.toContain("done");
+    // The anchor is still pending, so the widget stays up.
+    expect(text).toContain("anchor");
     overlay.update();
-    expect(ui.widgets.find((w) => w.key === WIDGET_KEY)?.factory).toBeUndefined();
+    expect(ui.widgets.find((w) => w.key === WIDGET_KEY)?.factory).toBeDefined();
   });
 
   it("keeps completed tasks visible within the current turn, then fades them", () => {
     const ui = makeUICtx();
     const overlay = new TodoOverlay();
     overlay.setUICtx(ui as never);
+    const anchor = { id: 99, subject: "anchor", status: "pending" as const };
 
     // Turn 1: task 1 completed and rendered. The host renders after every
     // refresh; that render pass is what queues the row for fade-out.
-    commitSnapshot([{ id: 1, subject: "older", status: "completed" }]);
+    commitSnapshot([{ id: 1, subject: "older", status: "completed" }, anchor]);
     overlay.update();
     renderWidget(ui);
     // Turn 2 starts: task 1 fades out.
@@ -337,6 +346,7 @@ describe("completed fade-out", () => {
     commitSnapshot([
       { id: 1, subject: "older", status: "completed" },
       { id: 2, subject: "fresh", status: "completed" },
+      anchor,
     ]);
     overlay.update();
     // The host renders after the refresh; the render pass is what tracks
@@ -345,30 +355,33 @@ describe("completed fade-out", () => {
     expect(text).not.toContain("older");
     expect(text).toContain("fresh");
 
-    // Turn 3 starts: task 2 fades out too, and the widget auto-hides.
+    // Turn 3 starts: task 2 fades out too. The anchor is still pending, so
+    // the widget stays up showing only the anchor.
     overlay.hideCompletedTasksFromPreviousTurn();
     overlay.update();
-    // Nothing visible means the widget unregisters.
-    expect(ui.widgets.find((w) => w.key === WIDGET_KEY)?.factory).toBeUndefined();
+    const finalText = renderWidget(ui).join("\n");
+    expect(finalText).not.toContain("fresh");
+    expect(finalText).toContain("anchor");
   });
 
   it("forgets hidden ids after a clear (reborn task at a reused id)", () => {
     const ui = makeUICtx();
     const overlay = new TodoOverlay();
     overlay.setUICtx(ui as never);
+    const anchor = { id: 99, subject: "anchor", status: "pending" as const };
     // Turn 1: task 1 completes and fades at the next turn boundary.
-    commitSnapshot([{ id: 1, subject: "done", status: "completed" }]);
+    commitSnapshot([{ id: 1, subject: "done", status: "completed" }, anchor]);
     overlay.update();
     overlay.hideCompletedTasksFromPreviousTurn();
     // The list is cleared and rebuilt: id 1 is a different task now at the
     // same counter position. The stale hidden entry must not suppress it.
-    commitSnapshot([{ id: 1, subject: "reborn", status: "completed" }]);
+    commitSnapshot([{ id: 1, subject: "reborn", status: "completed" }, anchor]);
     overlay.update();
     expect(renderWidget(ui).join("\n")).toContain("reborn");
     // And it fades again at the next turn boundary.
     overlay.hideCompletedTasksFromPreviousTurn();
     overlay.update();
-    expect(ui.widgets.find((w) => w.key === WIDGET_KEY)?.factory).toBeUndefined();
+    expect(renderWidget(ui).join("\n")).not.toContain("reborn");
   });
 
   it("keeps a completed task visible until the next turn even if nothing rendered", () => {
@@ -378,11 +391,67 @@ describe("completed fade-out", () => {
     const ui = makeUICtx();
     const overlay = new TodoOverlay();
     overlay.setUICtx(ui as never);
-    commitSnapshot([{ id: 1, subject: "done", status: "completed" }]);
+    commitSnapshot([
+      { id: 1, subject: "done", status: "completed" },
+      { id: 2, subject: "anchor", status: "pending" },
+    ]);
     overlay.update();
     // No render in between: the old render-time detection missed this case.
     expect(renderWidget(ui).join("\n")).toContain("done");
     overlay.hideCompletedTasksFromPreviousTurn();
+    overlay.update();
+    expect(renderWidget(ui).join("\n")).not.toContain("done");
+  });
+});
+
+describe("all-complete flush gate", () => {
+  it("never registers the widget once every visible task is completed", () => {
+    const ui = makeUICtx();
+    const overlay = new TodoOverlay();
+    overlay.setUICtx(ui as never);
+    commitSnapshot([
+      { id: 1, subject: "one", status: "completed" },
+      { id: 2, subject: "two", status: "completed" },
+    ]);
+    overlay.update();
+    expect(ui.widgets.find((w) => w.key === WIDGET_KEY)?.factory).toBeUndefined();
+  });
+
+  it("unregisters an already-mounted widget the instant the list completes", () => {
+    const ui = makeUICtx();
+    const overlay = new TodoOverlay();
+    overlay.setUICtx(ui as never);
+    commitSnapshot([{ id: 1, subject: "one", status: "in_progress" }]);
+    overlay.update();
+    expect(ui.widgets.find((w) => w.key === WIDGET_KEY)?.factory).toBeDefined();
+
+    commitSnapshot([{ id: 1, subject: "one", status: "completed" }]);
+    overlay.update();
+    expect(ui.widgets.find((w) => w.key === WIDGET_KEY)?.factory).toBeUndefined();
+  });
+
+  it("still renders a mixed list where some tasks are completed", () => {
+    const ui = makeUICtx();
+    const overlay = new TodoOverlay();
+    overlay.setUICtx(ui as never);
+    commitSnapshot([
+      { id: 1, subject: "done", status: "completed" },
+      { id: 2, subject: "open", status: "pending" },
+    ]);
+    overlay.update();
+    const text = renderWidget(ui).join("\n");
+    expect(text).toContain("done");
+    expect(text).toContain("open");
+  });
+
+  it("never re-registers on replay into an all-complete state", () => {
+    // Simulates the effect of index.ts's replaySessionSlot on /reload: the
+    // store is replaced directly (no overlay.update() in between), then the
+    // overlay's next update() must still refuse to show it.
+    const ui = makeUICtx();
+    const overlay = new TodoOverlay();
+    overlay.setUICtx(ui as never);
+    commitSnapshot([{ id: 1, subject: "one", status: "completed" }]);
     overlay.update();
     expect(ui.widgets.find((w) => w.key === WIDGET_KEY)?.factory).toBeUndefined();
   });

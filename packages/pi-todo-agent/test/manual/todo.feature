@@ -127,21 +127,45 @@ Feature: A todo list the model manages and you watch
     And the second returns a cycle error
     And neither task's chain changed
 
-  # ------------------------------------------------------- the done summary
+  # ------------------------------------------------- the completed-list handoff
 
-  Scenario: Completing the last task prints the final list in chat
+  Scenario: Completing the last task hands the widget off to the transcript
     Given the list holds one task still pending and the rest completed
     When I paste "Complete the remaining task."
-    Then the tool result shows the update echo
-    And below it, "All N tasks done:" with every task struck as ✓ by id
-    # The overlay will fade these rows at the next turn. This block is the
-    # record that survives in the conversation.
+    Then the tool result shows the update echo, plus one line: "All N tasks done."
+    And the widget above the editor disappears immediately, mid-turn, with no
+      further prompt needed
+    And a "Todos (N/N)" block appears in the transcript right under that
+      update call, every task struck through
+    # No waiting for agent_start to fade rows and no waiting for the next
+    # prompt to reclaim the input box: both happen the instant the list
+    # closes.
 
-  Scenario: Finishing early does not print the summary
+  Scenario: Finishing early does not hand off
     Given the list holds three tasks and only one is near done
     When I paste "Complete just the first task."
-    Then the result shows only the update echo
-    And no "All N tasks done" block appears
+    Then the result shows only the update echo, no "All N tasks done." line
+    And the widget keeps showing all three tasks
+    And no completed-list block appears in the transcript
+
+  Scenario: A second list in the same session gets its own block
+    Given a prior list already completed and handed off in this session
+    When I paste "Create two new todos and complete them both."
+    Then a fresh widget mounts for the new pair
+    And on their completion, a second "Todos (2/2)" block appears below the
+      first, independent of it
+    # Each finished list flushes exactly once; a new list after a flush is
+    # never mistaken for the same one.
+
+  Scenario: /reload does not re-show or re-append a finished list
+    Given the list holds one task, already completed and already handed off
+    When I run /reload
+    Then the session restarts
+    And the widget above the editor stays empty
+    And the transcript shows exactly one "Todos (1/1)" block, not two
+    # Replay seeds the flush latch from the restored state before anything
+    # else runs, so the reload path can't mistake "already done" for "just
+    # finished".
 
   # -------------------------------------------------------------- the overlay
 
@@ -224,8 +248,12 @@ Feature: A todo list the model manages and you watch
     Then the child's report shows its own task reaching completed
     And the widget above MY editor never showed child-work
     And my own list, if any, is unchanged
+    And no "child-work" completed-list block appears anywhere in MY transcript
     # Per-session slots. A child that could see or clear my list would make
-    # every subagent run a hazard.
+    # every subagent run a hazard. The completed-list handoff is gated to the
+    # foreground session for the same reason the overlay is: unverified
+    # whether pi.appendEntry would even target the right session's transcript
+    # from inside a child session's own event handlers, so it's not tried.
 
   # ------------------------------------------------------------ model conduct
 

@@ -167,18 +167,14 @@ describe("formatContent per action", () => {
 });
 
 describe("all-done summary", () => {
-  it("prepends the final list when a transition completes the last active task", () => {
+  it("appends a one-line signal when a transition completes the last active task", () => {
+    // The full struck-through list lives in the transcript entry (see
+    // todo-entry.ts); the tool text only needs to tell the model the list
+    // closed, not repeat it.
     const state = withTasks([completed(1), completed(2), inProgress(3)]);
     const { envelope } = execute(state, "update", { id: 3, status: "completed" });
     expect(envelope.content[0]?.text).toBe(
-      [
-        "Updated #3 (in_progress → completed)",
-        "",
-        "All 3 tasks done:",
-        "  ✓ #1 task 1",
-        "  ✓ #2 task 2",
-        "  ✓ #3 task 3",
-      ].join("\n"),
+      ["Updated #3 (in_progress → completed)", "", "All 3 tasks done."].join("\n"),
     );
   });
 
@@ -200,14 +196,17 @@ describe("all-done summary", () => {
     const state = withTasks([completed(1), inProgress(2)]);
     const { envelope } = execute(state, "delete", { id: 2 });
     expect(envelope.content[0]?.text).toBe(
-      ["Deleted #2: task 2", "", "All 1 tasks done:", "  ✓ #1 task 1"].join("\n"),
+      ["Deleted #2: task 2", "", "All 1 tasks done."].join("\n"),
     );
   });
 
-  it("sanitizes subjects in the summary", () => {
-    const state = withTasks([{ id: 1, subject: "evil\u001b[31mstyled", status: "completed" }]);
-    const { envelope } = execute(state, "update", { id: 1, status: "completed" });
-    expect(envelope.content[0]?.text).toContain("✓ #1 evilstyled");
+  it("counts every visible task regardless of subject content", () => {
+    // Subjects no longer ride along in the one-line summary (they live in
+    // the transcript entry instead), so there is nothing left to sanitize
+    // here -- just the count.
+    const state = withTasks([completed(1), completed(2), completed(3)]);
+    const { envelope } = execute(state, "update", { id: 3, status: "completed" });
+    expect(envelope.content[0]?.text).toContain("All 3 tasks done.");
   });
 });
 
