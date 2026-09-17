@@ -15,6 +15,7 @@ its own README. Install one without installing the others.
 | [`pi-unslop-rules`](packages/pi-unslop-rules) | Appends the pstack unslop writing rules to the system prompt every turn, so the prose stays free of AI tells | Published |
 | [`pi-broodmother`](packages/pi-broodmother) | Hands research to read-only child agents in one batched call, with dependency edges between the tasks and a model and thinking effort you pick | Published |
 | [`pi-todo-agent`](packages/pi-todo-agent) | A todo list the model manages through a `todo` tool and you watch in a live overlay above the editor; zero runtime dependencies | Published |
+| [`pi-dir-permission`](packages/pi-dir-permission) | Confines the file tools to the working directory and opens up anything outside it one dialog at a time; zero runtime dependencies | Unreleased |
 
 ## Working in this repo
 

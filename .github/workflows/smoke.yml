@@ -28,6 +28,7 @@ jobs:
           - pi-unslop-rules
           - pi-broodmother
           - pi-todo-agent
+          - pi-dir-permission
 
     env:
       PI_TELEMETRY: "0"
