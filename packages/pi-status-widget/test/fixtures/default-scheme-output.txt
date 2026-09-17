@@ -143,52 +143,52 @@ default/truecolor/120/none
   "\u001b[36m🤖 anthropic/opus\u001b[39m • \u001b[90m📏 100\u001b[39m • \u001b[35m🌿 main\u001b[39m • \u001b[33m📈 (+0,-0)\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m • \u001b[33m⏳ 0m\u001b[39m"
   "<dim>busy</dim>"
 compact/none/40/off
-  "🤖 opus 🧠 off 🌿 main 🧩 10% 💸 $0.0000"
+  "🤖 opus 🧠 off 🌿 main 🧩 10% (1k) 💸 $\u001b[0m…\u001b[0m"
   "busy"
 compact/none/40/minimal
-  "🤖 opus 🧠 minimal 🌿 main 🧩 10% 💸 $0\u001b[0m…\u001b[0m"
+  "🤖 opus 🧠 minimal 🌿 main 🧩 10% (1k) \u001b[0m…\u001b[0m"
   "busy"
 compact/none/40/low
-  "🤖 opus 🧠 low 🌿 main 🧩 10% 💸 $0.0000"
+  "🤖 opus 🧠 low 🌿 main 🧩 10% (1k) 💸 $\u001b[0m…\u001b[0m"
   "busy"
 compact/none/40/medium
-  "🤖 opus 🧠 medium 🌿 main 🧩 10% 💸 $0.\u001b[0m…\u001b[0m"
+  "🤖 opus 🧠 medium 🌿 main 🧩 10% (1k) \u001b[0m…\u001b[0m"
   "busy"
 compact/none/40/high
-  "🤖 opus 🧠 high 🌿 main 🧩 10% 💸 $0.00\u001b[0m…\u001b[0m"
+  "🤖 opus 🧠 high 🌿 main 🧩 10% (1k) 💸 \u001b[0m…\u001b[0m"
   "busy"
 compact/none/40/xhigh
-  "🤖 opus 🧠 xhigh 🌿 main 🧩 10% 💸 $0.0\u001b[0m…\u001b[0m"
+  "🤖 opus 🧠 xhigh 🌿 main 🧩 10% (1k) 💸\u001b[0m…\u001b[0m"
   "busy"
 compact/none/40/max
-  "🤖 opus 🧠 max 🌿 main 🧩 10% 💸 $0.0000"
+  "🤖 opus 🧠 max 🌿 main 🧩 10% (1k) 💸 $\u001b[0m…\u001b[0m"
   "busy"
 compact/none/40/none
-  "🤖 opus 🌿 main 🧩 10% 💸 $0.0000"
+  "🤖 opus 🌿 main 🧩 10% (1k) 💸 $0.0000"
   "busy"
 compact/none/120/off
-  "🤖 opus 🧠 off 🌿 main 🧩 10% 💸 $0.0000"
+  "🤖 opus 🧠 off 🌿 main 🧩 10% (1k) 💸 $0.0000"
   "busy"
 compact/none/120/minimal
-  "🤖 opus 🧠 minimal 🌿 main 🧩 10% 💸 $0.0000"
+  "🤖 opus 🧠 minimal 🌿 main 🧩 10% (1k) 💸 $0.0000"
   "busy"
 compact/none/120/low
-  "🤖 opus 🧠 low 🌿 main 🧩 10% 💸 $0.0000"
+  "🤖 opus 🧠 low 🌿 main 🧩 10% (1k) 💸 $0.0000"
   "busy"
 compact/none/120/medium
-  "🤖 opus 🧠 medium 🌿 main 🧩 10% 💸 $0.0000"
+  "🤖 opus 🧠 medium 🌿 main 🧩 10% (1k) 💸 $0.0000"
   "busy"
 compact/none/120/high
-  "🤖 opus 🧠 high 🌿 main 🧩 10% 💸 $0.0000"
+  "🤖 opus 🧠 high 🌿 main 🧩 10% (1k) 💸 $0.0000"
   "busy"
 compact/none/120/xhigh
-  "🤖 opus 🧠 xhigh 🌿 main 🧩 10% 💸 $0.0000"
+  "🤖 opus 🧠 xhigh 🌿 main 🧩 10% (1k) 💸 $0.0000"
   "busy"
 compact/none/120/max
-  "🤖 opus 🧠 max 🌿 main 🧩 10% 💸 $0.0000"
+  "🤖 opus 🧠 max 🌿 main 🧩 10% (1k) 💸 $0.0000"
   "busy"
 compact/none/120/none
-  "🤖 opus 🌿 main 🧩 10% 💸 $0.0000"
+  "🤖 opus 🌿 main 🧩 10% (1k) 💸 $0.0000"
   "busy"
 compact/ansi/40/off
   "\u001b[36m🤖 opus\u001b[39m <thinkingOff>🧠 off</thinkingOf\u001b[0m…\u001b[0m"
@@ -209,34 +209,34 @@ compact/ansi/40/xhigh
   "\u001b[36m🤖 opus\u001b[39m <thinkingXhigh>🧠 xhigh</thinki\u001b[0m…\u001b[0m"
   "<dim>busy</dim>"
 compact/ansi/40/max
-  "\u001b[36m🤖 opus\u001b[39m \u001b[91m🧠 max\u001b[39m \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10%\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m \u001b[91m🧠 max\u001b[39m \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10% (1k)\u001b[39m \u001b[32m💸 $\u001b[0m…\u001b[0m"
   "<dim>busy</dim>"
 compact/ansi/40/none
-  "\u001b[36m🤖 opus\u001b[39m \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10%\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10% (1k)\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 compact/ansi/120/off
-  "\u001b[36m🤖 opus\u001b[39m <thinkingOff>🧠 off</thinkingOff> \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10%\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m <thinkingOff>🧠 off</thinkingOff> \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10% (1k)\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 compact/ansi/120/minimal
-  "\u001b[36m🤖 opus\u001b[39m <thinkingMinimal>🧠 minimal</thinkingMinimal> \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10%\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m <thinkingMinimal>🧠 minimal</thinkingMinimal> \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10% (1k)\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 compact/ansi/120/low
-  "\u001b[36m🤖 opus\u001b[39m <thinkingLow>🧠 low</thinkingLow> \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10%\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m <thinkingLow>🧠 low</thinkingLow> \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10% (1k)\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 compact/ansi/120/medium
-  "\u001b[36m🤖 opus\u001b[39m <thinkingMedium>🧠 medium</thinkingMedium> \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10%\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m <thinkingMedium>🧠 medium</thinkingMedium> \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10% (1k)\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 compact/ansi/120/high
-  "\u001b[36m🤖 opus\u001b[39m <thinkingHigh>🧠 high</thinkingHigh> \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10%\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m <thinkingHigh>🧠 high</thinkingHigh> \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10% (1k)\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 compact/ansi/120/xhigh
-  "\u001b[36m🤖 opus\u001b[39m <thinkingXhigh>🧠 xhigh</thinkingXhigh> \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10%\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m <thinkingXhigh>🧠 xhigh</thinkingXhigh> \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10% (1k)\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 compact/ansi/120/max
-  "\u001b[36m🤖 opus\u001b[39m \u001b[91m🧠 max\u001b[39m \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10%\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m \u001b[91m🧠 max\u001b[39m \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10% (1k)\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 compact/ansi/120/none
-  "\u001b[36m🤖 opus\u001b[39m \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10%\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10% (1k)\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 compact/truecolor/40/off
   "\u001b[36m🤖 opus\u001b[39m <thinkingOff>🧠 off</thinkingOf\u001b[0m…\u001b[0m"
@@ -257,98 +257,98 @@ compact/truecolor/40/xhigh
   "\u001b[36m🤖 opus\u001b[39m <thinkingXhigh>🧠 xhigh</thinki\u001b[0m…\u001b[0m"
   "<dim>busy</dim>"
 compact/truecolor/40/max
-  "\u001b[36m🤖 opus\u001b[39m \u001b[91m🧠 max\u001b[39m \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10%\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m \u001b[91m🧠 max\u001b[39m \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10% (1k)\u001b[39m \u001b[32m💸 $\u001b[0m…\u001b[0m"
   "<dim>busy</dim>"
 compact/truecolor/40/none
-  "\u001b[36m🤖 opus\u001b[39m \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10%\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10% (1k)\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 compact/truecolor/120/off
-  "\u001b[36m🤖 opus\u001b[39m <thinkingOff>🧠 off</thinkingOff> \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10%\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m <thinkingOff>🧠 off</thinkingOff> \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10% (1k)\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 compact/truecolor/120/minimal
-  "\u001b[36m🤖 opus\u001b[39m <thinkingMinimal>🧠 minimal</thinkingMinimal> \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10%\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m <thinkingMinimal>🧠 minimal</thinkingMinimal> \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10% (1k)\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 compact/truecolor/120/low
-  "\u001b[36m🤖 opus\u001b[39m <thinkingLow>🧠 low</thinkingLow> \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10%\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m <thinkingLow>🧠 low</thinkingLow> \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10% (1k)\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 compact/truecolor/120/medium
-  "\u001b[36m🤖 opus\u001b[39m <thinkingMedium>🧠 medium</thinkingMedium> \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10%\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m <thinkingMedium>🧠 medium</thinkingMedium> \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10% (1k)\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 compact/truecolor/120/high
-  "\u001b[36m🤖 opus\u001b[39m <thinkingHigh>🧠 high</thinkingHigh> \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10%\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m <thinkingHigh>🧠 high</thinkingHigh> \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10% (1k)\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 compact/truecolor/120/xhigh
-  "\u001b[36m🤖 opus\u001b[39m <thinkingXhigh>🧠 xhigh</thinkingXhigh> \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10%\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m <thinkingXhigh>🧠 xhigh</thinkingXhigh> \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10% (1k)\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 compact/truecolor/120/max
-  "\u001b[36m🤖 opus\u001b[39m \u001b[91m🧠 max\u001b[39m \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10%\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m \u001b[91m🧠 max\u001b[39m \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10% (1k)\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 compact/truecolor/120/none
-  "\u001b[36m🤖 opus\u001b[39m \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10%\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m \u001b[35m🌿 main\u001b[39m \u001b[34m🧩 10% (1k)\u001b[39m \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 2-lines/none/40/off
   "📁 repo • 🌿 main"
-  "🤖 opus • 🧠 off • 🧩 10% • 💸 $0.0000"
+  "🤖 opus • 🧠 off • 🧩 10% (1k) • 💸 $0.\u001b[0m…\u001b[0m"
   "busy"
 2-lines/none/40/minimal
   "📁 repo • 🌿 main"
-  "🤖 opus • 🧠 minimal • 🧩 10% • 💸 $0.0\u001b[0m…\u001b[0m"
+  "🤖 opus • 🧠 minimal • 🧩 10% (1k) • 💸\u001b[0m…\u001b[0m"
   "busy"
 2-lines/none/40/low
   "📁 repo • 🌿 main"
-  "🤖 opus • 🧠 low • 🧩 10% • 💸 $0.0000"
+  "🤖 opus • 🧠 low • 🧩 10% (1k) • 💸 $0.\u001b[0m…\u001b[0m"
   "busy"
 2-lines/none/40/medium
   "📁 repo • 🌿 main"
-  "🤖 opus • 🧠 medium • 🧩 10% • 💸 $0.00\u001b[0m…\u001b[0m"
+  "🤖 opus • 🧠 medium • 🧩 10% (1k) • 💸 \u001b[0m…\u001b[0m"
   "busy"
 2-lines/none/40/high
   "📁 repo • 🌿 main"
-  "🤖 opus • 🧠 high • 🧩 10% • 💸 $0.0000"
+  "🤖 opus • 🧠 high • 🧩 10% (1k) • 💸 $0\u001b[0m…\u001b[0m"
   "busy"
 2-lines/none/40/xhigh
   "📁 repo • 🌿 main"
-  "🤖 opus • 🧠 xhigh • 🧩 10% • 💸 $0.0000"
+  "🤖 opus • 🧠 xhigh • 🧩 10% (1k) • 💸 $\u001b[0m…\u001b[0m"
   "busy"
 2-lines/none/40/max
   "📁 repo • 🌿 main"
-  "🤖 opus • 🧠 max • 🧩 10% • 💸 $0.0000"
+  "🤖 opus • 🧠 max • 🧩 10% (1k) • 💸 $0.\u001b[0m…\u001b[0m"
   "busy"
 2-lines/none/40/none
   "📁 repo • 🌿 main"
-  "🤖 opus • 🧩 10% • 💸 $0.0000"
+  "🤖 opus • 🧩 10% (1k) • 💸 $0.0000"
   "busy"
 2-lines/none/120/off
   "📁 repo • 🌿 main"
-  "🤖 opus • 🧠 off • 🧩 10% • 💸 $0.0000"
+  "🤖 opus • 🧠 off • 🧩 10% (1k) • 💸 $0.0000"
   "busy"
 2-lines/none/120/minimal
   "📁 repo • 🌿 main"
-  "🤖 opus • 🧠 minimal • 🧩 10% • 💸 $0.0000"
+  "🤖 opus • 🧠 minimal • 🧩 10% (1k) • 💸 $0.0000"
   "busy"
 2-lines/none/120/low
   "📁 repo • 🌿 main"
-  "🤖 opus • 🧠 low • 🧩 10% • 💸 $0.0000"
+  "🤖 opus • 🧠 low • 🧩 10% (1k) • 💸 $0.0000"
   "busy"
 2-lines/none/120/medium
   "📁 repo • 🌿 main"
-  "🤖 opus • 🧠 medium • 🧩 10% • 💸 $0.0000"
+  "🤖 opus • 🧠 medium • 🧩 10% (1k) • 💸 $0.0000"
   "busy"
 2-lines/none/120/high
   "📁 repo • 🌿 main"
-  "🤖 opus • 🧠 high • 🧩 10% • 💸 $0.0000"
+  "🤖 opus • 🧠 high • 🧩 10% (1k) • 💸 $0.0000"
   "busy"
 2-lines/none/120/xhigh
   "📁 repo • 🌿 main"
-  "🤖 opus • 🧠 xhigh • 🧩 10% • 💸 $0.0000"
+  "🤖 opus • 🧠 xhigh • 🧩 10% (1k) • 💸 $0.0000"
   "busy"
 2-lines/none/120/max
   "📁 repo • 🌿 main"
-  "🤖 opus • 🧠 max • 🧩 10% • 💸 $0.0000"
+  "🤖 opus • 🧠 max • 🧩 10% (1k) • 💸 $0.0000"
   "busy"
 2-lines/none/120/none
   "📁 repo • 🌿 main"
-  "🤖 opus • 🧩 10% • 💸 $0.0000"
+  "🤖 opus • 🧩 10% (1k) • 💸 $0.0000"
   "busy"
 2-lines/ansi/40/off
   "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
@@ -376,43 +376,43 @@ compact/truecolor/120/none
   "<dim>busy</dim>"
 2-lines/ansi/40/max
   "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
-  "\u001b[36m🤖 opus\u001b[39m • \u001b[91m🧠 max\u001b[39m • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • \u001b[91m🧠 max\u001b[39m • \u001b[34m🧩 10% (1k)\u001b[39m • \u001b[32m💸 $0.\u001b[0m…\u001b[0m"
   "<dim>busy</dim>"
 2-lines/ansi/40/none
   "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
-  "\u001b[36m🤖 opus\u001b[39m • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • \u001b[34m🧩 10% (1k)\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 2-lines/ansi/120/off
   "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
-  "\u001b[36m🤖 opus\u001b[39m • <thinkingOff>🧠 off</thinkingOff> • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingOff>🧠 off</thinkingOff> • \u001b[34m🧩 10% (1k)\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 2-lines/ansi/120/minimal
   "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
-  "\u001b[36m🤖 opus\u001b[39m • <thinkingMinimal>🧠 minimal</thinkingMinimal> • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingMinimal>🧠 minimal</thinkingMinimal> • \u001b[34m🧩 10% (1k)\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 2-lines/ansi/120/low
   "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
-  "\u001b[36m🤖 opus\u001b[39m • <thinkingLow>🧠 low</thinkingLow> • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingLow>🧠 low</thinkingLow> • \u001b[34m🧩 10% (1k)\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 2-lines/ansi/120/medium
   "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
-  "\u001b[36m🤖 opus\u001b[39m • <thinkingMedium>🧠 medium</thinkingMedium> • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingMedium>🧠 medium</thinkingMedium> • \u001b[34m🧩 10% (1k)\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 2-lines/ansi/120/high
   "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
-  "\u001b[36m🤖 opus\u001b[39m • <thinkingHigh>🧠 high</thinkingHigh> • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingHigh>🧠 high</thinkingHigh> • \u001b[34m🧩 10% (1k)\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 2-lines/ansi/120/xhigh
   "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
-  "\u001b[36m🤖 opus\u001b[39m • <thinkingXhigh>🧠 xhigh</thinkingXhigh> • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingXhigh>🧠 xhigh</thinkingXhigh> • \u001b[34m🧩 10% (1k)\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 2-lines/ansi/120/max
   "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
-  "\u001b[36m🤖 opus\u001b[39m • \u001b[91m🧠 max\u001b[39m • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • \u001b[91m🧠 max\u001b[39m • \u001b[34m🧩 10% (1k)\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 2-lines/ansi/120/none
   "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
-  "\u001b[36m🤖 opus\u001b[39m • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • \u001b[34m🧩 10% (1k)\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 2-lines/truecolor/40/off
   "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
@@ -440,43 +440,43 @@ compact/truecolor/120/none
   "<dim>busy</dim>"
 2-lines/truecolor/40/max
   "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
-  "\u001b[36m🤖 opus\u001b[39m • \u001b[91m🧠 max\u001b[39m • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • \u001b[91m🧠 max\u001b[39m • \u001b[34m🧩 10% (1k)\u001b[39m • \u001b[32m💸 $0.\u001b[0m…\u001b[0m"
   "<dim>busy</dim>"
 2-lines/truecolor/40/none
   "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
-  "\u001b[36m🤖 opus\u001b[39m • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • \u001b[34m🧩 10% (1k)\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 2-lines/truecolor/120/off
   "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
-  "\u001b[36m🤖 opus\u001b[39m • <thinkingOff>🧠 off</thinkingOff> • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingOff>🧠 off</thinkingOff> • \u001b[34m🧩 10% (1k)\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 2-lines/truecolor/120/minimal
   "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
-  "\u001b[36m🤖 opus\u001b[39m • <thinkingMinimal>🧠 minimal</thinkingMinimal> • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingMinimal>🧠 minimal</thinkingMinimal> • \u001b[34m🧩 10% (1k)\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 2-lines/truecolor/120/low
   "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
-  "\u001b[36m🤖 opus\u001b[39m • <thinkingLow>🧠 low</thinkingLow> • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingLow>🧠 low</thinkingLow> • \u001b[34m🧩 10% (1k)\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 2-lines/truecolor/120/medium
   "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
-  "\u001b[36m🤖 opus\u001b[39m • <thinkingMedium>🧠 medium</thinkingMedium> • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingMedium>🧠 medium</thinkingMedium> • \u001b[34m🧩 10% (1k)\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 2-lines/truecolor/120/high
   "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
-  "\u001b[36m🤖 opus\u001b[39m • <thinkingHigh>🧠 high</thinkingHigh> • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingHigh>🧠 high</thinkingHigh> • \u001b[34m🧩 10% (1k)\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 2-lines/truecolor/120/xhigh
   "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
-  "\u001b[36m🤖 opus\u001b[39m • <thinkingXhigh>🧠 xhigh</thinkingXhigh> • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • <thinkingXhigh>🧠 xhigh</thinkingXhigh> • \u001b[34m🧩 10% (1k)\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 2-lines/truecolor/120/max
   "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
-  "\u001b[36m🤖 opus\u001b[39m • \u001b[91m🧠 max\u001b[39m • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • \u001b[91m🧠 max\u001b[39m • \u001b[34m🧩 10% (1k)\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 2-lines/truecolor/120/none
   "\u001b[34m📁 repo\u001b[39m • \u001b[35m🌿 main\u001b[39m"
-  "\u001b[36m🤖 opus\u001b[39m • \u001b[34m🧩 10%\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
+  "\u001b[36m🤖 opus\u001b[39m • \u001b[34m🧩 10% (1k)\u001b[39m • \u001b[32m💸 $0.0000\u001b[39m"
   "<dim>busy</dim>"
 git-heavy/none/40/off
   "🤖 anthropic/opus • 📁 repo • 🌿 main •\u001b[0m…\u001b[0m"

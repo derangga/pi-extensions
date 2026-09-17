@@ -67,6 +67,20 @@ describe("collectStatusbarData", () => {
       collect({ contextUsage: { tokens: null, contextWindow: 1000 } }).data.contextTokens,
     ).toBeUndefined();
     expect(collect({ contextUsage: undefined }).data.contextTokens).toBeUndefined();
+  });
+
+  it("falls back to the active model's context window before usage is available", () => {
+    const { data } = collect({
+      contextUsage: undefined,
+      model: {
+        id: "opus",
+        provider: "anthropic",
+        reasoning: true,
+        contextWindow: 200_000,
+      },
+    });
+
+    expect(data.contextMaxTokens).toBe(200_000);
     expect(collect({ contextUsage: undefined }).data.contextMaxTokens).toBeUndefined();
   });
 

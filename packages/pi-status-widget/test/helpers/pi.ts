@@ -50,7 +50,7 @@ export type FooterFactory = (
 export interface ContextOptions {
   hasUI?: boolean;
   cwd?: string;
-  model?: { id: string; provider: string; reasoning?: boolean } | undefined;
+  model?: { id: string; provider: string; reasoning?: boolean; contextWindow?: number } | undefined;
   usingOAuth?: boolean;
   contextUsage?: { tokens: number | null; contextWindow: number } | undefined;
   entries?: readonly unknown[];

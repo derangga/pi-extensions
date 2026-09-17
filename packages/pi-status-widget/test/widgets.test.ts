@@ -77,9 +77,16 @@ describe("working directory", () => {
 });
 
 describe("context widgets", () => {
-  it("shows usage as a percentage, trimming a trailing zero", () => {
-    expect(render("context", {}, { contextTokens: 100, contextMaxTokens: 1000 })).toBe("🧩 10%");
-    expect(render("context", {}, { contextTokens: 125, contextMaxTokens: 1000 })).toBe("🧩 12.5%");
+  it("shows usage as a percentage with a compact window limit", () => {
+    expect(render("context", {}, { contextTokens: 20_000, contextMaxTokens: 200_000 })).toBe(
+      "🧩 10% (200k)",
+    );
+    expect(render("context", {}, { contextTokens: 125_000, contextMaxTokens: 1_000_000 })).toBe(
+      "🧩 12.5% (1M)",
+    );
+    expect(render("context", {}, { contextTokens: 150_000, contextMaxTokens: 1_500_000 })).toBe(
+      "🧩 10% (1.5M)",
+    );
   });
 
   it("falls back to a raw count when the window size is unknown", () => {
@@ -88,8 +95,13 @@ describe("context widgets", () => {
     );
   });
 
-  it("shows a question mark when the token count itself is unknown", () => {
-    expect(render("context", {}, { contextTokens: undefined })).toBe("🧩 ?");
+  it("shows the window limit when the token count itself is unknown", () => {
+    expect(render("context", {}, { contextTokens: undefined, contextMaxTokens: 200_000 })).toBe(
+      "🧩 ? (200k)",
+    );
+    expect(render("context", {}, { contextTokens: undefined, contextMaxTokens: undefined })).toBe(
+      "🧩 ?",
+    );
     expect(render("context-length", {}, { contextTokens: undefined })).toBe("📏 ?");
   });
 
@@ -104,7 +116,9 @@ describe("context widgets", () => {
 
   it("keeps its configured color until the thresholds are switched on", () => {
     const options = { fg: "blue", raw: true, warningFg: "yellow", dangerFg: "red" };
-    expect(render("context", options, { contextTokens: 950, contextMaxTokens: 1000 })).toBe("95%");
+    expect(render("context", options, { contextTokens: 950, contextMaxTokens: 1000 })).toBe(
+      "95% (1k)",
+    );
   });
 
   it("takes the warning color past the warning threshold", () => {
@@ -122,7 +136,7 @@ describe("context widgets", () => {
           ...statusbarData({ contextTokens: 750, contextMaxTokens: 1000 }),
         }),
       ),
-    ).toBe("\x1b[33m75%\x1b[39m");
+    ).toBe("\x1b[33m75% (1k)\x1b[39m");
   });
 
   it("takes the danger color past the danger threshold", () => {
@@ -140,7 +154,7 @@ describe("context widgets", () => {
           ...statusbarData({ contextTokens: 950, contextMaxTokens: 1000 }),
         }),
       ),
-    ).toBe("\x1b[31m95%\x1b[39m");
+    ).toBe("\x1b[31m95% (1k)\x1b[39m");
   });
 });
 
