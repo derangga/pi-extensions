@@ -64,6 +64,22 @@ Any other tool, from any extension, can be added:
 | `icon` | — | Any string, replacing the icon for either mode. |
 | `gatedTools` | `{}` | Extra tool names mapped to the argument holding their path. |
 
+There is no settings menu. Switching the status line to a Nerd Font glyph is one file, globally:
+
+```sh
+mkdir -p ~/.pi/agent && echo '{"iconMode": "nerd"}' > ~/.pi/agent/pi-dir-permission.json
+```
+
+Or for this workspace only, which overrides the global file:
+
+```sh
+mkdir -p .pi && echo '{"iconMode": "nerd"}' > .pi/pi-dir-permission.json
+```
+
+Then `/reload`. Pi re-emits `session_start` on reload, which is when the config is read, so there is no need to restart the session.
+
+If your font puts something other than a folder at U+F07B, `{"iconMode": "nerd", "icon": ""}` wins over both modes. JSON `\uXXXX` escapes work here, so an invisible glyph never has to be pasted into the file.
+
 ## Limits
 
 **`bash` and `powershell` are not gated.** A shell command is a string, and picking paths out of one is guesswork that blocks harmless commands while still missing `cd .. && cat`. `cat /etc/passwd` works. This is a workspace boundary that keeps the agent from wandering, not a security boundary that contains a hostile one.
