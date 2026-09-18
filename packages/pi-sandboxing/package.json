@@ -1,0 +1,55 @@
+{
+  "name": "pi-sandboxing",
+  "version": "0.1.0",
+  "description": "Pi extension. Jails home-directory credentials away from the shell, asks before a tool opens a secret file, and redacts secret values from everything leaving a tool. Zero runtime dependencies.",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "pi",
+    "sandbox",
+    "permissions",
+    "secrets",
+    "redact",
+    "tui"
+  ],
+  "type": "module",
+  "license": "MIT",
+  "author": "derangga <contact@rangga.site>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/derangga/pi-extensions.git",
+    "directory": "packages/pi-sandboxing"
+  },
+  "homepage": "https://github.com/derangga/pi-extensions/tree/master/packages/pi-sandboxing#readme",
+  "bugs": {
+    "url": "https://github.com/derangga/pi-extensions/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": ">=0.80",
+    "@earendil-works/pi-tui": ">=0.80",
+    "typebox": "*"
+  }
+}
