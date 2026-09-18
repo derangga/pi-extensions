@@ -57,7 +57,7 @@ describe("the noise floor", () => {
 describe("dotenv extraction", () => {
   it("labels each value with its key", () => {
     const needles = extractNeedles(".env", "DB_PASS=hunter2supersecret\n");
-    expect(needles).toEqual([{ value: "hunter2supersecret", label: "DB_PASS" }]);
+    expect(needles).toEqual([{ value: "hunter2supersecret", label: "DB_PASS", origin: ".env" }]);
   });
 
   it("strips quotes of either kind", () => {
@@ -74,7 +74,7 @@ describe("dotenv extraction", () => {
       ".env",
       "# a comment\n\nEMPTY=\nDB_PASS=hunter2supersecret\n  # indented comment\n",
     );
-    expect(needles).toEqual([{ value: "hunter2supersecret", label: "DB_PASS" }]);
+    expect(needles).toEqual([{ value: "hunter2supersecret", label: "DB_PASS", origin: ".env" }]);
   });
 
   it("keeps a value containing an equals sign intact", () => {
@@ -97,7 +97,11 @@ describe("json extraction", () => {
       JSON.stringify({ client_secret: "hunter2supersecret" }),
     );
     expect(needles).toEqual([
-      { value: "hunter2supersecret", label: "credentials.json:client_secret" },
+      {
+        value: "hunter2supersecret",
+        label: "credentials.json:client_secret",
+        origin: "credentials.json",
+      },
     ]);
   });
 
@@ -154,6 +158,7 @@ describe("pem extraction", () => {
   it("labels every needle with the file, since a pem has no keys", () => {
     for (const needle of extractNeedles("certs/id_ed25519", pem)) {
       expect(needle.label).toBe("certs/id_ed25519");
+      expect(needle.origin).toBe("certs/id_ed25519");
     }
   });
 
@@ -194,6 +199,14 @@ describe("the walk", () => {
   it("skips a file that is not text", () => {
     writeFileSync(join(root, "blob.key"), Buffer.from([0x00, 0x01, 0x02, 0xff, 0xfe]));
     expect(harvest(root, rules, home, new Set())).toEqual([]);
+  });
+
+  it("records the workspace-relative origin of every needle", () => {
+    // The gate burns a file's needles by origin when the user approves reading
+    // it, and a dotenv label is a bare key that cannot say which file it came
+    // from.
+    write("nested/app/.env", "DB_PASS=hunter2supersecret\n");
+    expect(harvest(root, rules, home, new Set())[0]?.origin).toBe("nested/app/.env");
   });
 
   it("never reads outside the workspace, even for a home rule", () => {

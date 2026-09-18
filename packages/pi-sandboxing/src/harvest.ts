@@ -11,10 +11,12 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join, relative } from "node:path";
 import { matchRule, type Rule } from "./rules.js";
 
-/** One harvested value, and the label that replaces it in output. */
+/** One harvested value, the label that replaces it, and the file it came from. */
 export interface Needle {
   value: string;
   label: string;
+  /** Workspace-relative path of the file this value was read from. */
+  origin: string;
 }
 
 /** A config file is kilobytes. Anything past this is a payload that got the wrong name. */
@@ -85,7 +87,7 @@ function unquote(value: string): string {
  * `KEY=value` lines, which covers dotenv and npmrc alike. The split takes the
  * first `=` only, so a base64 value keeps its padding.
  */
-function extractKeyValues(content: string, labelFor: (key: string) => string): Needle[] {
+function extractKeyValues(content: string, file: string): Needle[] {
   const needles: Needle[] = [];
   for (const rawLine of content.split("\n")) {
     const line = rawLine.trim().replace(/^export\s+/, "");
@@ -100,7 +102,7 @@ function extractKeyValues(content: string, labelFor: (key: string) => string): N
     if (value === "") {
       continue;
     }
-    needles.push({ value, label: labelFor(line.slice(0, separator).trim()) });
+    needles.push({ value, label: line.slice(0, separator).trim(), origin: file });
   }
   return needles;
 }
@@ -138,11 +140,11 @@ function extractJsonLeaves(content: string, file: string): Needle[] | undefined 
   const walk = (node: JsonValue, path: readonly string[]): void => {
     if (isJsonString(node)) {
       const label = `${file}:${path.join(".")}`;
-      needles.push({ value: node, label });
+      needles.push({ value: node, label, origin: file });
       // A service account's private_key is a whole PEM in one string. Keep the
       // string itself and its body lines, so truncated output still matches.
       if (node.includes("-----BEGIN ")) {
-        needles.push(...extractPemBody(node, label));
+        needles.push(...extractPemBody(node, label, file));
       }
       return;
     }
@@ -166,7 +168,7 @@ const ARMOUR = /^-----(?:BEGIN|END) .*-----$/;
  * Every body line, plus the body as one block. Pi truncates long output, so a
  * key that arrives cut in half still has to match line by line.
  */
-function extractPemBody(content: string, file: string): Needle[] {
+function extractPemBody(content: string, label: string, file: string): Needle[] {
   const body = content
     .split("\n")
     .map((line) => line.trim())
@@ -174,9 +176,9 @@ function extractPemBody(content: string, file: string): Needle[] {
   if (body.length === 0) {
     return [];
   }
-  const needles = body.map((line): Needle => ({ value: line, label: file }));
+  const needles = body.map((line): Needle => ({ value: line, label, origin: file }));
   if (body.length > 1) {
-    needles.push({ value: body.join("\n"), label: file });
+    needles.push({ value: body.join("\n"), label, origin: file });
   }
   return needles;
 }
@@ -197,9 +199,9 @@ export function extractNeedles(file: string, content: string): Needle[] {
     }
   }
   if (content.includes("-----BEGIN ")) {
-    return extractPemBody(content, file);
+    return extractPemBody(content, file, file);
   }
-  return extractKeyValues(content, (key) => key);
+  return extractKeyValues(content, file);
 }
 
 /** Text, or nothing. A binary file with a key's name is a payload, not a config. */
