@@ -11,7 +11,7 @@
  * `/private/var`, and a symlink inside the workspace can point anywhere;
  * comparing paths as they were typed would let both walk straight through.
  */
-import { realpathSync } from "node:fs";
+import { realpathSync, statSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 /** `~` and `~/x` expand against `home`. Anything else is returned untouched. */
@@ -62,4 +62,13 @@ export function resolveCandidate(input: string, cwd: string, home: string): stri
 export function isInside(root: string, candidate: string): boolean {
   const rel = relative(root, candidate);
   return rel === "" || (rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
+}
+
+/** False for a missing path, a file, or anything that cannot be stat'd. */
+export function isDirectory(target: string): boolean {
+  try {
+    return statSync(target).isDirectory();
+  } catch {
+    return false;
+  }
 }

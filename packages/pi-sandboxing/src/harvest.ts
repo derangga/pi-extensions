@@ -9,6 +9,7 @@
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join, relative } from "node:path";
+import { isJsonArray, isJsonObject, isJsonString, parseJson, type JsonValue } from "./json.js";
 import { matchRule, type Rule } from "./rules.js";
 
 /** One harvested value, the label that replaces it, and the file it came from. */
@@ -107,30 +108,6 @@ function extractKeyValues(content: string, file: string): Needle[] {
   return needles;
 }
 
-/**
- * A parsed JSON document, named so the walk below branches on a domain type
- * rather than on `unknown`.
- */
-type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
-
-function isJsonString(node: JsonValue): node is string {
-  return typeof node === "string";
-}
-
-function isJsonObject(node: JsonValue): node is { [key: string]: JsonValue } {
-  return node !== null && typeof node === "object" && !Array.isArray(node);
-}
-
-function parseJson(content: string): JsonValue | undefined {
-  try {
-    // SAFETY: JSON.parse returns any; JsonValue is exactly the set of shapes it
-    // can produce, and every branch below is guarded before use.
-    return JSON.parse(content) as JsonValue;
-  } catch {
-    return undefined;
-  }
-}
-
 function extractJsonLeaves(content: string, file: string): Needle[] | undefined {
   const parsed = parseJson(content);
   if (parsed === undefined) {
@@ -148,7 +125,7 @@ function extractJsonLeaves(content: string, file: string): Needle[] | undefined 
       }
       return;
     }
-    if (Array.isArray(node)) {
+    if (isJsonArray(node)) {
       node.forEach((child, index) => walk(child, [...path, String(index)]));
       return;
     }

@@ -57,7 +57,7 @@ Pi's `read`, `edit`, `write`, `grep` and `find` run inside the Node process, whe
 
 Allowing records nothing. The next call on the same path asks again. There is no session grant and no way to write one to disk, because a recorded allow on `.env` is a gate that has been quietly switched off.
 
-`bash` also gets its command scanned for rule-matching tokens, which catches `cp .env /tmp/x` and loses to `tar czf /tmp/a .`.
+`bash` also gets its command scanned for rule-matching tokens. The split breaks on shell punctuation, so `cat $(echo .env)` is caught too. It loses to `tar czf /tmp/a .`, which names no secret, and to `cat $SECRET`, where the path only exists once the shell has run.
 
 ## The redactor
 
@@ -119,7 +119,7 @@ The command name is namespaced on purpose. Pi resolves two extensions registerin
 
 **Not a cwd jail.** A sibling checkout stays readable from the shell. [pi-dir-permission](../pi-dir-permission) covers that for Pi's own tools, and nothing covers it for bash.
 
-**The token scan is a courtesy.** `cat $(echo .env)` builds the path at runtime and the scan sees nothing. The redactor catches the output, which is the point.
+**The token scan is a courtesy.** It reads the command as text, so a path set by an earlier command and used as `cat $SECRET` gets through, as does any command that names no path at all. The redactor catches the output, which is the point.
 
 **A secret under 8 characters passes through.**
 
