@@ -8,7 +8,7 @@ So this is one deny list enforced in three places.
 
 | Where | What it does | What it cannot do |
 | --- | --- | --- |
-| OS profile | Denies `~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.netrc` to every bash subprocess, at the kernel | Reach Pi's own tools; filter the network |
+| OS profile | Denies `~/.ssh`, `~/.aws` and `~/.gnupg` to every bash subprocess, at the kernel | Reach Pi's own tools; filter the network |
 | Gate | Asks you before `read`, `edit`, `write`, `grep` or `find` touches a rule-matching path | See inside a shell command |
 | Redactor | Replaces harvested secret values in everything leaving a tool | Catch a secret it never harvested |
 
@@ -50,6 +50,18 @@ No dialog, no appeal. A kernel refusal is reported to the model with the reason 
 The profile is a denylist, not a cwd jail. Two reasons. `(deny default)` aborts the process outright, since dyld needs more than is obvious, and a working allowlist breaks `npm` on any machine whose version manager lives in your home directory, which is most of them.
 
 **Repo-local secrets stay readable by the shell.** Denying them would break every project that loads its own `.env`, which is your test suite and your dev server. The redactor covers those instead.
+
+Only rules naming a location reach the profile. `.npmrc` and `.netrc` are filename rules, so they are gated and redacted everywhere but not denied at the kernel. `~/.npmrc` is deliberately not a default rule either: npm reads it for registry auth, and denying it would break `npm install`.
+
+### git over SSH
+
+Denying `~/.ssh` is the point of the jail, and it is also how git authenticates. Load a key into `ssh-agent` once per boot and both work:
+
+```sh
+ssh-add ~/.ssh/id_ed25519
+```
+
+The agent socket stays reachable from inside the jail, and signing happens in the agent rather than in your shell, so `git push` works while the key file itself is unreadable to every command the agent runs. Without a loaded key, expect `git push` over SSH to fail inside Pi; push from your own terminal instead.
 
 ## The gate
 

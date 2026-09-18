@@ -161,6 +161,33 @@ describe("building and running a jail", () => {
   });
 });
 
+describe("the ssh-agent socket", () => {
+  // git authenticates by talking to ssh-agent, and the README tells people to
+  // load a key so pushing keeps working while ~/.ssh stays unreadable. If a
+  // future profile change denies the socket, that advice becomes a lie and
+  // git breaks quietly, so this asserts the socket is still reachable.
+  const canTest = process.platform === "darwin" && process.env["SSH_AUTH_SOCK"] !== undefined;
+
+  it.skipIf(!canTest)("stays reachable from inside the jail", () => {
+    const scratch = mkdtempSync(join(tmpdir(), "pi-sandboxing-agent-"));
+    const jail = buildJail("sandbox-exec", [{ path: realpathSync(scratch), directory: true }]);
+    const invocation = jailCommand(jail, "/bin/sh", ["-c", "ssh-add -l >/dev/null 2>&1; echo $?"]);
+    try {
+      const code = execFileSync(invocation?.file ?? "", invocation?.args ?? [], {
+        encoding: "utf8",
+      }).trim();
+      // 0 means keys are loaded, 1 means the agent answered and holds none.
+      // 2 is the failure that matters: the socket could not be reached.
+      expect(code).not.toBe("2");
+    } finally {
+      rmSync(scratch, { recursive: true, force: true });
+      if (jail !== undefined) {
+        rmSync(jail.profilePath, { force: true });
+      }
+    }
+  });
+});
+
 describe("the macOS profile against the kernel", () => {
   // The one test that proves the generated text is a profile the OS accepts.
   // Everything above asserts strings; this runs sandbox-exec for real.
