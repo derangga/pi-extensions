@@ -8,6 +8,17 @@ export function formatCount(value: number): string {
   return `${trimFixed(value / 1_000_000, 1)}m`;
 }
 
+/** Compact model limit with no insignificant decimal, such as 200k or 1M. */
+export function formatContextWindow(value: number): string {
+  if (value < 1000) {
+    return `${value}`;
+  }
+  if (value < 1_000_000) {
+    return `${trimFixed(value / 1000, 1)}k`;
+  }
+  return `${trimFixed(value / 1_000_000, 1)}M`;
+}
+
 /** Pi's own rounding for token counts, so a footer segment matches pi's display. */
 export function formatPiTokenCount(value: number): string {
   if (value < 1000) {

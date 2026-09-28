@@ -33,15 +33,15 @@ Four presets, switched with one command. Only `2-lines` uses two lines; for any 
 | Preset | Separator | Widgets |
 | --- | --- | --- |
 | `default` | `dot` | provider and model, thinking level, context length, git branch, git diff compact, session cost, elapsed time |
-| `compact` | `space` | model, thinking level, git branch, context percent, cost |
-| `2-lines` | `dot` | directory name and branch on the first line, then model, thinking level, context percent, cost |
+| `compact` | `space` | model, thinking level, git branch, context percent and window limit, cost |
+| `2-lines` | `dot` | directory name and branch on the first line, then model, thinking level, context percent and window limit, cost |
 | `git-heavy` | `dot` | provider and model, directory name, branch, short SHA, working tree counts, diff compact, ahead and behind |
 
 Examples from a real terminal:
 
 - `default`: `anthropic/claude-sonnet-4  high  42k  main (+12,-3)  $0.42  12m`
-- `compact`: `claude-sonnet-4  high  main  25%  $0.42`
-- `2-lines`: `my-app  main` over `claude-sonnet-4  high  25%  $0.42`
+- `compact`: `claude-sonnet-4  high  main  25% (200k)  $0.42`
+- `2-lines`: `my-app  main` over `claude-sonnet-4  high  25% (200k)  $0.42`
 - `git-heavy`: `anthropic/claude-sonnet-4  my-app  main  a1b2c3d  +2 ±1 ?0  (+12,-3)  ↑1 ↓0`
 
 The text above is before icons and colors. With emoji you see `🤖`, `🧠`, `🌿`, and so on. With nerd you see the same spots with Nerd Font glyphs.
@@ -212,7 +212,7 @@ Fourteen types exist. Each entry has `type`, `enabled`, and `options`. Common op
 | `model-provider` | Provider and model as `provider/model` | `raw`, `icon` | none |
 | `thinking-level` | Reasoning level for models that report it | `raw`, `hideWhenEmpty`, `icon`, `text` | `thinkingLevelColors` boolean, default `true` |
 | `cwd-basename` | Name of current directory | `raw`, `hideWhenEmpty`, `icon`, `text` | none |
-| `context` | Context usage percent | `raw`, `icon` | `warningThreshold` number, `dangerThreshold` number, `warningFg`, `dangerFg`, `tokenFormatStyle` |
+| `context` | Context usage percent and window limit, such as `10% (200k)` | `raw`, `icon` | `warningThreshold` number, `dangerThreshold` number, `warningFg`, `dangerFg` |
 | `context-length` | Context size as token count | `raw`, `hideWhenZero`, `icon` | `tokenFormatStyle` choice `default` `compact`, plus same warning and danger thresholds and colors as `context` |
 | `cost` | Session cost | `raw`, `icon` | `costFormatStyle` choice `default` `compact`, `showSubscription` boolean |
 | `total-time` | Wall clock since first session entry | `raw`, `icon` | none |

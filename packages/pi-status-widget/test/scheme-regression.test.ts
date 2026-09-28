@@ -22,10 +22,9 @@ const mocha = COLOR_SCHEMES["catppuccin-mocha"];
  * snapshot regenerates on -u, which is exactly the gesture someone reaches for
  * when this test goes red. This file has to be edited by hand to move.
  *
- * Moved once since it was captured, and only where a deliberate change reached
- * it: the twelve `/none` rows lost the thinking segment, which at a model that
- * does not reason had been drawing a bare brain glyph and a separator. Every
- * other row is still the original bytes.
+ * It moves only where a deliberate display change reaches it. The `/none`
+ * rows lost the thinking segment when non-reasoning models stopped drawing a
+ * bare brain glyph, and context percentages later gained their window limit.
  */
 const FIXTURE = fileURLToPath(new URL("./fixtures/default-scheme-output.txt", import.meta.url));
 

@@ -45,7 +45,7 @@ export function collectStatusbarData({
     // tokens is null in the window between a compaction and the next response.
     // The context widgets treat that as unknown rather than as zero.
     contextTokens: contextUsage?.tokens ?? undefined,
-    contextMaxTokens: contextUsage?.contextWindow,
+    contextMaxTokens: contextUsage?.contextWindow ?? ctx.model?.contextWindow,
     // Gated the same way git is. getBranch() walks the session to the root and
     // allocates the whole branch before collectSessionMetrics walks it again,
     // and both passes run per draw, including mid-stream.
