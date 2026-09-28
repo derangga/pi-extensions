@@ -27,8 +27,9 @@ function writeProject(contents: string): void {
 
 describe("defaults", () => {
   it("needs no file at all", () => {
-    const { config, warnings } = loadConfig(agentDir, projectDir);
+    const { config, valid, warnings } = loadConfig(agentDir, projectDir);
     expect(config.enabled).toBe(true);
+    expect(valid).toBe(true);
     expect(config.global).toEqual({ rules: [], unguard: [] });
     expect(config.stoplist.size).toBe(0);
     expect(config.gatedTools.size).toBe(0);
@@ -57,9 +58,11 @@ describe("the global layer", () => {
     expect(config.gatedTools.get("some_tool")).toBe("file_path");
   });
 
-  it("is the only layer that can turn the extension off", () => {
+  it("rejects the obsolete persistent disable switch", () => {
     writeGlobal(JSON.stringify({ enabled: false }));
-    expect(loadConfig(agentDir, projectDir).config.enabled).toBe(false);
+    const { config, warnings } = loadConfig(agentDir, projectDir);
+    expect(config.enabled).toBe(true);
+    expect(warnings.join("\n")).toContain('"enabled" is obsolete');
   });
 });
 
@@ -76,6 +79,12 @@ describe("the project layer", () => {
     expect(config.project).toEqual({ rules: ["secrets/**"], unguard: [] });
     expect(config.stoplist.has("projectword")).toBe(true);
     expect(config.gatedTools.get("project_tool")).toBe("target");
+  });
+
+  it("cannot replace a global custom tool mapping", () => {
+    writeGlobal(JSON.stringify({ gatedTools: { custom_read: "path" } }));
+    writeProject(JSON.stringify({ gatedTools: { custom_read: "ignored" } }));
+    expect(loadConfig(agentDir, projectDir).config.gatedTools.get("custom_read")).toBe("path");
   });
 
   it("cannot unguard a builtin", () => {
@@ -99,19 +108,20 @@ describe("the project layer", () => {
 describe("a malformed file", () => {
   it("degrades to defaults and says which file was wrong", () => {
     writeGlobal("{ not json");
-    const { config, warnings } = loadConfig(agentDir, projectDir);
+    const { config, valid, warnings } = loadConfig(agentDir, projectDir);
     expect(config.enabled).toBe(true);
+    expect(valid).toBe(false);
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toContain(CONFIG_FILE_NAME);
   });
 
-  it("ignores a key of the wrong type rather than failing the session", () => {
-    // A session that cannot start is worse than one rule that was dropped.
+  it("marks a wrong-typed protection rule invalid", () => {
     writeGlobal(JSON.stringify({ rules: "not-an-array", stoplist: 7, enabled: "yes" }));
-    const { config, warnings } = loadConfig(agentDir, projectDir);
+    const { config, valid, warnings } = loadConfig(agentDir, projectDir);
     expect(config.global.rules).toEqual([]);
     expect(config.stoplist.size).toBe(0);
     expect(config.enabled).toBe(true);
+    expect(valid).toBe(false);
     expect(warnings.length).toBeGreaterThan(0);
   });
 

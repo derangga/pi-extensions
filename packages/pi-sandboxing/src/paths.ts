@@ -11,8 +11,30 @@
  * `/private/var`, and a symlink inside the workspace can point anywhere;
  * comparing paths as they were typed would let both walk straight through.
  */
-import { realpathSync, statSync } from "node:fs";
+import { existsSync, realpathSync, statSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+
+/** Match Pi's conversion of Git Bash, MSYS, Cygwin, and WSL drive paths. */
+export function normalizeToolPath(input: string, platform = process.platform): string {
+  if (
+    platform !== "win32" ||
+    !input.startsWith("/") ||
+    input.startsWith("//") ||
+    input.includes("\\")
+  ) {
+    return input;
+  }
+  const match = input.match(/^\/(?:mnt\/|cygdrive\/)?([a-z])(?:\/(.*))?$/i);
+  if (match === null) {
+    return input;
+  }
+  const drive = match[1];
+  if (drive === undefined) {
+    return input;
+  }
+  const suffix = match[2]?.replaceAll("/", "\\");
+  return `${drive.toUpperCase()}:\\${suffix ?? ""}`;
+}
 
 /** `~` and `~/x` expand against `home`. Anything else is returned untouched. */
 export function expandHome(input: string, home: string): string {
@@ -35,23 +57,27 @@ function realpathOrNearest(target: string): string {
   const suffix: string[] = [];
   let current = target;
   for (;;) {
-    try {
+    if (existsSync(current)) {
       const real = realpathSync(current);
       return suffix.length === 0 ? real : join(real, ...suffix);
-    } catch {
-      const parent = dirname(current);
-      if (parent === current) {
-        return target;
-      }
-      suffix.unshift(basename(current));
-      current = parent;
     }
+    const parent = dirname(current);
+    if (parent === current) {
+      return target;
+    }
+    suffix.unshift(basename(current));
+    current = parent;
   }
+}
+
+/** Absolute and `~`-expanded, without following symlinks. */
+export function resolveLexical(input: string, cwd: string, home: string): string {
+  return resolve(cwd, expandHome(input, home));
 }
 
 /** Absolute, `~`-expanded, symlink-followed. Relative input resolves against `cwd`. */
 export function resolveCandidate(input: string, cwd: string, home: string): string {
-  return realpathOrNearest(resolve(cwd, expandHome(input, home)));
+  return realpathOrNearest(resolveLexical(input, cwd, home));
 }
 
 /**

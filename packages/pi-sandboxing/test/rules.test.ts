@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import {
   BUILTIN_RULES,
   gatedArgument,
-  homeRules,
   matchRule,
   mergeLayers,
   type RuleLayer,
@@ -49,6 +48,9 @@ describe("builtin rules", () => {
     expect(matchRule(join(home, ".gnupg/pubring.kbx"), builtins(), cwd, home)?.glob).toBe(
       "~/.gnupg/",
     );
+    expect(matchRule(join(home, ".cargo/credentials.toml"), builtins(), cwd, home)?.glob).toBe(
+      "~/.cargo/credentials*",
+    );
   });
 
   it("still gates a key inside a credential directory, by whichever glob is narrower", () => {
@@ -78,9 +80,22 @@ describe("example suffixes", () => {
       matchRule(join(cwd, "service-account.json.template"), builtins(), cwd, home),
     ).toBeUndefined();
   });
+
+  it("keeps an explicit configured rule for an example file", () => {
+    const rules = mergeLayers({
+      global: { rules: [".env.example"] },
+      project: empty,
+      projectTrusted: true,
+    });
+    expect(matchRule(join(cwd, ".env.example"), rules, cwd, home)?.source).toBe("global");
+  });
 });
 
 describe("layering", () => {
+  it("matches a configured filesystem-root directory", () => {
+    expect(matchRule("/tmp/value", [{ glob: "/", source: "global" }], cwd, home)?.glob).toBe("/");
+  });
+
   it("adds rules from either layer", () => {
     const rules = mergeLayers({
       global: { rules: ["*.jks"] },
@@ -131,18 +146,6 @@ describe("layering", () => {
   });
 });
 
-describe("home rules", () => {
-  it("selects only the rules that resolve inside the home directory", () => {
-    // These are the ones the kernel profile can deny. Repo-local rules stay out
-    // of the profile so a project can still read its own .env.
-    const globs = homeRules(builtins(), home).map((rule) => rule.glob);
-    expect(globs).toContain("~/.ssh/");
-    expect(globs).toContain("~/.aws/");
-    expect(globs).not.toContain(".env");
-    expect(globs).not.toContain("*.pem");
-  });
-});
-
 describe("gated tools", () => {
   it("names the path argument of every gated built-in", () => {
     for (const tool of ["read", "edit", "write", "grep", "find"]) {
@@ -162,6 +165,10 @@ describe("gated tools", () => {
   it("accepts an extra tool from the config", () => {
     expect(gatedArgument("some_tool", new Map([["some_tool", "file_path"]]))).toBe("file_path");
   });
+
+  it("does not let configuration replace a builtin path argument", () => {
+    expect(gatedArgument("read", new Map([["read", "unused_field"]]))).toBe("path");
+  });
 });
 
 describe("the builtin list itself", () => {
@@ -180,6 +187,12 @@ describe("the builtin list itself", () => {
       "~/.aws/",
       "~/.ssh/",
       "~/.gnupg/",
+      "~/.cargo/credentials*",
+      "~/.docker/",
+      "~/.kube/",
+      "~/.config/gcloud/",
+      "~/.config/gh/",
+      "~/.azure/",
     ]);
   });
 });

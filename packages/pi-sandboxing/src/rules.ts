@@ -5,7 +5,7 @@
  * every question the extension asks about a path is answered by these
  * functions, so the whole policy is testable without a host.
  */
-import { basename } from "node:path";
+import { basename, isAbsolute, parse, resolve, sep } from "node:path";
 import { expandHome, isInside } from "./paths.js";
 
 /** Where a rule came from. Only the global layer may remove a builtin. */
@@ -41,6 +41,12 @@ export const BUILTIN_RULES: readonly string[] = [
   "~/.aws/",
   "~/.ssh/",
   "~/.gnupg/",
+  "~/.cargo/credentials*",
+  "~/.docker/",
+  "~/.kube/",
+  "~/.config/gcloud/",
+  "~/.config/gh/",
+  "~/.azure/",
 ];
 
 /**
@@ -53,7 +59,7 @@ const EXAMPLE_SUFFIXES: readonly string[] = [".example", ".sample", ".template",
 /**
  * Tool name to the argument that names a path.
  *
- * The five built-ins Pi resolves in-process, where no kernel profile reaches
+ * These built-ins resolve paths in-process, where no kernel profile reaches
  * them. `ls` is absent on purpose: a listing that shows `.env` exists leaks
  * nothing. The fff entries are `@ff-labs/pi-fff`, whose `path` argument accepts
  * absolute and `~/` paths searched through a separate index; it renames its
@@ -108,29 +114,50 @@ export function mergeLayers({ global, project, projectTrusted }: LayerInput): Ru
 
 /** A glob that names a location rather than a filename, so it resolves against a root. */
 function isPathGlob(glob: string): boolean {
-  return glob.includes("/");
+  return glob.includes("/") || glob.includes(sep);
 }
 
-function globToRegExp(glob: string): RegExp {
-  // `**` crosses separators, a single `*` stays inside one segment. Everything
-  // else is escaped, so a dot in `.env` is a dot and not any character.
-  let source = "";
-  for (let index = 0; index < glob.length; index++) {
-    // charAt rather than indexing: it returns "" past the end instead of
-    // undefined, so the lookahead below needs no separate bounds check.
-    const char = glob.charAt(index);
-    if (char === "*") {
-      if (glob.charAt(index + 1) === "*") {
-        source += ".*";
-        index++;
-        continue;
-      }
-      source += "[^/]*";
-      continue;
+function portable(path: string): string {
+  return sep === "\\" ? path.replaceAll("\\", "/") : path;
+}
+
+function matchesPattern(value: string, glob: string): boolean {
+  const memo = new Map<number, boolean>();
+  const visit = (valueIndex: number, globIndex: number): boolean => {
+    const key = globIndex * (value.length + 1) + valueIndex;
+    const known = memo.get(key);
+    if (known !== undefined) {
+      return known;
     }
-    source += char.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
-  }
-  return new RegExp(`^${source}$`);
+    let result: boolean;
+    if (globIndex === glob.length) {
+      result = valueIndex === value.length;
+    } else if (glob.charAt(globIndex) === "*") {
+      let nextGlobIndex = globIndex;
+      while (glob.charAt(nextGlobIndex) === "*") {
+        nextGlobIndex++;
+      }
+      const crossesSeparators = nextGlobIndex - globIndex > 1;
+      result =
+        visit(valueIndex, nextGlobIndex) ||
+        (valueIndex < value.length &&
+          (crossesSeparators || value.charAt(valueIndex) !== "/") &&
+          visit(valueIndex + 1, globIndex));
+    } else {
+      result =
+        valueIndex < value.length &&
+        value.charAt(valueIndex) === glob.charAt(globIndex) &&
+        visit(valueIndex + 1, globIndex + 1);
+    }
+    memo.set(key, result);
+    return result;
+  };
+  return visit(0, 0);
+}
+
+/** Match a native path against a `*`/`**` path pattern. */
+export function matchesPathPattern(value: string, glob: string): boolean {
+  return matchesPattern(portable(value), portable(glob));
 }
 
 /** The absolute form of a path glob, or undefined when the glob names a filename. */
@@ -139,19 +166,20 @@ function absoluteGlob(glob: string, cwd: string, home: string): string | undefin
     return undefined;
   }
   const expanded = expandHome(glob, home);
-  return expanded.startsWith("/") ? expanded : `${cwd}/${expanded}`;
+  return isAbsolute(expanded) ? expanded : resolve(cwd, expanded);
 }
 
 function matchesGlob(candidate: string, glob: string, cwd: string, home: string): boolean {
   const absolute = absoluteGlob(glob, cwd, home);
   if (absolute === undefined) {
-    return globToRegExp(glob).test(basename(candidate));
+    return matchesPattern(basename(candidate), glob);
   }
   // A trailing slash names a directory, and everything under it is covered.
-  if (absolute.endsWith("/")) {
-    return isInside(absolute.slice(0, -1), candidate);
+  if (glob.endsWith("/") || glob.endsWith(sep)) {
+    const directory = absolute.replace(/[\\/]+$/, "") || parse(absolute).root;
+    return isInside(directory, candidate);
   }
-  return globToRegExp(absolute).test(candidate);
+  return matchesPathPattern(candidate, absolute);
 }
 
 /**
@@ -164,27 +192,11 @@ export function matchRule(
   cwd: string,
   home: string,
 ): Rule | undefined {
-  const name = basename(candidate);
-  if (EXAMPLE_SUFFIXES.some((suffix) => name.endsWith(suffix))) {
-    return undefined;
-  }
-  return rules.find((rule) => matchesGlob(candidate, rule.glob, cwd, home));
-}
-
-/**
- * The rules a kernel profile can deny: the ones naming a location inside the
- * user's home directory. Repo-local rules are deliberately excluded, because
- * denying a project's own `.env` to the shell breaks every test suite that
- * loads it. The redactor covers those instead.
- *
- * A user who writes `~/projects/app/.env` as a rule gets it in the profile and
- * gets that project's dev loop jailed, which is what they asked for.
- */
-export function homeRules(rules: readonly Rule[], home: string): Rule[] {
-  return rules.filter((rule) => {
-    const absolute = absoluteGlob(rule.glob, home, home);
-    return absolute !== undefined && isInside(home, absolute.replace(/\/+$/, ""));
-  });
+  const example = EXAMPLE_SUFFIXES.some((suffix) => basename(candidate).endsWith(suffix));
+  return rules.find(
+    (rule) =>
+      (!example || rule.source !== "builtin") && matchesGlob(candidate, rule.glob, cwd, home),
+  );
 }
 
 /** The argument holding a path for one tool, or undefined when it is not gated. */
@@ -192,5 +204,5 @@ export function gatedArgument(
   toolName: string,
   extraTools: ReadonlyMap<string, string>,
 ): string | undefined {
-  return extraTools.get(toolName) ?? GATED_TOOLS.get(toolName);
+  return GATED_TOOLS.get(toolName) ?? extraTools.get(toolName);
 }

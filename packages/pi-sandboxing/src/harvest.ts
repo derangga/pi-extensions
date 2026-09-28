@@ -2,10 +2,9 @@
  * Reading secret values out of the files the rules name, so the redactor has
  * something exact to look for.
  *
- * Nothing here imports Pi. The walk only ever touches the workspace: a rule
- * pointing into the user's home directory is jailed by the profile and gated by
- * the dialog, and reading it to protect it would put every credential the user
- * owns into this process.
+ * Nothing here imports Pi. The walk only ever touches the workspace. Strict
+ * shell does not mount the real home, and file tools deny protected home paths;
+ * harvesting them would bring credentials into Pi's process for no benefit.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join, relative } from "node:path";

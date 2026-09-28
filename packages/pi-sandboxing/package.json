@@ -1,7 +1,7 @@
 {
   "name": "pi-sandboxing",
   "version": "0.1.0",
-  "description": "Pi extension. Jails home-directory credentials away from the shell, asks before a tool opens a secret file, and redacts secret values from everything leaving a tool. Zero runtime dependencies.",
+  "description": "Pi extension. Denies model access to configured secrets and isolates shell commands from host credentials and network access.",
   "keywords": [
     "pi-package",
     "pi-extension",
