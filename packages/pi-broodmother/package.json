@@ -47,7 +47,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "effect": "^4.0.0-rc.112"
+    "effect": "^4.0.0-rc.117"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": ">=0.84",
