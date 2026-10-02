@@ -28,7 +28,7 @@
     "@earendil-works/pi-tui": "0.86.1",
     "@oxlint/plugins": "1.81.0",
     "@types/node": "26.4.1",
-    "effect": "4.0.0-rc.112",
+    "effect": "4.0.0-rc.117",
     "oxfmt": "0.67.0",
     "oxlint": "1.83.0",
     "oxlint-tsgolint": "7.0.2001",
