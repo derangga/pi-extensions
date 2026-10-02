@@ -27,7 +27,7 @@
     "@earendil-works/pi-coding-agent": "0.85.1",
     "@earendil-works/pi-tui": "0.86.1",
     "@oxlint/plugins": "1.81.0",
-    "@types/node": "26.4.1",
+    "@types/node": "26.6.2",
     "effect": "4.0.0-rc.112",
     "oxfmt": "0.67.0",
     "oxlint": "1.83.0",
